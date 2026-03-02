@@ -93,11 +93,13 @@ export default function App() {
   }
 
   return (
-    <div className="h-screen flex flex-col transition-colors duration-300">
+    <div className="h-screen flex flex-col transition-colors duration-300 font-sans">
       {/* Header */}
       <header className="surface px-6 py-4 border-b border-[var(--color-border)] flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-wide">Ocean Shipyard Board</h1>
+          <h1 className="text-xl font-semibold tracking-wide leading-tight">
+            Ocean Shipyard Board
+          </h1>
           <p className="meta mt-1">Testing custom Tailwind theme tokens & component layers</p>
         </div>
 
@@ -127,7 +129,7 @@ export default function App() {
                       <span className="meta">ID #{card.id}</span>
                     </div>
 
-                    <h3 className="font-medium">{card.title}</h3>
+                    <h3 className="font-medium leading-snug">{card.title}</h3>
                     <p className="meta mt-1">{card.description}</p>
                   </div>
                 ))}
