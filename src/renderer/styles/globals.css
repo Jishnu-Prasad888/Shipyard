@@ -2,30 +2,58 @@
 
 /* ======================
    THEME TOKENS
-   OCEAN MINIMAL (NOTION INSPIRED)
+   OCEAN MINIMAL
 ====================== */
 
 @theme {
 
-  /* Base */
+  /* LIGHT (default) */
   --color-background: #f4f8fb;
   --color-surface: #ffffff;
 
-  /* Structure */
   --color-border: #e3eef4;
   --color-border-strong: #c9dde7;
 
-  /* Typography */
   --color-text: #0f2a35;
   --color-muted: #5f7d8a;
 
-  /* Ocean Accent */
   --color-primary: #0ea5b7;
   --color-primary-soft: #e0f7fa;
 
-  /* Status */
   --color-warning: #f59e0b;
   --color-alert: #ef4444;
+}
+
+/* ======================
+   DARK THEME
+====================== */
+
+/* ======================
+   DARK THEME
+   NIGHT OCEAN (PURPLE + ORANGE)
+====================== */
+
+.dark {
+
+  /* Background */
+  --color-background: #0f0c1b;        /* deep midnight purple */
+  --color-surface: #17142a;           /* soft violet panel */
+
+  /* Borders */
+  --color-border: #2a2542;
+  --color-border-strong: #3a335a;
+
+  /* Typography */
+  --color-text: #f1efff;
+  --color-muted: #9b94c7;
+
+  /* Primary (Purple Accent) */
+  --color-primary: #8b5cf6;           /* refined violet */
+  --color-primary-soft: #231a3f;
+
+  /* Secondary Accent (Warm Ember) */
+  --color-warning: #f59e0b;           /* orange */
+  --color-alert: #f87171;
 }
 
 /* ======================
@@ -52,14 +80,14 @@
 
 @layer components {
 
-  /* ===== Surface (Clean Panel) ===== */
+  /* ===== Surface ===== */
   .surface {
     @apply rounded-xl border;
 
     background: var(--color-surface);
     border-color: var(--color-border);
 
-    box-shadow: 0 1px 2px rgba(15, 42, 53, 0.04);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   }
 
   /* ===== Column ===== */
@@ -87,7 +115,7 @@
     background: var(--color-surface);
     border-color: var(--color-border);
 
-    box-shadow: 0 1px 2px rgba(15, 42, 53, 0.05);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   }
 
   .card:hover {
