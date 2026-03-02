@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+/* ======================
+   THEME TOKENS
+   OCEAN MINIMAL (NOTION INSPIRED)
+====================== */
+
+@theme {
+
+  /* Base */
+  --color-background: #f4f8fb;
+  --color-surface: #ffffff;
+
+  /* Structure */
+  --color-border: #e3eef4;
+  --color-border-strong: #c9dde7;
+
+  /* Typography */
+  --color-text: #0f2a35;
+  --color-muted: #5f7d8a;
+
+  /* Ocean Accent */
+  --color-primary: #0ea5b7;
+  --color-primary-soft: #e0f7fa;
+
+  /* Status */
+  --color-warning: #f59e0b;
+  --color-alert: #ef4444;
+}
+
+/* ======================
+   BASE
+====================== */
+
+@layer base {
+
+  html {
+    background: var(--color-background);
+    @apply text-[var(--color-text)] antialiased;
+  }
+
+  body {
+    @apply min-h-screen;
+    font-family: Inter, system-ui, sans-serif;
+  }
+
+}
+
+/* ======================
+   COMPONENTS
+====================== */
+
+@layer components {
+
+  /* ===== Surface (Clean Panel) ===== */
+  .surface {
+    @apply rounded-xl border;
+
+    background: var(--color-surface);
+    border-color: var(--color-border);
+
+    box-shadow: 0 1px 2px rgba(15, 42, 53, 0.04);
+  }
+
+  /* ===== Column ===== */
+  .column {
+    @apply w-72
+           shrink-0
+           p-4
+           flex flex-col
+           gap-4
+           rounded-xl
+           border;
+
+    background: var(--color-surface);
+    border-color: var(--color-border);
+  }
+
+  /* ===== Card ===== */
+  .card {
+    @apply rounded-lg
+           p-3
+           border
+           transition
+           cursor-pointer;
+
+    background: var(--color-surface);
+    border-color: var(--color-border);
+
+    box-shadow: 0 1px 2px rgba(15, 42, 53, 0.05);
+  }
+
+  .card:hover {
+    border-color: var(--color-primary);
+    box-shadow: 0 4px 12px rgba(14, 165, 183, 0.08);
+    transform: translateY(-1px);
+  }
+
+  /* ===== Tag ===== */
+  .tag {
+    @apply text-xs
+           px-2
+           py-0.5
+           rounded-md
+           font-medium;
+
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
+  }
+
+  /* ===== Metadata ===== */
+  .meta {
+    @apply text-xs;
+    color: var(--color-muted);
+  }
+
+}
