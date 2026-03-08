@@ -1,0 +1,11 @@
+npm warn Unknown project config "electron_mirror". This will stop working in the next major version of npm.
+npm warn Unknown project config "electron_builder_binaries_mirror". This will stop working in the next major version of npm.
+src/main/index.ts(73,35): error TS6133: 'event' is declared but its value is never read.
+src/main/index.ts(99,40): error TS6133: 'event' is declared but its value is never read.
+src/main/index.ts(119,43): error TS6133: 'event' is declared but its value is never read.
+src/renderer/App.tsx(1,8): error TS6133: 'React' is declared but its value is never read.
+src/renderer/App.tsx(53,26): error TS2345: Argument of type '{ theme: string; firebaseEnabled: boolean; firebaseConfig?: FirebaseConfig; syncEnabled: boolean; }' is not assignable to parameter of type 'Settings'.
+  Types of property 'theme' are incompatible.
+    Type 'string' is not assignable to type '"light" | "dark"'.
+src/renderer/components/Board/Card.tsx(4,20): error TS6133: 'Tag' is declared but its value is never read.
+src/renderer/components/Board/CardDetailsModal.tsx(26,3): error TS6133: 'listId' is declared but its value is never read.

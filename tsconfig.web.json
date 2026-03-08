@@ -1,10 +1,10 @@
 {
   "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
   "include": [
-    "src/renderer/src/env.d.ts",
-    "src/renderer/src/**/*",
-    "src/renderer/src/**/*.tsx",
-    "src/preload/*.d.ts"
+    "src/renderer/env.d.ts",
+    "src/renderer/**/*",
+    "src/renderer/**/*.tsx",
+    "src/main/preload.ts"
   ],
   "compilerOptions": {
     "composite": true,
@@ -12,7 +12,10 @@
     "baseUrl": ".",
     "paths": {
       "@renderer/*": [
-        "src/renderer/src/*"
+        "src/renderer/*"
+      ],
+      "@shared/*": [
+        "src/shared/*"
       ]
     }
   }

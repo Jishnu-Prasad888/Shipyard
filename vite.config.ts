@@ -1,25 +1,24 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
-import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  css: {
-    postcss: {} // Tailwind uses PostCSS under the hood
-  },
+  plugins: [react()],
   base: './',
-  root: 'src/renderer',
+  root: path.join(__dirname, 'src/renderer'),
   build: {
-    outDir: '../../dist/renderer',
-    emptyOutDir: true
+    outDir: path.join(__dirname, 'dist/renderer'),
+    emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        index: path.join(__dirname, 'src/renderer/index.html')
+      }
+    }
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, 'src/renderer')
+      '@': path.join(__dirname, 'src/renderer'),
+      '@shared': path.join(__dirname, 'src/shared')
     }
-  },
-  server: {
-    port: 5173
   }
 })
