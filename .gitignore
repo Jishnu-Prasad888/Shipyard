@@ -5,3 +5,8 @@ out
 .eslintcache
 *.log*
 *.exe
+release/
+dist/
+*.exe
+*.asar
+node_modules/
