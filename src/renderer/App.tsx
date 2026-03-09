@@ -6,6 +6,7 @@ import { DocksList } from './components/Docks/DocksList'
 import { KanbanBoard } from './components/Board/KanbanBoard'
 import { SettingsModal } from './components/Settings/SettingsModal'
 import { HomeScreen } from './components/Home/HomeScreen'
+import { CalendarView } from './components/Calendar/CalendarView'
 import { RootState } from './store'
 import { setSettings } from './store/settingsSlice'
 
@@ -13,6 +14,7 @@ function App() {
   const [selectedDockId, setSelectedDockId] = useState<string | null>(null)
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
+  const [showCalendar, setShowCalendar] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const dispatch = useDispatch()
   const settings = useSelector((state: RootState) => state.settings)
@@ -57,9 +59,16 @@ function App() {
   const handleGoHome = () => {
     setSelectedDockId(null)
     setSelectedBoardId(null)
+    setShowCalendar(false)
   }
 
-  const isHome = !selectedDockId && !selectedBoardId
+  const handleOpenCalendar = () => {
+    setShowCalendar(true)
+    setSelectedDockId(null)
+    setSelectedBoardId(null)
+  }
+
+  const isHome = !selectedDockId && !selectedBoardId && !showCalendar
 
   const handleToggleTheme = () => {
     const newTheme = settings.theme === 'light' ? 'dark' : 'light'
@@ -92,13 +101,17 @@ function App() {
           onGoHome={handleGoHome}
           isHome={isHome}
           searchQuery={searchQuery}
+          onOpenCalendar={handleOpenCalendar}
+          isCalendar={showCalendar}
         />
 
         <main
           className="flex-1 overflow-auto"
           style={{ background: 'var(--color-background)' }}
         >
-          {selectedBoardId ? (
+          {showCalendar ? (
+            <CalendarView />
+          ) : selectedBoardId ? (
             <div className="p-6 h-full">
               <KanbanBoard boardId={selectedBoardId} searchQuery={searchQuery} />
             </div>
@@ -111,7 +124,7 @@ function App() {
               />
             </div>
           ) : (
-            /* HOME SCREEN — always shown when nothing selected */
+            /* HOME SCREEN */
             <HomeScreen
               onSelectDock={handleSelectDock}
               onSelectBoard={handleHomeSelectBoard}

@@ -2,8 +2,6 @@
 
 **Shipyard** is a premium, locally-first Kanban-style productivity application built with a distinctive maritime theme and a bold, neo-brutalist design language. It is designed for users who want a powerful, standalone desktop application to manage complex projects, notes, and tasks without relying on a cloud service by default, but with the option to sync when needed.
 
-![Shipyard Interface](./assets/screenshot.png) (Provide a screenshot here)
-
 ---
 
 ## 🌊 The Idea: A Maritime Approach to Project Management
@@ -22,6 +20,7 @@ Traditional Kanban boards use terms like "Workspaces", "Folders", "Boards", "Lis
 ### 🛠️ Core Kanban & Organization
 *   **Drag-and-Drop:** Seamlessly drag Cargo between Ships, reorganize Ships within a Dock, or move Docks between Ports.
 *   **Fleet Overview (Home):** A clear, Jira-style dashboard giving you a birds-eye view of your recently active Ships and a structured breakdown of all your Ports and Docks.
+*   **Voyage Calendar:** A dedicated calendar view (Month, Week, and Agenda) that aggregates all Cargo deadlines across your entire fleet, complete with color-coded overdue and "due soon" indicators.
 *   **Global Search:** A powerful omnipresent search bar in the header to instantly locate any Port, Dock, or Ship across your entire workspace.
 *   **Infinite Nesting:** Break tasks down infinitely with sub-tasks inside your Cargo cards, complete with visual progress bars.
 

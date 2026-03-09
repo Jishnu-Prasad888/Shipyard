@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Folder, Grid, Plus, ChevronDown, ChevronRight, Palette, Trash2, Edit2, Home } from 'lucide-react'
+import { Folder, Grid, Plus, ChevronDown, ChevronRight, Palette, Trash2, Edit2, Home, Calendar } from 'lucide-react'
 import { CreateDockModal } from '../Docks/CreateDockModel'
 import {
   DndContext,
@@ -18,6 +18,8 @@ interface SidebarProps {
   selectedBoardId: string | null
   onGoHome: () => void
   isHome: boolean
+  onOpenCalendar: () => void
+  isCalendar: boolean
   searchQuery?: string
 }
 
@@ -39,6 +41,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   selectedBoardId,
   onGoHome,
   isHome,
+  onOpenCalendar,
+  isCalendar,
   searchQuery = ''
 }) => {
   const [docks, setDocks] = useState<any[]>([])
@@ -399,6 +403,33 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <Home className="w-4 h-4" />
           <span className="flex-1 text-left">Fleet Overview</span>
         </button>
+
+        {/* Calendar button */}
+        <button
+          onClick={onOpenCalendar}
+          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-black uppercase tracking-wider border-2 transition-all duration-100 mt-1"
+          style={{
+            borderColor: isCalendar ? 'var(--color-secondary)' : 'rgba(255,255,255,0.2)',
+            background: isCalendar ? 'var(--color-secondary)' : 'rgba(255,255,255,0.06)',
+            color: 'white',
+            boxShadow: isCalendar ? 'var(--shadow-brutal-sm)' : 'none'
+          }}
+          onMouseOver={e => {
+            if (!isCalendar) {
+              e.currentTarget.style.background = 'rgba(95,168,211,0.25)'
+              e.currentTarget.style.borderColor = 'var(--color-secondary)'
+            }
+          }}
+          onMouseOut={e => {
+            if (!isCalendar) {
+              e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
+            }
+          }}
+        >
+          <Calendar className="w-4 h-4" />
+          <span className="flex-1 text-left">Voyage Calendar</span>
+        </button>
       </div>
 
       {/* New Board button */}
@@ -414,6 +445,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           New Dock
         </button>
       </div>
+
 
       {/* New Folder button */}
       <div className="px-3 pt-3 pb-1">
