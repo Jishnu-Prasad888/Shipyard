@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Folder, Grid, Plus, ChevronDown, ChevronRight } from 'lucide-react'
+import { Folder, Grid, Plus, ChevronDown, ChevronRight, Palette } from 'lucide-react'
 import { CreateDockModal } from '../Docks/CreateDockModel'
 import {
   DndContext,
@@ -16,13 +16,28 @@ interface SidebarProps {
   selectedDockId: string | null
   onSelectBoard: (boardId: string) => void
   selectedBoardId: string | null
+  searchQuery?: string
 }
+
+const COLORS = [
+  '#ef4444',
+  '#f97316',
+  '#eab308',
+  '#22c55e',
+  '#0ea5b7',
+  '#3b82f6',
+  '#a855f7',
+  '#ec4899',
+  '#64748b',
+  '#ffffff'
+]
 
 export const Sidebar: React.FC<SidebarProps> = ({
   onSelectDock,
   selectedDockId,
   onSelectBoard,
-  selectedBoardId
+  selectedBoardId,
+  searchQuery = ''
 }) => {
   const [docks, setDocks] = useState<any[]>([])
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
@@ -30,10 +45,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [contextMenu, setContextMenu] = useState<{
     x: number
     y: number
-    folderId: string | null
+    type: 'folder' | 'dock' | 'uncategorized'
+    targetId: string | null
   } | null>(null)
-  const [targetFolderId, setTargetFolderId] = useState<string | null>(null)
+  const [targetParentId, setTargetParentId] = useState<string | null>(null)
+
   const [showCreateDock, setShowCreateDock] = useState(false)
+  const [editingDock, setEditingDock] = useState<any | null>(null)
   const [showCreateFolder, setShowCreateFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
 
@@ -51,10 +69,50 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }, [])
 
   useEffect(() => {
-    const handleClick = () => setContextMenu(null)
+    const handleClick = () => {
+      setContextMenu(null)
+    }
     window.addEventListener('click', handleClick)
     return () => window.removeEventListener('click', handleClick)
   }, [])
+
+  useEffect(() => {
+    if (searchQuery) {
+      const matchIds = new Set<string>()
+
+      const checkFolder = (folderId: string) => {
+        const folder = folders.find((f) => f.id === folderId)
+        if (!folder) return false
+
+        const nameMatches = folder.name.toLowerCase().includes(searchQuery.toLowerCase())
+        const dockMatches = (docksByFolder[folderId] || []).some((d: any) =>
+          d.name.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+
+        let subMatches = false
+        const subFolders = folders.filter((f) => f.parentId === folderId)
+        for (const sub of subFolders) {
+          if (checkFolder(sub.id)) subMatches = true
+        }
+
+        if (nameMatches || dockMatches || subMatches) {
+          matchIds.add(folderId)
+          return true
+        }
+        return false
+      }
+
+      folders.forEach((f) => checkFolder(f.id))
+
+      if (matchIds.size > 0) {
+        setExpandedFolders((prev) => {
+          const next = new Set(prev)
+          matchIds.forEach((id) => next.add(id))
+          return next
+        })
+      }
+    }
+  }, [searchQuery, folders, docks])
 
   const loadDocks = async () => {
     const docksData = await window.electron.db.findAll('docks')
@@ -77,28 +135,50 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }
 
   const handleCreateNewDock = async (dockData: any) => {
-    const newDock = {
+    try {
+      const newDock = {
+        name: dockData.name,
+        description: dockData.description || '',
+        color: dockData.color || '#0ea5b7',
+        tags: dockData.tags || JSON.stringify([]),
+        folderId: targetParentId,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        boardIds: JSON.stringify([])
+      }
+
+      await window.electron.db.create('docks', newDock)
+      loadDocks()
+      setShowCreateDock(false)
+      setTargetParentId(null)
+      
+      if (targetParentId && !expandedFolders.has(targetParentId)) {
+        setExpandedFolders(prev => {
+          const next = new Set(prev)
+          next.add(targetParentId)
+          return next
+        })
+      }
+    } catch (err) {
+      console.error('Failed to create dock:', err)
+      alert('Could not create dock. Please check database.')
+    }
+  }
+
+  const handleUpdateDock = async (dockData: any) => {
+    if (!editingDock) return
+    
+    const update = {
       name: dockData.name,
-      tags: JSON.stringify([]),
-      folderId: targetFolderId,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      boardIds: JSON.stringify([])
+      description: dockData.description,
+      color: dockData.color,
+      tags: dockData.tags,
+      updatedAt: Date.now()
     }
 
-    await window.electron.db.create('docks', newDock)
+    await window.electron.db.update('docks', editingDock.id, update)
     loadDocks()
-    setShowCreateDock(false)
-    setTargetFolderId(null)
-
-    // Automatically expand the folder we just added to
-    if (targetFolderId && !expandedFolders.has(targetFolderId)) {
-      setExpandedFolders((prev) => {
-        const next = new Set(prev)
-        next.add(targetFolderId)
-        return next
-      })
-    }
+    setEditingDock(null)
   }
 
   const handleCreateNewFolder = async (e: React.FormEvent) => {
@@ -108,6 +188,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const newFolder = {
       name: newFolderName.trim(),
       color: '#0ea5b7',
+      parentId: targetParentId,
       createdAt: Date.now()
     }
 
@@ -115,6 +196,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
     loadFolders()
     setShowCreateFolder(false)
     setNewFolderName('')
+    setTargetParentId(null)
+
+    if (targetParentId && !expandedFolders.has(targetParentId)) {
+      setExpandedFolders((prev) => {
+        const next = new Set(prev)
+        next.add(targetParentId)
+        return next
+      })
+    }
   }
 
   const handleDragEnd = async (event: DragEndEvent) => {
@@ -130,9 +220,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   }
 
-  const openContextMenu = (e: React.MouseEvent, folderId: string | null) => {
+  const openContextMenu = (
+    e: React.MouseEvent,
+    type: 'folder' | 'dock' | 'uncategorized',
+    targetId: string | null
+  ) => {
     e.preventDefault()
-    setContextMenu({ x: e.clientX, y: e.clientY, folderId })
+    e.stopPropagation()
+    setContextMenu({ x: e.clientX, y: e.clientY, type, targetId })
+  }
+
+  const changeColor = async (color: string) => {
+    if (!contextMenu) return
+    const { type, targetId } = contextMenu
+    if (targetId) {
+      if (type === 'folder') {
+        await window.electron.db.update('folders', targetId, { color })
+        loadFolders()
+      } else if (type === 'dock') {
+        await window.electron.db.update('docks', targetId, { color })
+        loadDocks()
+      }
+    }
   }
 
   const docksByFolder = docks.reduce(
@@ -145,12 +254,90 @@ export const Sidebar: React.FC<SidebarProps> = ({
     {} as Record<string, any[]>
   )
 
+  const renderFolderTree = (parentId: string | null = null, depth: number = 0) => {
+    const currentLevelFolders = folders.filter((f) => (f.parentId || null) === parentId)
+
+    // Check if this branch has any matches (to hide empty branches during search)
+    const hasMatches = (folder: any): boolean => {
+      if (!searchQuery) return true
+      if (folder.name.toLowerCase().includes(searchQuery.toLowerCase())) return true
+      if (
+        (docksByFolder[folder.id] || []).some((d: any) =>
+          d.name.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      )
+        return true
+
+      const subFolders = folders.filter((f) => f.parentId === folder.id)
+      return subFolders.some((s) => hasMatches(s))
+    }
+
+    const filteredLevelFolders = searchQuery
+      ? currentLevelFolders.filter((f) => hasMatches(f))
+      : currentLevelFolders
+
+    return filteredLevelFolders.map((folder) => {
+      const folderDocks = docksByFolder[folder.id] || []
+      const filteredDocks = searchQuery
+        ? folderDocks.filter((d: any) => d.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        : folderDocks
+
+      return (
+        <div key={folder.id} className="relative">
+          <DroppableFolder
+            folder={folder}
+            depth={depth}
+            isExpanded={expandedFolders.has(folder.id)}
+            onToggle={() => toggleFolder(folder.id)}
+            onContextMenu={(e) => openContextMenu(e, 'folder', folder.id)}
+          />
+
+          {expandedFolders.has(folder.id) && (
+            <div className="mt-1 space-y-1">
+              {renderFolderTree(folder.id, depth + 1)}
+
+              {/* Show docks for this folder directly below its subfolders */}
+              {filteredDocks.map((dock: any) => (
+                <SidebarDockItem
+                  key={dock.id}
+                  dock={dock}
+                  depth={depth + 1}
+                  isSelected={selectedDockId === dock.id}
+                  onContextMenu={(e) => openContextMenu(e, 'dock', dock.id)}
+                  onSelect={onSelectDock}
+                  onSelectBoard={onSelectBoard}
+                  selectedBoardId={selectedBoardId}
+                />
+              ))}
+
+              {filteredLevelFolders.length === 0 && filteredDocks.length === 0 && (
+                <p
+                  className="text-xs text-muted px-4 py-1 italic"
+                  style={{ paddingLeft: `${(depth + 1) * 0.75 + 1}rem` }}
+                >
+                  Empty folder
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      )
+    })
+  }
+
+  const uncategorizedDocksOriginal = docksByFolder['uncategorized'] || []
+  const uncategorizedDocksFiltered = searchQuery
+    ? uncategorizedDocksOriginal.filter((d: any) =>
+        d.name.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : uncategorizedDocksOriginal
+
   return (
-    <aside className="w-64 border-r border-border surface flex flex-col relative">
+    <aside className="w-64 border-r border-border surface flex flex-col relative h-full">
       <div className="p-4 border-b border-border">
         <button
           onClick={() => {
-            setTargetFolderId(null)
+            setTargetParentId(null)
             setShowCreateDock(true)
           }}
           className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-opacity-90 transition font-medium"
@@ -160,10 +347,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
-      <div className="flex-1 overflow-auto p-2">
+      <div className="flex-1 overflow-auto p-2 pb-20">
         <div className="space-y-1">
           <button
-            onClick={() => setShowCreateFolder(true)}
+            onClick={() => {
+              setTargetParentId(null)
+              setShowCreateFolder(true)
+            }}
             className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary-soft transition text-left text-sm"
           >
             <Folder className="w-4 h-4 text-primary" />
@@ -173,55 +363,121 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-          <div className="mt-4 space-y-2 pb-10">
-            {folders.map((folder) => (
-              <DroppableFolder
-                key={folder.id}
-                folder={folder}
-                docks={docksByFolder[folder.id] || []}
-                isExpanded={expandedFolders.has(folder.id)}
-                onToggle={() => toggleFolder(folder.id)}
-                onContextMenu={(e) => openContextMenu(e, folder.id)}
-                onSelectDock={onSelectDock}
-                selectedDockId={selectedDockId}
-                onSelectBoard={onSelectBoard}
-                selectedBoardId={selectedBoardId}
-              />
-            ))}
+          <div className="mt-4 space-y-2">
+            {renderFolderTree(null, 0)}
 
             <DroppableUncategorized
-              docks={docksByFolder['uncategorized'] || []}
-              onContextMenu={(e) => openContextMenu(e, null)}
-              onSelectDock={onSelectDock}
-              selectedDockId={selectedDockId}
-              onSelectBoard={onSelectBoard}
-              selectedBoardId={selectedBoardId}
-            />
+              docks={uncategorizedDocksFiltered}
+              onContextMenu={(e) => openContextMenu(e, 'uncategorized', null)}
+            >
+              {uncategorizedDocksFiltered.map((dock: any) => (
+                <SidebarDockItem
+                  key={dock.id}
+                  dock={dock}
+                  depth={0}
+                  isSelected={selectedDockId === dock.id}
+                  onContextMenu={(e) => openContextMenu(e, 'dock', dock.id)}
+                  onSelect={onSelectDock}
+                  onSelectBoard={onSelectBoard}
+                  selectedBoardId={selectedBoardId}
+                />
+              ))}
+            </DroppableUncategorized>
           </div>
         </DndContext>
       </div>
 
       {contextMenu && (
         <div
-          className="fixed bg-surface border border-border rounded-lg shadow-xl z-50 py-1 min-w-[160px]"
-          style={{ top: contextMenu.y, left: contextMenu.x }}
+          className="fixed bg-surface border border-border rounded-lg shadow-xl z-50 py-2 min-w-[200px]"
+          style={{ top: Math.min(contextMenu.y, window.innerHeight - 200), left: contextMenu.x }}
+          onClick={(e) => e.stopPropagation()}
         >
-          <button
-            className="w-full text-left px-4 py-2 hover:bg-primary-soft text-sm flex items-center gap-2"
-            onClick={() => {
-              setTargetFolderId(contextMenu.folderId)
-              setShowCreateDock(true)
-              setContextMenu(null)
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            New Board Here
-          </button>
+          <div className="px-3 py-1.5 text-xs font-bold text-muted uppercase tracking-wide border-b border-border/50 mb-1">
+            {contextMenu.type} options
+          </div>
+
+          {(contextMenu.type === 'folder' || contextMenu.type === 'uncategorized') && (
+            <>
+              <button
+                className="w-full text-left px-4 py-2 hover:bg-primary-soft text-sm flex items-center gap-2"
+                onClick={() => {
+                  setTargetParentId(contextMenu.targetId)
+                  setShowCreateDock(true)
+                  setContextMenu(null)
+                }}
+              >
+                <Plus className="w-4 h-4" />
+                New Board inside
+              </button>
+
+              {contextMenu.type === 'folder' && (
+                <button
+                  className="w-full text-left px-4 py-2 hover:bg-primary-soft text-sm flex items-center gap-2"
+                  onClick={() => {
+                    setTargetParentId(contextMenu.targetId)
+                    setShowCreateFolder(true)
+                    setContextMenu(null)
+                  }}
+                >
+                  <Folder className="w-4 h-4" />
+                  New Folder inside
+                </button>
+              )}
+            </>
+          )}
+
+          {contextMenu.type === 'dock' && (
+            <button
+              className="w-full text-left px-4 py-2 hover:bg-primary-soft text-sm flex items-center gap-2"
+              onClick={() => {
+                const dock = docks.find(d => d.id === contextMenu.targetId)
+                if (dock) {
+                    setEditingDock(dock)
+                }
+                setContextMenu(null)
+              }}
+            >
+              <Palette className="w-4 h-4" />
+              Edit Properties
+            </button>
+          )}
+          
+          {(contextMenu.type === 'folder' || contextMenu.type === 'dock') && (
+            <div className="px-4 py-2">
+              <div className="flex items-center gap-2 text-sm text-text mb-2">
+                <Palette className="w-4 h-4" />
+                Color
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {COLORS.map((c) => (
+                  <button
+                    key={c}
+                    onClick={() => {
+                      changeColor(c)
+                      setContextMenu(null)
+                    }}
+                    className="w-5 h-5 rounded-full border border-black/10 hover:scale-110 transition-transform"
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {showCreateDock && (
         <CreateDockModal onClose={() => setShowCreateDock(false)} onCreate={handleCreateNewDock} />
+      )}
+
+      {editingDock && (
+        <CreateDockModal 
+            title="Edit Board Properties"
+            initialData={editingDock}
+            onClose={() => setEditingDock(null)} 
+            onCreate={handleUpdateDock} 
+        />
       )}
 
       {showCreateFolder && (
@@ -276,25 +532,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
 const DroppableFolder: React.FC<{
   folder: any
-  docks: any[]
+  depth: number
   isExpanded: boolean
   onToggle: () => void
   onContextMenu: (e: React.MouseEvent) => void
-  onSelectDock: (id: string) => void
-  selectedDockId: string | null
-  onSelectBoard: (id: string) => void
-  selectedBoardId: string | null
-}> = ({
-  folder,
-  docks,
-  isExpanded,
-  onToggle,
-  onContextMenu,
-  onSelectDock,
-  selectedDockId,
-  onSelectBoard,
-  selectedBoardId
-}) => {
+}> = ({ folder, depth, isExpanded, onToggle, onContextMenu }) => {
   const { isOver, setNodeRef } = useDroppable({
     id: folder.id,
     data: { type: 'folder' }
@@ -308,31 +550,17 @@ const DroppableFolder: React.FC<{
       <button
         onClick={onToggle}
         onContextMenu={onContextMenu}
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary-soft transition"
+        style={{ paddingLeft: `${depth * 0.75 + 0.75}rem` }}
+        className="w-full flex items-center gap-2 pr-3 py-2 rounded-lg hover:bg-primary-soft transition"
       >
-        {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        <Folder className="w-4 h-4" style={{ color: folder.color || '#0ea5b7' }} />
+        {isExpanded ? (
+          <ChevronDown className="w-4 h-4 shrink-0" />
+        ) : (
+          <ChevronRight className="w-4 h-4 shrink-0" />
+        )}
+        <Folder className="w-4 h-4 shrink-0" style={{ color: folder.color || '#0ea5b7' }} />
         <span className="flex-1 text-left text-sm truncate">{folder.name}</span>
-        <span className="text-xs text-muted">{docks.length}</span>
       </button>
-
-      {isExpanded && (
-        <div className="ml-6 mt-1 space-y-1">
-          {docks.map((dock: any) => (
-            <SidebarDockItem
-              key={dock.id}
-              dock={dock}
-              isSelected={selectedDockId === dock.id}
-              onSelect={onSelectDock}
-              onSelectBoard={onSelectBoard}
-              selectedBoardId={selectedBoardId}
-            />
-          ))}
-          {docks.length === 0 && (
-            <p className="text-xs text-muted px-3 py-1 italic">Empty folder</p>
-          )}
-        </div>
-      )}
     </div>
   )
 }
@@ -340,17 +568,13 @@ const DroppableFolder: React.FC<{
 const DroppableUncategorized: React.FC<{
   docks: any[]
   onContextMenu: (e: React.MouseEvent) => void
-  onSelectDock: (id: string) => void
-  selectedDockId: string | null
-  onSelectBoard: (id: string) => void
-  selectedBoardId: string | null
-}> = ({ docks, onContextMenu, onSelectDock, selectedDockId, onSelectBoard, selectedBoardId }) => {
+  children: React.ReactNode
+}> = ({ docks, onContextMenu, children }) => {
   const { isOver, setNodeRef } = useDroppable({
     id: 'uncategorized',
     data: { type: 'folder' }
   })
 
-  // Only render if there are uncategorized items or if dragging over
   if (docks.length === 0 && !isOver) return null
 
   return (
@@ -362,25 +586,16 @@ const DroppableUncategorized: React.FC<{
       <div className="px-3 py-1 text-xs font-medium text-muted uppercase tracking-wide">
         Uncategorized
       </div>
-      <div className="space-y-1">
-        {docks.map((dock: any) => (
-          <SidebarDockItem
-            key={dock.id}
-            dock={dock}
-            isSelected={selectedDockId === dock.id}
-            onSelect={onSelectDock}
-            onSelectBoard={onSelectBoard}
-            selectedBoardId={selectedBoardId}
-          />
-        ))}
-      </div>
+      <div className="space-y-1">{children}</div>
     </div>
   )
 }
 
 interface SidebarDockItemProps {
   dock: any
+  depth: number
   isSelected: boolean
+  onContextMenu: (e: React.MouseEvent) => void
   onSelect: (dockId: string) => void
   onSelectBoard: (boardId: string) => void
   selectedBoardId: string | null
@@ -388,7 +603,9 @@ interface SidebarDockItemProps {
 
 const SidebarDockItem: React.FC<SidebarDockItemProps> = ({
   dock,
+  depth,
   isSelected,
+  onContextMenu,
   onSelect,
   onSelectBoard,
   selectedBoardId
@@ -408,38 +625,36 @@ const SidebarDockItem: React.FC<SidebarDockItemProps> = ({
   }, [expanded])
 
   const loadBoards = async () => {
-    // Load boards by dockId query
     const allBoards = await window.electron.db.findAll('boards')
     const dockBoards = allBoards.filter((b: any) => b.dockId === dock.id)
     setBoards(dockBoards)
   }
 
-  // Use a wrapper div for DND attributes, and only pass listeners to the drag handle portion
-  // so that clicks continue to work properly.
   return (
     <div ref={setNodeRef} className={isDragging ? 'opacity-50' : ''}>
-      <div className="flex w-full items-center">
+      <div className="flex w-full items-center" onContextMenu={onContextMenu}>
         <button
+          style={{ paddingLeft: `${depth * 0.75 + 0.75}rem` }}
           onClick={() => {
             onSelect(dock.id)
             setExpanded(!expanded)
           }}
-          className={`flex-1 flex items-center gap-2 px-3 py-2 rounded-l-lg transition text-sm cursor-pointer ${
+          className={`flex-1 flex items-center gap-2 pr-2 py-2 rounded-l-lg transition text-sm cursor-pointer ${
             isSelected ? 'bg-primary-soft text-primary' : 'hover:bg-primary-soft'
           }`}
         >
           {expanded ? (
-            <ChevronDown className="w-3.5 h-3.5" />
+            <ChevronDown className="w-3.5 h-3.5 shrink-0" />
           ) : (
-            <ChevronRight className="w-3.5 h-3.5" />
+            <ChevronRight className="w-3.5 h-3.5 shrink-0" />
           )}
-          <Grid className="w-4 h-4" style={{ color: dock.color || '#0ea5b7' }} />
+          <Grid className="w-4 h-4 shrink-0" style={{ color: dock.color || '#0ea5b7' }} />
           <span className="flex-1 text-left truncate">{dock.name}</span>
         </button>
         <div
           {...listeners}
           {...attributes}
-          className="px-2 py-2 cursor-grab active:cursor-grabbing hover:bg-border/50 rounded-r-lg opacity-30 hover:opacity-100 transition h-full flex items-center justify-center"
+          className="pr-2 pl-1 py-2 cursor-grab active:cursor-grabbing hover:bg-border/50 rounded-r-lg opacity-30 hover:opacity-100 transition h-full flex items-center justify-center"
         >
           <div className="w-1.5 h-4 flex flex-col justify-between items-center opacity-50">
             <div className="w-1 h-1 rounded-full bg-text"></div>
@@ -450,7 +665,7 @@ const SidebarDockItem: React.FC<SidebarDockItemProps> = ({
       </div>
 
       {expanded && (
-        <div className="ml-8 mt-1 space-y-1">
+        <div className="mt-1 space-y-1" style={{ paddingLeft: `${depth * 0.75 + 2}rem` }}>
           {boards.map((board) => (
             <button
               key={board.id}

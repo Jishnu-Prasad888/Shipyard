@@ -15,13 +15,25 @@ import { CreateListModal } from './CreateListModal'
 
 interface KanbanBoardProps {
   boardId: string
+  searchQuery?: string
 }
 
-export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId }) => {
+export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery = '' }) => {
   const [board, setBoard] = useState<any>(null)
   const [lists, setLists] = useState<any[]>([])
   const [showCreateList, setShowCreateList] = useState(false)
   const [, setActiveId] = useState<string | null>(null)
+
+  const filteredLists = searchQuery
+    ? lists.map((list) => ({
+        ...list,
+        cards: list.cards?.filter(
+          (card: any) =>
+            card.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            card.description?.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+      }))
+    : lists
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -201,7 +213,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId }) => {
               items={lists.map((l) => l.id)}
               strategy={horizontalListSortingStrategy}
             >
-              {lists.map((list) => (
+              {filteredLists.map((list) => (
                 <List key={list.id} list={list} boardId={boardId} onCardsChange={loadBoard} />
               ))}
             </SortableContext>

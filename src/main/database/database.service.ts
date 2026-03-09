@@ -41,8 +41,42 @@ export class DatabaseService {
       this.db.prepare('SELECT parentId FROM folders LIMIT 1').get()
     } catch (e: any) {
       if (e.message.includes('no such column')) {
-        this.db.exec('ALTER TABLE folders ADD COLUMN parentId TEXT REFERENCES folders(id) ON DELETE CASCADE')
+        this.db.exec(
+          'ALTER TABLE folders ADD COLUMN parentId TEXT REFERENCES folders(id) ON DELETE CASCADE'
+        )
       }
+    }
+
+    // Migration for boards columns (color, tags, description)
+    try {
+      const boardCols = ['description', 'color', 'tags']
+      for (const col of boardCols) {
+        try {
+          this.db.prepare(`SELECT "${col}" FROM boards LIMIT 1`).get()
+        } catch (e: any) {
+          if (e.message.includes('no such column')) {
+            this.db.exec(`ALTER TABLE boards ADD COLUMN "${col}" TEXT`)
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Migration for boards failed:', err)
+    }
+
+    // Migration for docks columns (description, tags, color)
+    try {
+      const dockCols = ['description', 'tags', 'color']
+      for (const col of dockCols) {
+        try {
+          this.db.prepare(`SELECT "${col}" FROM docks LIMIT 1`).get()
+        } catch (e: any) {
+          if (e.message.includes('no such column')) {
+            this.db.exec(`ALTER TABLE docks ADD COLUMN "${col}" TEXT`)
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Migration for docks failed:', err)
     }
 
     // Check if default settings exist

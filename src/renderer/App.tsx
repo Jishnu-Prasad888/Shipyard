@@ -68,11 +68,12 @@ function App() {
           selectedDockId={selectedDockId}
           onSelectBoard={handleSelectBoard}
           selectedBoardId={selectedBoardId}
+          searchQuery={searchQuery}
         />
 
         <main className="flex-1 overflow-auto p-6">
           {selectedBoardId ? (
-            <KanbanBoard boardId={selectedBoardId} />
+            <KanbanBoard boardId={selectedBoardId} searchQuery={searchQuery} />
           ) : selectedDockId ? (
             <DocksList
               dockId={selectedDockId}

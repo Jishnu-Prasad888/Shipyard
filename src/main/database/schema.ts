@@ -4,7 +4,9 @@ CREATE TABLE IF NOT EXISTS folders (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   color TEXT,
-  createdAt INTEGER NOT NULL
+  parentId TEXT,
+  createdAt INTEGER NOT NULL,
+  FOREIGN KEY (parentId) REFERENCES folders(id) ON DELETE CASCADE
 );
 
 -- Docks (Project Groups)
@@ -27,6 +29,8 @@ CREATE TABLE IF NOT EXISTS boards (
   name TEXT NOT NULL,
   description TEXT,
   dockId TEXT NOT NULL,
+  color TEXT,
+  tags TEXT,
   createdAt INTEGER NOT NULL,
   updatedAt INTEGER NOT NULL,
   FOREIGN KEY (dockId) REFERENCES docks(id) ON DELETE CASCADE
