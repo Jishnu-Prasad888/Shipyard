@@ -9,7 +9,7 @@ import {
   useSensors
 } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
-import { Plus } from 'lucide-react'
+import { Plus, LayoutList, Hash } from 'lucide-react'
 import { List } from './List'
 import { CreateListModal } from './CreateListModal'
 
@@ -190,17 +190,58 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
 
   if (!board) return null
 
+  const totalCards = lists.reduce((acc, l) => acc + (l.cards?.length || 0), 0)
+
   return (
     <div className="h-full flex flex-col">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">{board.name}</h1>
-        <div className="flex items-center gap-2 text-sm text-muted">
-          <span>{lists.length} lists</span>
-          <span>·</span>
-          <span>{lists.reduce((acc, l) => acc + (l.cards?.length || 0), 0)} cards</span>
+      {/* Board header */}
+      <div
+        className="flex items-center justify-between mb-6 pb-4 border-b-4"
+        style={{ borderColor: 'var(--color-border-strong)' }}
+      >
+        <div>
+          <h1
+            className="text-3xl font-black uppercase tracking-tight"
+            style={{ color: 'var(--color-text)' }}
+          >
+            {board.name}
+          </h1>
+          <div className="flex items-center gap-4 mt-1">
+            <span
+              className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider px-2 py-1 border-2"
+              style={{
+                borderColor: 'var(--color-primary)',
+                color: 'var(--color-primary)',
+                background: 'var(--color-primary-soft)'
+              }}
+            >
+              <LayoutList className="w-3 h-3" />
+              {lists.length} Lists
+            </span>
+            <span
+              className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider px-2 py-1 border-2"
+              style={{
+                borderColor: 'var(--color-cyan, #0891b2)',
+                color: 'var(--color-cyan, #0891b2)',
+                background: '#ecfeff'
+              }}
+            >
+              <Hash className="w-3 h-3" />
+              {totalCards} Cards
+            </span>
+          </div>
         </div>
+
+        <button
+          onClick={() => setShowCreateList(true)}
+          className="btn-primary text-xs uppercase tracking-wider"
+        >
+          <Plus className="w-4 h-4 stroke-[3px]" />
+          Add List
+        </button>
       </div>
 
+      {/* Kanban board area */}
       <DndContext
         sensors={sensors}
         onDragStart={handleDragStart}
@@ -208,7 +249,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
         onDragEnd={handleDragEnd}
       >
         <div className="flex-1 overflow-x-auto">
-          <div className="flex gap-4 h-full pb-4">
+          <div className="flex gap-5 h-full pb-6">
             <SortableContext
               items={lists.map((l) => l.id)}
               strategy={horizontalListSortingStrategy}
@@ -218,13 +259,35 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
               ))}
             </SortableContext>
 
+            {/* Add new list placeholder */}
             <button
               onClick={() => setShowCreateList(true)}
-              className="w-72 shrink-0 h-fit p-4 border-2 border-dashed border-border rounded-xl hover:border-primary hover:bg-primary-soft transition group"
+              className="w-80 shrink-0 h-fit p-5 border-4 border-dashed transition-all duration-150 group"
+              style={{
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-muted)'
+              }}
+              onMouseOver={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-primary)'
+                e.currentTarget.style.background = 'var(--color-primary-soft)'
+                e.currentTarget.style.color = 'var(--color-primary)'
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.borderColor = 'var(--color-border)'
+                e.currentTarget.style.background = 'transparent'
+                e.currentTarget.style.color = 'var(--color-muted)'
+              }}
             >
-              <div className="flex items-center justify-center gap-2 text-muted group-hover:text-primary">
-                <Plus className="w-5 h-5" />
-                <span>Add List</span>
+              <div className="flex items-center justify-center gap-3">
+                <div
+                  className="w-8 h-8 border-2 flex items-center justify-center font-black transition-all duration-150"
+                  style={{
+                    borderColor: 'currentColor'
+                  }}
+                >
+                  <Plus className="w-5 h-5 stroke-[3px]" />
+                </div>
+                <span className="font-black text-sm uppercase tracking-wider">Add New List</span>
               </div>
             </button>
           </div>

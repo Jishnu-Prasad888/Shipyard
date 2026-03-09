@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Folder, Grid, Plus, ChevronDown, ChevronRight, Palette } from 'lucide-react'
+import { Folder, Grid, Plus, ChevronDown, ChevronRight, Palette, Trash2, Edit2 } from 'lucide-react'
 import { CreateDockModal } from '../Docks/CreateDockModel'
 import {
   DndContext,
@@ -20,16 +20,14 @@ interface SidebarProps {
 }
 
 const COLORS = [
-  '#ef4444',
-  '#f97316',
-  '#eab308',
-  '#22c55e',
-  '#0ea5b7',
-  '#3b82f6',
-  '#a855f7',
-  '#ec4899',
-  '#64748b',
-  '#ffffff'
+  '#2563eb', // Blue
+  '#0891b2', // Cyan
+  '#7c3aed', // Violet
+  '#059669', // Emerald
+  '#d97706', // Amber
+  '#dc2626', // Red
+  '#db2777', // Pink
+  '#0f172a'  // Dark
 ]
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -139,7 +137,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const newDock = {
         name: dockData.name,
         description: dockData.description || '',
-        color: dockData.color || '#0ea5b7',
+        color: dockData.color || '#2563eb',
         tags: dockData.tags || JSON.stringify([]),
         folderId: targetParentId,
         createdAt: Date.now(),
@@ -151,7 +149,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       loadDocks()
       setShowCreateDock(false)
       setTargetParentId(null)
-      
+
       if (targetParentId && !expandedFolders.has(targetParentId)) {
         setExpandedFolders(prev => {
           const next = new Set(prev)
@@ -167,7 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const handleUpdateDock = async (dockData: any) => {
     if (!editingDock) return
-    
+
     const update = {
       name: dockData.name,
       description: dockData.description,
@@ -181,13 +179,41 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setEditingDock(null)
   }
 
+  const handleDeleteDock = async (dockId: string) => {
+    if (confirm('Delete this dock? All boards inside will also be deleted.')) {
+      // delete boards in this dock first
+      const allBoards = await window.electron.db.findAll('boards')
+      const dockBoards = allBoards.filter((b: any) => b.dockId === dockId)
+      for (const board of dockBoards) {
+        await window.electron.db.delete('boards', board.id)
+      }
+      await window.electron.db.delete('docks', dockId)
+      loadDocks()
+      setContextMenu(null)
+    }
+  }
+
+  const handleDeleteFolder = async (folderId: string) => {
+    if (confirm('Delete this folder? Boards inside will become uncategorized.')) {
+      // Move docks out of folder
+      const folderDocks = docks.filter((d) => d.folderId === folderId)
+      for (const dock of folderDocks) {
+        await window.electron.db.update('docks', dock.id, { folderId: null })
+      }
+      await window.electron.db.delete('folders', folderId)
+      loadFolders()
+      loadDocks()
+      setContextMenu(null)
+    }
+  }
+
   const handleCreateNewFolder = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newFolderName.trim()) return
 
     const newFolder = {
       name: newFolderName.trim(),
-      color: '#0ea5b7',
+      color: '#2563eb',
       parentId: targetParentId,
       createdAt: Date.now()
     }
@@ -242,6 +268,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         loadDocks()
       }
     }
+    setContextMenu(null)
   }
 
   const docksByFolder = docks.reduce(
@@ -257,7 +284,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const renderFolderTree = (parentId: string | null = null, depth: number = 0) => {
     const currentLevelFolders = folders.filter((f) => (f.parentId || null) === parentId)
 
-    // Check if this branch has any matches (to hide empty branches during search)
     const hasMatches = (folder: any): boolean => {
       if (!searchQuery) return true
       if (folder.name.toLowerCase().includes(searchQuery.toLowerCase())) return true
@@ -296,7 +322,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="mt-1 space-y-1">
               {renderFolderTree(folder.id, depth + 1)}
 
-              {/* Show docks for this folder directly below its subfolders */}
               {filteredDocks.map((dock: any) => (
                 <SidebarDockItem
                   key={dock.id}
@@ -312,10 +337,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
               {filteredLevelFolders.length === 0 && filteredDocks.length === 0 && (
                 <p
-                  className="text-xs text-muted px-4 py-1 italic"
+                  className="text-xs font-bold text-muted px-4 py-1 uppercase tracking-wider"
                   style={{ paddingLeft: `${(depth + 1) * 0.75 + 1}rem` }}
                 >
-                  Empty folder
+                  Empty
                 </p>
               )}
             </div>
@@ -333,37 +358,62 @@ export const Sidebar: React.FC<SidebarProps> = ({
     : uncategorizedDocksOriginal
 
   return (
-    <aside className="w-64 border-r border-border surface flex flex-col relative h-full">
-      <div className="p-4 border-b border-border">
+    <aside
+      className="w-60 flex flex-col relative h-full z-10 border-r-4"
+      style={{
+        background: 'var(--color-background)',
+        borderColor: 'var(--color-border-strong)'
+      }}
+    >
+      {/* Accent bar */}
+      <div className="brutal-accent" />
+
+      {/* New Board button */}
+      <div className="p-3 border-b-3" style={{ borderColor: 'var(--color-border-strong)' }}>
         <button
           onClick={() => {
             setTargetParentId(null)
             setShowCreateDock(true)
           }}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-opacity-90 transition font-medium"
+          className="btn-primary w-full text-xs uppercase tracking-wider"
         >
-          <Plus className="w-4 h-4" />
+          <Plus className="w-4 h-4 stroke-[3px]" />
           New Board
         </button>
       </div>
 
-      <div className="flex-1 overflow-auto p-2 pb-20">
-        <div className="space-y-1">
-          <button
-            onClick={() => {
-              setTargetParentId(null)
-              setShowCreateFolder(true)
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-primary-soft transition text-left text-sm"
-          >
-            <Folder className="w-4 h-4 text-primary" />
-            <span className="flex-1">New Folder</span>
-            <Plus className="w-4 h-4 text-muted" />
-          </button>
-        </div>
+      {/* New Folder button */}
+      <div className="px-3 pt-3 pb-1">
+        <button
+          onClick={() => {
+            setTargetParentId(null)
+            setShowCreateFolder(true)
+          }}
+          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-black uppercase tracking-wider border-2 transition-all duration-100"
+          style={{
+            borderColor: 'var(--color-border)',
+            color: 'var(--color-muted)',
+            boxShadow: 'var(--shadow-brutal-sm)'
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = 'var(--color-primary-soft)'
+            e.currentTarget.style.transform = 'translate(-1px,-1px)'
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = 'transparent'
+            e.currentTarget.style.transform = 'translate(0,0)'
+          }}
+        >
+          <Folder className="w-3.5 h-3.5" />
+          <span className="flex-1 text-left">New Folder</span>
+          <Plus className="w-3 h-3" />
+        </button>
+      </div>
 
+      {/* Tree */}
+      <div className="flex-1 overflow-auto px-2 pb-6 space-y-1">
         <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-          <div className="mt-4 space-y-2">
+          <div className="space-y-1">
             {renderFolderTree(null, 0)}
 
             <DroppableUncategorized
@@ -387,20 +437,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </DndContext>
       </div>
 
+      {/* Context Menu */}
       {contextMenu && (
         <div
-          className="fixed bg-surface border border-border rounded-lg shadow-xl z-50 py-2 min-w-[200px]"
-          style={{ top: Math.min(contextMenu.y, window.innerHeight - 200), left: contextMenu.x }}
+          className="context-menu fixed z-50 min-w-[200px] animate-brutal-in"
+          style={{ top: Math.min(contextMenu.y, window.innerHeight - 260), left: contextMenu.x }}
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="px-3 py-1.5 text-xs font-bold text-muted uppercase tracking-wide border-b border-border/50 mb-1">
-            {contextMenu.type} options
+          {/* Header */}
+          <div
+            className="px-4 py-2 text-xs font-black uppercase tracking-widest text-white border-b-2"
+            style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
+          >
+            {contextMenu.type} Options
           </div>
 
+          {/* Folder / Uncategorized options */}
           {(contextMenu.type === 'folder' || contextMenu.type === 'uncategorized') && (
             <>
               <button
-                className="w-full text-left px-4 py-2 hover:bg-primary-soft text-sm flex items-center gap-2"
+                className="context-menu-item border-b-2"
+                style={{ borderColor: 'var(--color-border)' }}
                 onClick={() => {
                   setTargetParentId(contextMenu.targetId)
                   setShowCreateDock(true)
@@ -408,57 +465,75 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
               >
                 <Plus className="w-4 h-4" />
-                New Board inside
+                New Board Here
               </button>
-
               {contextMenu.type === 'folder' && (
-                <button
-                  className="w-full text-left px-4 py-2 hover:bg-primary-soft text-sm flex items-center gap-2"
-                  onClick={() => {
-                    setTargetParentId(contextMenu.targetId)
-                    setShowCreateFolder(true)
-                    setContextMenu(null)
-                  }}
-                >
-                  <Folder className="w-4 h-4" />
-                  New Folder inside
-                </button>
+                <>
+                  <button
+                    className="context-menu-item border-b-2"
+                    style={{ borderColor: 'var(--color-border)' }}
+                    onClick={() => {
+                      setTargetParentId(contextMenu.targetId)
+                      setShowCreateFolder(true)
+                      setContextMenu(null)
+                    }}
+                  >
+                    <Folder className="w-4 h-4" />
+                    New Folder Inside
+                  </button>
+                  <button
+                    className="context-menu-item danger border-b-2"
+                    style={{ borderColor: 'var(--color-border)' }}
+                    onClick={() => contextMenu.targetId && handleDeleteFolder(contextMenu.targetId)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete Folder
+                  </button>
+                </>
               )}
             </>
           )}
 
+          {/* Dock options */}
           {contextMenu.type === 'dock' && (
-            <button
-              className="w-full text-left px-4 py-2 hover:bg-primary-soft text-sm flex items-center gap-2"
-              onClick={() => {
-                const dock = docks.find(d => d.id === contextMenu.targetId)
-                if (dock) {
-                    setEditingDock(dock)
-                }
-                setContextMenu(null)
-              }}
-            >
-              <Palette className="w-4 h-4" />
-              Edit Properties
-            </button>
+            <>
+              <button
+                className="context-menu-item border-b-2"
+                style={{ borderColor: 'var(--color-border)' }}
+                onClick={() => {
+                  const dock = docks.find(d => d.id === contextMenu.targetId)
+                  if (dock) setEditingDock(dock)
+                  setContextMenu(null)
+                }}
+              >
+                <Edit2 className="w-4 h-4" />
+                Edit Properties
+              </button>
+              <button
+                className="context-menu-item danger border-b-2"
+                style={{ borderColor: 'var(--color-border)' }}
+                onClick={() => contextMenu.targetId && handleDeleteDock(contextMenu.targetId)}
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete Board
+              </button>
+            </>
           )}
-          
+
+          {/* Color picker for folder/dock */}
           {(contextMenu.type === 'folder' || contextMenu.type === 'dock') && (
-            <div className="px-4 py-2">
-              <div className="flex items-center gap-2 text-sm text-text mb-2">
-                <Palette className="w-4 h-4" />
+            <div className="px-4 py-3 border-t-2" style={{ borderColor: 'var(--color-border)' }}>
+              <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider mb-2">
+                <Palette className="w-3.5 h-3.5" />
                 Color
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {COLORS.map((c) => (
                   <button
                     key={c}
-                    onClick={() => {
-                      changeColor(c)
-                      setContextMenu(null)
-                    }}
-                    className="w-5 h-5 rounded-full border border-black/10 hover:scale-110 transition-transform"
-                    style={{ backgroundColor: c }}
+                    onClick={() => changeColor(c)}
+                    className="w-6 h-6 border-2 hover:scale-110 transition-transform"
+                    style={{ backgroundColor: c, borderColor: 'var(--color-border-strong)' }}
                   />
                 ))}
               </div>
@@ -467,57 +542,67 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       )}
 
+      {/* Modals */}
       {showCreateDock && (
         <CreateDockModal onClose={() => setShowCreateDock(false)} onCreate={handleCreateNewDock} />
       )}
 
       {editingDock && (
-        <CreateDockModal 
-            title="Edit Board Properties"
-            initialData={editingDock}
-            onClose={() => setEditingDock(null)} 
-            onCreate={handleUpdateDock} 
+        <CreateDockModal
+          title="Edit Board Properties"
+          initialData={editingDock}
+          onClose={() => setEditingDock(null)}
+          onCreate={handleUpdateDock}
         />
       )}
 
       {showCreateFolder && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="w-full max-w-md surface rounded-xl">
-            <div className="flex items-center justify-between p-4 border-b border-border">
-              <h2 className="text-lg font-bold">Create Folder</h2>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="w-full max-w-sm surface animate-brutal-in">
+            {/* Header */}
+            <div
+              className="flex items-center justify-between px-5 py-3 border-b-3"
+              style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-primary)' }}
+            >
+              <h2 className="text-base font-black text-white uppercase tracking-wider">Create Folder</h2>
               <button
                 onClick={() => setShowCreateFolder(false)}
-                className="p-2 rounded-lg hover:bg-primary-soft transition"
+                className="w-6 h-6 flex items-center justify-center border-2 border-white text-white font-black hover:bg-white/20 transition"
               >
-                <Plus className="w-5 h-5 rotate-45" />
+                ✕
               </button>
             </div>
 
-            <form onSubmit={handleCreateNewFolder} className="p-6 space-y-4">
+            <form onSubmit={handleCreateNewFolder} className="p-5 space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Folder Name *</label>
+                <label className="block text-xs font-black uppercase tracking-wider mb-1">Folder Name *</label>
                 <input
                   type="text"
                   value={newFolderName}
                   onChange={(e) => setNewFolderName(e.target.value)}
-                  className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:border-primary"
-                  placeholder="Folder name"
+                  className="w-full px-3 py-2 border-2 bg-transparent font-bold text-sm focus:outline-none"
+                  style={{
+                    borderColor: 'var(--color-border-strong)',
+                    color: 'var(--color-text)',
+                    boxShadow: 'inset 2px 2px 0 rgba(0,0,0,0.05)'
+                  }}
+                  placeholder="My Folder"
                   autoFocus
                 />
               </div>
 
-              <div className="flex justify-end gap-2 pt-2">
+              <div className="flex justify-end gap-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowCreateFolder(false)}
-                  className="px-4 py-2 border border-border rounded-lg hover:bg-primary-soft transition"
+                  className="btn-secondary text-xs"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={!newFolderName.trim()}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition disabled:opacity-50"
+                  className="btn-primary text-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Create Folder
                 </button>
@@ -545,21 +630,23 @@ const DroppableFolder: React.FC<{
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-lg transition ${isOver ? 'ring-2 ring-primary ring-inset bg-primary-soft' : ''}`}
+      className={`transition-all duration-100 ${isOver ? 'ring-2 ring-primary ring-offset-1' : ''}`}
     >
       <button
         onClick={onToggle}
         onContextMenu={onContextMenu}
         style={{ paddingLeft: `${depth * 0.75 + 0.75}rem` }}
-        className="w-full flex items-center gap-2 pr-3 py-2 rounded-lg hover:bg-primary-soft transition"
+        className={`nav-item w-full ${isOver ? 'bg-blue-100 dark:bg-blue-900/30' : ''}`}
       >
-        {isExpanded ? (
-          <ChevronDown className="w-4 h-4 shrink-0" />
-        ) : (
-          <ChevronRight className="w-4 h-4 shrink-0" />
-        )}
-        <Folder className="w-4 h-4 shrink-0" style={{ color: folder.color || '#0ea5b7' }} />
-        <span className="flex-1 text-left text-sm truncate">{folder.name}</span>
+        <div className="w-4 h-4 flex items-center justify-center shrink-0">
+          {isExpanded ? (
+            <ChevronDown className="w-3.5 h-3.5" />
+          ) : (
+            <ChevronRight className="w-3.5 h-3.5" />
+          )}
+        </div>
+        <Folder className="w-4 h-4 shrink-0" style={{ color: folder.color || '#2563eb' }} />
+        <span className="flex-1 text-left truncate text-xs uppercase tracking-wider">{folder.name}</span>
       </button>
     </div>
   )
@@ -580,10 +667,13 @@ const DroppableUncategorized: React.FC<{
   return (
     <div
       ref={setNodeRef}
-      className={`mt-4 rounded-lg transition ${isOver ? 'ring-2 ring-primary ring-inset bg-primary-soft pb-2 pt-2' : ''}`}
+      className={`mt-3 transition-all ${isOver ? 'ring-2 ring-primary' : ''}`}
       onContextMenu={onContextMenu}
     >
-      <div className="px-3 py-1 text-xs font-medium text-muted uppercase tracking-wide">
+      <div
+        className="px-3 py-1 text-[10px] font-black uppercase tracking-widest border-b-2 mb-1"
+        style={{ color: 'var(--color-muted)', borderColor: 'var(--color-border)' }}
+      >
         Uncategorized
       </div>
       <div className="space-y-1">{children}</div>
@@ -631,7 +721,7 @@ const SidebarDockItem: React.FC<SidebarDockItemProps> = ({
   }
 
   return (
-    <div ref={setNodeRef} className={isDragging ? 'opacity-50' : ''}>
+    <div ref={setNodeRef} className={isDragging ? 'opacity-40' : ''}>
       <div className="flex w-full items-center" onContextMenu={onContextMenu}>
         <button
           style={{ paddingLeft: `${depth * 0.75 + 0.75}rem` }}
@@ -639,47 +729,53 @@ const SidebarDockItem: React.FC<SidebarDockItemProps> = ({
             onSelect(dock.id)
             setExpanded(!expanded)
           }}
-          className={`flex-1 flex items-center gap-2 pr-2 py-2 rounded-l-lg transition text-sm cursor-pointer ${
-            isSelected ? 'bg-primary-soft text-primary' : 'hover:bg-primary-soft'
-          }`}
+          className={`nav-item flex-1 ${isSelected ? 'active' : ''}`}
         >
-          {expanded ? (
-            <ChevronDown className="w-3.5 h-3.5 shrink-0" />
-          ) : (
-            <ChevronRight className="w-3.5 h-3.5 shrink-0" />
-          )}
-          <Grid className="w-4 h-4 shrink-0" style={{ color: dock.color || '#0ea5b7' }} />
-          <span className="flex-1 text-left truncate">{dock.name}</span>
+          <div className="w-4 h-4 flex items-center justify-center shrink-0">
+            {expanded ? (
+              <ChevronDown className="w-3 h-3 opacity-70" />
+            ) : (
+              <ChevronRight className="w-3 h-3 opacity-70" />
+            )}
+          </div>
+          <Grid className="w-3.5 h-3.5 shrink-0" style={{ color: dock.color || '#2563eb' }} />
+          <span className="flex-1 text-left truncate text-xs font-black uppercase tracking-wide">
+            {dock.name}
+          </span>
         </button>
+        {/* Drag handle */}
         <div
           {...listeners}
           {...attributes}
-          className="pr-2 pl-1 py-2 cursor-grab active:cursor-grabbing hover:bg-border/50 rounded-r-lg opacity-30 hover:opacity-100 transition h-full flex items-center justify-center"
+          className="pr-2 pl-1 py-2 cursor-grab active:cursor-grabbing opacity-30 hover:opacity-100 transition-opacity"
+          title="Drag to move"
         >
-          <div className="w-1.5 h-4 flex flex-col justify-between items-center opacity-50">
-            <div className="w-1 h-1 rounded-full bg-text"></div>
-            <div className="w-1 h-1 rounded-full bg-text"></div>
-            <div className="w-1 h-1 rounded-full bg-text"></div>
+          <div className="flex flex-col gap-0.5">
+            <div className="w-3 h-0.5 bg-current rounded" />
+            <div className="w-3 h-0.5 bg-current rounded" />
+            <div className="w-3 h-0.5 bg-current rounded" />
           </div>
         </div>
       </div>
 
       {expanded && (
-        <div className="mt-1 space-y-1" style={{ paddingLeft: `${depth * 0.75 + 2}rem` }}>
+        <div className="mt-0.5 space-y-0.5" style={{ paddingLeft: `${depth * 0.75 + 2}rem` }}>
           {boards.map((board) => (
             <button
               key={board.id}
               onClick={() => onSelectBoard(board.id)}
-              className={`w-full text-left px-3 py-1.5 rounded-lg text-xs transition ${
+              className={`w-full text-left px-3 py-1.5 text-[10px] font-black uppercase tracking-wider border-l-4 transition-all duration-100 ${
                 selectedBoardId === board.id
-                  ? 'bg-primary-soft text-primary font-medium'
-                  : 'hover:bg-primary-soft text-muted hover:text-text'
+                  ? 'border-primary bg-blue-50 dark:bg-blue-900/20 text-primary'
+                  : 'border-transparent text-muted hover:border-primary hover:bg-primary-soft hover:text-text'
               }`}
             >
-              {board.name}
+              ▸ {board.name}
             </button>
           ))}
-          {boards.length === 0 && <p className="text-xs text-muted px-3 py-1 italic">No boards</p>}
+          {boards.length === 0 && (
+            <p className="text-[10px] font-bold text-muted px-3 py-1 uppercase tracking-wider">No boards</p>
+          )}
         </div>
       )}
     </div>

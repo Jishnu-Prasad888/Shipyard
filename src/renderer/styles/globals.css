@@ -1,62 +1,73 @@
 @import 'tailwindcss';
 
 /* ======================
-   THEME TOKENS
-   OCEAN MINIMAL
-====================== */
+   NEO-BRUTALIST SHIPYARD
+   Bold Blue Color System
+ ====================== */
 
 @theme {
   /* LIGHT (default) */
-  --color-background: #f4f8fb;
+  --color-background: #dbeafe;
   --color-surface: #ffffff;
 
-  --color-border: #e3eef4;
-  --color-border-strong: #c9dde7;
+  --color-border: #1e3a5f;
+  --color-border-strong: #0f172a;
 
-  --color-text: #0f2a35;
-  --color-muted: #5f7d8a;
+  --color-text: #0f172a;
+  --color-muted: #1e3a5f;
 
-  --color-primary: #0ea5b7;
-  --color-primary-soft: #e0f7fa;
+  --color-primary: #2563eb;
+  --color-primary-soft: #bfdbfe;
+  --color-primary-hover: #1d4ed8;
 
-  --color-warning: #f59e0b;
-  --color-alert: #ef4444;
+  --color-secondary: #0ea5e9;
+  --color-accent: #7c3aed;
+
+  --color-warning: #d97706;
+  --color-alert: #dc2626;
+
+  --color-cyan: #0891b2;
+  --color-indigo: #4f46e5;
+  --color-violet: #7c3aed;
+
+  --shadow-brutal: 4px 4px 0px 0px #0f172a;
+  --shadow-brutal-sm: 2px 2px 0px 0px #0f172a;
+  --shadow-brutal-lg: 6px 6px 0px 0px #0f172a;
+  --shadow-brutal-blue: 4px 4px 0px 0px #2563eb;
+  --shadow-brutal-cyan: 4px 4px 0px 0px #0891b2;
 }
 
 /* ======================
-   DARK THEME
-====================== */
-
-/* ======================
-   DARK THEME
-   NIGHT OCEAN (PURPLE + ORANGE)
-====================== */
+   DARK THEME - DEEP BRUTALIST
+ ====================== */
 
 .dark {
-  /* Background */
-  --color-background: #0f0c1b; /* deep midnight purple */
-  --color-surface: #17142a; /* soft violet panel */
+  --color-background: #030712;
+  --color-surface: #0f172a;
 
-  /* Borders */
-  --color-border: #2a2542;
-  --color-border-strong: #3a335a;
+  --color-border: #3b82f6;
+  --color-border-strong: #60a5fa;
 
-  /* Typography */
-  --color-text: #f1efff;
-  --color-muted: #9b94c7;
+  --color-text: #f0f9ff;
+  --color-muted: #93c5fd;
 
-  /* Primary (Purple Accent) */
-  --color-primary: #8b5cf6; /* refined violet */
-  --color-primary-soft: #231a3f;
+  --color-primary: #3b82f6;
+  --color-primary-soft: rgba(59, 130, 246, 0.15);
+  --color-primary-hover: #60a5fa;
 
-  /* Secondary Accent (Warm Ember) */
-  --color-warning: #f59e0b; /* orange */
+  --color-warning: #fbbf24;
   --color-alert: #f87171;
+
+  --shadow-brutal: 4px 4px 0px 0px #3b82f6;
+  --shadow-brutal-sm: 2px 2px 0px 0px #3b82f6;
+  --shadow-brutal-lg: 6px 6px 0px 0px #3b82f6;
+  --shadow-brutal-blue: 4px 4px 0px 0px #60a5fa;
+  --shadow-brutal-cyan: 4px 4px 0px 0px #22d3ee;
 }
 
 /* ======================
    BASE
-====================== */
+ ====================== */
 
 @layer base {
   html {
@@ -66,136 +77,188 @@
 
   body {
     @apply min-h-screen;
-    font-family: Inter, system-ui, sans-serif;
+    font-family: 'Poppins', 'Inter', system-ui, sans-serif;
+  }
+
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--color-background);
+    border: 2px solid var(--color-border);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-primary);
+    border: 2px solid var(--color-border);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-primary-hover);
   }
 }
 
 /* ======================
-   COMPONENTS
-====================== */
+   NEO-BRUTALIST COMPONENTS
+ ====================== */
 
 @layer components {
-  /* ===== Surface ===== */
-  .surface {
-    @apply rounded-xl border;
 
-    background: var(--color-surface);
-    border-color: var(--color-border);
-
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  /* ===== Sidebar/Navigation Item ===== */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2 text-sm font-bold transition-all duration-100 cursor-pointer border-2 border-transparent;
+    color: var(--color-muted);
   }
 
-  /* ===== Column ===== */
-  .column {
-    @apply w-72
-           shrink-0
-           p-4
-           flex flex-col
-           gap-4
-           rounded-xl
-           border;
-
-    background: var(--color-surface);
+  .nav-item:hover {
+    background: var(--color-primary-soft);
     border-color: var(--color-border);
+    color: var(--color-text);
+    transform: translate(-1px, -1px);
+    box-shadow: var(--shadow-brutal-sm);
+  }
+
+  .nav-item.active {
+    background: var(--color-primary);
+    border-color: var(--color-border-strong);
+    color: white;
+    box-shadow: var(--shadow-brutal-sm);
+  }
+
+  /* ===== Column / Kanban List ===== */
+  .column {
+    @apply w-80 shrink-0 p-4 flex flex-col gap-3;
+    background: var(--color-surface);
+    border: 3px solid var(--color-border-strong);
+    box-shadow: var(--shadow-brutal);
   }
 
   /* ===== Card ===== */
   .card {
-    @apply rounded-lg
-           p-3
-           border
-           transition
-           cursor-pointer;
-
+    @apply p-4 border-2 transition-all duration-150 cursor-pointer relative overflow-hidden;
     background: var(--color-surface);
-    border-color: var(--color-border);
-
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    border-color: var(--color-border-strong);
+    box-shadow: var(--shadow-brutal-sm);
   }
 
   .card:hover {
-    border-color: var(--color-primary);
-    box-shadow: 0 4px 12px rgba(14, 165, 183, 0.08);
-    transform: translateY(-1px);
+    transform: translate(-2px, -2px);
+    box-shadow: var(--shadow-brutal);
+  }
+
+  .card:active {
+    transform: translate(0px, 0px);
+    box-shadow: var(--shadow-brutal-sm);
+  }
+
+  /* ===== Brutalist Button (Primary) ===== */
+  .btn-primary {
+    @apply flex items-center justify-center gap-2 px-4 py-2 text-sm font-black transition-all duration-100 border-2;
+    background: var(--color-primary);
+    border-color: var(--color-border-strong);
+    color: white;
+    box-shadow: var(--shadow-brutal-sm);
+  }
+
+  .btn-primary:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: var(--shadow-brutal);
+  }
+
+  .btn-primary:active {
+    transform: translate(0, 0);
+    box-shadow: none;
+  }
+
+  .btn-secondary {
+    @apply flex items-center justify-center gap-2 px-4 py-2 text-sm font-black transition-all duration-100 border-2;
+    background: transparent;
+    border-color: var(--color-border-strong);
+    color: var(--color-text);
+    box-shadow: var(--shadow-brutal-sm);
+  }
+
+  .btn-secondary:hover {
+    background: var(--color-primary-soft);
+    transform: translate(-2px, -2px);
+    box-shadow: var(--shadow-brutal);
+  }
+
+  .btn-secondary:active {
+    transform: translate(0, 0);
+    box-shadow: none;
+  }
+
+  /* ===== Surface / Panel ===== */
+  .surface {
+    background: var(--color-surface);
+    border: 3px solid var(--color-border-strong);
+    box-shadow: var(--shadow-brutal);
+  }
+
+  /* ===== Glass (still used in header/sidebar) ===== */
+  .glass {
+    background: var(--color-surface);
+    border-color: var(--color-border);
   }
 
   /* ===== Tag ===== */
   .tag {
-    @apply text-xs
-           px-2
-           py-0.5
-           rounded-md
-           font-medium;
-
+    @apply text-[10px] uppercase tracking-wider px-2 py-1 font-black border-2;
     background: var(--color-primary-soft);
     color: var(--color-primary);
+    border-color: var(--color-primary);
   }
 
   /* ===== Metadata ===== */
   .meta {
-    @apply text-xs;
+    @apply text-xs flex items-center gap-1.5 font-bold;
     color: var(--color-muted);
+  }
+
+  /* ===== Brutal Accent Bar ===== */
+  .brutal-accent {
+    @apply h-1.5 w-full;
+    background: linear-gradient(90deg, var(--color-primary), var(--color-cyan), var(--color-violet));
+  }
+
+  /* ===== Context Menu ===== */
+  .context-menu {
+    background: var(--color-surface);
+    border: 3px solid var(--color-border-strong);
+    box-shadow: var(--shadow-brutal);
+  }
+
+  .context-menu-item {
+    @apply w-full text-left px-4 py-2 flex items-center gap-3 font-bold text-sm transition-all duration-100 border-b-2;
+    border-color: transparent;
+    color: var(--color-text);
+  }
+
+  .context-menu-item:hover {
+    background: var(--color-primary);
+    color: white;
+  }
+
+  .context-menu-item:last-child {
+    border-bottom: none;
+  }
+
+  .context-menu-item.danger:hover {
+    background: var(--color-alert);
+    color: white;
   }
 }
 
 /* ======================
-   POPPINS FONT FACES
-====================== */
-
-@font-face {
-  font-family: 'Poppins';
-  src: url('../assets/fonts/Poppins-Thin.ttf') format('truetype');
-  font-weight: 100;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Poppins';
-  src: url('../assets/fonts/Poppins-ThinItalic.ttf') format('truetype');
-  font-weight: 100;
-  font-style: italic;
-}
-
-@font-face {
-  font-family: 'Poppins';
-  src: url('../assets/fonts/Poppins-ExtraLight.ttf') format('truetype');
-  font-weight: 200;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Poppins';
-  src: url('../assets/fonts/Poppins-ExtraLightItalic.ttf') format('truetype');
-  font-weight: 200;
-  font-style: italic;
-}
-
-@font-face {
-  font-family: 'Poppins';
-  src: url('../assets/fonts/Poppins-Light.ttf') format('truetype');
-  font-weight: 300;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Poppins';
-  src: url('../assets/fonts/Poppins-LightItalic.ttf') format('truetype');
-  font-weight: 300;
-  font-style: italic;
-}
-
+   FONTS
+ ====================== */
 @font-face {
   font-family: 'Poppins';
   src: url('../assets/fonts/Poppins-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
-}
-
-@font-face {
-  font-family: 'Poppins';
-  src: url('../assets/fonts/Poppins-Italic.ttf') format('truetype');
-  font-weight: 400;
-  font-style: italic;
 }
 
 @font-face {
@@ -207,23 +270,9 @@
 
 @font-face {
   font-family: 'Poppins';
-  src: url('../assets/fonts/Poppins-MediumItalic.ttf') format('truetype');
-  font-weight: 500;
-  font-style: italic;
-}
-
-@font-face {
-  font-family: 'Poppins';
   src: url('../assets/fonts/Poppins-SemiBold.ttf') format('truetype');
   font-weight: 600;
   font-style: normal;
-}
-
-@font-face {
-  font-family: 'Poppins';
-  src: url('../assets/fonts/Poppins-SemiBoldItalic.ttf') format('truetype');
-  font-weight: 600;
-  font-style: italic;
 }
 
 @font-face {
@@ -233,37 +282,22 @@
   font-style: normal;
 }
 
-@font-face {
-  font-family: 'Poppins';
-  src: url('../assets/fonts/Poppins-BlackItalic.ttf') format('truetype');
-  font-weight: 700;
-  font-style: italic;
+/* ======================
+   ANIMATIONS
+ ====================== */
+
+@keyframes brutal-in {
+  from {
+    opacity: 0;
+    transform: translate(4px, 4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
 }
 
-@font-face {
-  font-family: 'Poppins';
-  src: url('../assets/fonts/Poppins-ExtraBold.ttf') format('truetype');
-  font-weight: 800;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Poppins';
-  src: url('../assets/fonts/Poppins-ExtraBoldItalic.ttf') format('truetype');
-  font-weight: 800;
-  font-style: italic;
-}
-
-@font-face {
-  font-family: 'Poppins';
-  src: url('../assets/fonts/Poppins-Black.ttf') format('truetype');
-  font-weight: 900;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Poppins';
-  src: url('../assets/fonts/Poppins-BlackItalic.ttf') format('truetype');
-  font-weight: 900;
-  font-style: italic;
+.animate-brutal-in {
+  animation: brutal-in 0.15s ease-out forwards;
 }

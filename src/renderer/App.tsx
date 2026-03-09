@@ -38,6 +38,13 @@ function App() {
     setSelectedBoardId(boardId)
   }
 
+  // Called from Header search when user selects a board result
+  // We need to set dock context AND board
+  const handleSearchSelectBoard = (boardId: string, dockId: string) => {
+    setSelectedDockId(dockId)
+    setSelectedBoardId(boardId)
+  }
+
   const handleToggleTheme = () => {
     const newTheme = settings.theme === 'light' ? 'dark' : 'light'
     const updatedSettings = { ...settings, theme: newTheme as 'light' | 'dark' }
@@ -60,6 +67,8 @@ function App() {
         onToggleTheme={handleToggleTheme}
         isDarkMode={settings.theme === 'dark'}
         onSearch={setSearchQuery}
+        onSelectDock={handleSelectDock}
+        onSelectBoard={handleSearchSelectBoard}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -71,7 +80,10 @@ function App() {
           searchQuery={searchQuery}
         />
 
-        <main className="flex-1 overflow-auto p-6">
+        <main
+          className="flex-1 overflow-auto p-6"
+          style={{ background: 'var(--color-background)' }}
+        >
           {selectedBoardId ? (
             <KanbanBoard boardId={selectedBoardId} searchQuery={searchQuery} />
           ) : selectedDockId ? (
@@ -81,8 +93,25 @@ function App() {
               searchQuery={searchQuery}
             />
           ) : (
-            <div className="h-full flex items-center justify-center text-muted">
-              Select a dock or board to get started
+            <div className="h-full flex flex-col items-center justify-center gap-4">
+              <div
+                className="w-20 h-20 border-4 flex items-center justify-center"
+                style={{
+                  borderColor: 'var(--color-primary)',
+                  boxShadow: '6px 6px 0 var(--color-primary)',
+                  color: 'var(--color-primary)'
+                }}
+              >
+                <span className="text-3xl font-black">⚓</span>
+              </div>
+              <div className="text-center">
+                <p className="font-black uppercase tracking-widest text-sm" style={{ color: 'var(--color-muted)' }}>
+                  SELECT A DOCK OR BOARD
+                </p>
+                <p className="text-xs font-bold mt-1" style={{ color: 'var(--color-muted)' }}>
+                  Use the sidebar or search to navigate
+                </p>
+              </div>
             </div>
           )}
         </main>
