@@ -6,35 +6,77 @@
  ====================== */
 
 @theme {
-  /* LIGHT (default) */
-  --color-background: #dbeafe;
-  --color-surface: #ffffff;
+  /* ── Maritime Palette ── */
 
-  --color-border: #1e3a5f;
-  --color-border-strong: #0f172a;
+  /* Layout zones */
+  --color-background: #E8F3FA;
+  /* Soft Ocean — board / app bg */
+  --color-surface: #FFFFFF;
+  /* White Deck — cards, panels */
+  --color-surface-2: #DCECF7;
+  /* Light Sky Panel — column headers */
+  --color-surface-3: #C8E1F0;
+  /* Sea Mist — subtle panels */
 
-  --color-text: #0f172a;
-  --color-muted: #1e3a5f;
+  /* Sidebar / Header */
+  --color-sidebar: #0B2545;
+  /* Deep Harbor Blue */
+  --color-header: #1F5F8B;
+  /* Port Blue */
 
-  --color-primary: #2563eb;
-  --color-primary-soft: #bfdbfe;
-  --color-primary-hover: #1d4ed8;
+  /* Borders */
+  --color-border: #1F5F8B;
+  /* Port Blue borders */
+  --color-border-strong: #0B2545;
+  /* Deep Harbor strong borders */
 
-  --color-secondary: #0ea5e9;
-  --color-accent: #7c3aed;
+  /* Text */
+  --color-text: #0B2545;
+  /* Deep Harbor — primary text */
+  --color-muted: #1F5F8B;
+  /* Port Blue — muted text */
 
-  --color-warning: #d97706;
-  --color-alert: #dc2626;
+  /* Primary action */
+  --color-primary: #2D82B7;
+  /* Bright Marine — buttons */
+  --color-primary-soft: #DCECF7;
+  /* Light Sky Panel — button bg tint */
+  --color-primary-hover: #1F5F8B;
+  /* Port Blue — hover */
 
-  --color-cyan: #0891b2;
-  --color-indigo: #4f46e5;
-  --color-violet: #7c3aed;
+  /* Accent / secondary */
+  --color-secondary: #5FA8D3;
+  /* Sky Accent — hover / focus rings */
+  --color-accent: #3FA796;
+  /* Done teal */
 
-  --shadow-brutal: 4px 4px 0px 0px #0f172a;
-  --shadow-brutal-sm: 2px 2px 0px 0px #0f172a;
-  --shadow-brutal-lg: 6px 6px 0px 0px #0f172a;
-  --shadow-brutal-blue: 4px 4px 0px 0px #2563eb;
-  --shadow-brutal-cyan: 4px 4px 0px 0px #0891b2;
+  /* Status */
+  --color-status-info: #5FA8D3;
+  /* Info / Planning */
+  --color-status-in-progress: #2D82B7;
+  /* In Progress */
+  --color-status-blocked: #D97B66;
+  /* Blocked */
+  --color-status-done: #3FA796;
+  /* Done */
+
+  /* Semantic */
+  --color-warning: #D97B66;
+  /* Warm coral warning / blocked */
+  --color-alert: #c0392b;
+  /* Error red */
+
+  /* Legacy aliases (components still reference these) */
+  --color-cyan: #5FA8D3;
+  --color-indigo: #1F5F8B;
+  --color-violet: #0B2545;
+
+  /* Shadows — keyed to Deep Harbor */
+  --shadow-brutal: 4px 4px 0px 0px #0B2545;
+  --shadow-brutal-sm: 2px 2px 0px 0px #0B2545;
+  --shadow-brutal-lg: 6px 6px 0px 0px #0B2545;
+  --shadow-brutal-blue: 4px 4px 0px 0px #2D82B7;
+  --shadow-brutal-cyan: 4px 4px 0px 0px #5FA8D3;
 }
 
 /* ======================
@@ -42,27 +84,49 @@
  ====================== */
 
 .dark {
-  --color-background: #030712;
-  --color-surface: #0f172a;
+  /* ── Dark Maritime — Deep Night Harbour ── */
+  --color-background: #060e1a;
+  /* Very deep navy */
+  --color-surface: #0d1f33;
+  /* Dark hull */
+  --color-surface-2: #112640;
+  /* Slightly lighter panel */
+  --color-surface-3: #163050;
+  /* Sea depth */
 
-  --color-border: #3b82f6;
-  --color-border-strong: #60a5fa;
+  --color-sidebar: #040d18;
+  --color-header: #0a1e35;
 
-  --color-text: #f0f9ff;
-  --color-muted: #93c5fd;
+  --color-border: #2D82B7;
+  --color-border-strong: #5FA8D3;
 
-  --color-primary: #3b82f6;
-  --color-primary-soft: rgba(59, 130, 246, 0.15);
-  --color-primary-hover: #60a5fa;
+  --color-text: #DCF0FB;
+  --color-muted: #7BC0DE;
 
-  --color-warning: #fbbf24;
-  --color-alert: #f87171;
+  --color-primary: #2D82B7;
+  --color-primary-soft: rgba(45, 130, 183, 0.18);
+  --color-primary-hover: #5FA8D3;
 
-  --shadow-brutal: 4px 4px 0px 0px #3b82f6;
-  --shadow-brutal-sm: 2px 2px 0px 0px #3b82f6;
-  --shadow-brutal-lg: 6px 6px 0px 0px #3b82f6;
-  --shadow-brutal-blue: 4px 4px 0px 0px #60a5fa;
-  --shadow-brutal-cyan: 4px 4px 0px 0px #22d3ee;
+  --color-secondary: #5FA8D3;
+  --color-accent: #3FA796;
+
+  --color-status-info: #5FA8D3;
+  --color-status-in-progress: #2D82B7;
+  --color-status-blocked: #D97B66;
+  --color-status-done: #3FA796;
+
+  --color-warning: #D97B66;
+  --color-alert: #e74c3c;
+
+  --color-cyan: #5FA8D3;
+  --color-indigo: #2D82B7;
+  --color-violet: #3FA796;
+
+  --shadow-brutal: 4px 4px 0px 0px #2D82B7;
+  --shadow-brutal-sm: 2px 2px 0px 0px #2D82B7;
+  --shadow-brutal-lg: 6px 6px 0px 0px #2D82B7;
+  --shadow-brutal-blue: 4px 4px 0px 0px #5FA8D3;
+  --shadow-brutal-cyan: 4px 4px 0px 0px #3FA796;
 }
 
 /* ======================
@@ -108,20 +172,20 @@
   /* ===== Sidebar/Navigation Item ===== */
   .nav-item {
     @apply flex items-center gap-3 px-3 py-2 text-sm font-bold transition-all duration-100 cursor-pointer border-2 border-transparent;
-    color: var(--color-muted);
+    color: rgba(255, 255, 255, 0.65);
   }
 
   .nav-item:hover {
-    background: var(--color-primary-soft);
-    border-color: var(--color-border);
-    color: var(--color-text);
+    background: rgba(45, 130, 183, 0.2);
+    border-color: var(--color-primary);
+    color: white;
     transform: translate(-1px, -1px);
     box-shadow: var(--shadow-brutal-sm);
   }
 
   .nav-item.active {
     background: var(--color-primary);
-    border-color: var(--color-border-strong);
+    border-color: var(--color-secondary);
     color: white;
     box-shadow: var(--shadow-brutal-sm);
   }
@@ -129,7 +193,7 @@
   /* ===== Column / Kanban List ===== */
   .column {
     @apply w-80 shrink-0 p-4 flex flex-col gap-3;
-    background: var(--color-surface);
+    background: var(--color-surface-2);
     border: 3px solid var(--color-border-strong);
     box-shadow: var(--shadow-brutal);
   }
@@ -220,7 +284,7 @@
   /* ===== Brutal Accent Bar ===== */
   .brutal-accent {
     @apply h-1.5 w-full;
-    background: linear-gradient(90deg, var(--color-primary), var(--color-cyan), var(--color-violet));
+    background: linear-gradient(90deg, #0B2545, #1F5F8B, #2D82B7, #5FA8D3, #3FA796);
   }
 
   /* ===== Context Menu ===== */

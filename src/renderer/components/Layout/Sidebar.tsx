@@ -365,7 +365,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     <aside
       className="w-60 flex flex-col relative h-full z-10 border-r-4"
       style={{
-        background: 'var(--color-background)',
+        background: 'var(--color-sidebar)',
         borderColor: 'var(--color-border-strong)'
       }}
     >
@@ -373,26 +373,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="brutal-accent" />
 
       {/* Home button */}
-      <div className="p-3 border-b-4" style={{ borderColor: 'var(--color-border-strong)' }}>
+      <div className="p-3 border-b-2" style={{ borderColor: 'rgba(255,255,255,0.12)' }}>
         <button
           onClick={onGoHome}
           className="w-full flex items-center gap-2 px-3 py-2 text-xs font-black uppercase tracking-wider border-2 transition-all duration-100"
           style={{
-            borderColor: isHome ? 'var(--color-primary)' : 'var(--color-border)',
-            background: isHome ? 'var(--color-primary)' : 'transparent',
-            color: isHome ? 'white' : 'var(--color-text)',
+            borderColor: isHome ? 'var(--color-primary)' : 'rgba(255,255,255,0.2)',
+            background: isHome ? 'var(--color-primary)' : 'rgba(255,255,255,0.06)',
+            color: 'white',
             boxShadow: isHome ? 'var(--shadow-brutal-sm)' : 'none'
           }}
           onMouseOver={e => {
             if (!isHome) {
-              e.currentTarget.style.background = 'var(--color-primary-soft)'
-              e.currentTarget.style.transform = 'translate(-1px,-1px)'
+              e.currentTarget.style.background = 'rgba(45,130,183,0.25)'
+              e.currentTarget.style.borderColor = 'var(--color-primary)'
             }
           }}
           onMouseOut={e => {
             if (!isHome) {
-              e.currentTarget.style.background = 'transparent'
-              e.currentTarget.style.transform = 'translate(0,0)'
+              e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
+              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
             }
           }}
         >
@@ -402,7 +402,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* New Board button */}
-      <div className="p-3 border-b-2" style={{ borderColor: 'var(--color-border)' }}>
+      <div className="p-3 border-b-2" style={{ borderColor: 'rgba(255,255,255,0.12)' }}>
         <button
           onClick={() => {
             setTargetParentId(null)
@@ -424,17 +424,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           }}
           className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-black uppercase tracking-wider border-2 transition-all duration-100"
           style={{
-            borderColor: 'var(--color-border)',
-            color: 'var(--color-muted)',
-            boxShadow: 'var(--shadow-brutal-sm)'
+            borderColor: 'rgba(255,255,255,0.2)',
+            color: 'rgba(255,255,255,0.7)',
+            boxShadow: '2px 2px 0 rgba(0,0,0,0.3)'
           }}
           onMouseOver={(e) => {
-            e.currentTarget.style.background = 'var(--color-primary-soft)'
-            e.currentTarget.style.transform = 'translate(-1px,-1px)'
+            e.currentTarget.style.background = 'rgba(45,130,183,0.25)'
+            e.currentTarget.style.borderColor = 'var(--color-primary)'
+            e.currentTarget.style.color = 'white'
           }}
           onMouseOut={(e) => {
             e.currentTarget.style.background = 'transparent'
-            e.currentTarget.style.transform = 'translate(0,0)'
+            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
+            e.currentTarget.style.color = 'rgba(255,255,255,0.7)'
           }}
         >
           <Folder className="w-3.5 h-3.5" />
@@ -705,7 +707,7 @@ const DroppableUncategorized: React.FC<{
     >
       <div
         className="px-3 py-1 text-[10px] font-black uppercase tracking-widest border-b-2 mb-1"
-        style={{ color: 'var(--color-muted)', borderColor: 'var(--color-border)' }}
+        style={{ color: 'rgba(255,255,255,0.4)', borderColor: 'rgba(255,255,255,0.1)' }}
       >
         Uncharted Waters
       </div>
@@ -799,15 +801,31 @@ const SidebarDockItem: React.FC<SidebarDockItemProps> = ({
               onClick={() => onSelectBoard(board.id)}
               className={`w-full text-left px-3 py-1.5 text-[10px] font-black uppercase tracking-wider border-l-4 transition-all duration-100 ${
                 selectedBoardId === board.id
-                  ? 'border-primary bg-blue-50 dark:bg-blue-900/20 text-primary'
-                  : 'border-transparent text-muted hover:border-primary hover:bg-primary-soft hover:text-text'
+                  ? 'border-[#2D82B7]'
+                  : 'border-transparent'
               }`}
+              style={{
+                color: selectedBoardId === board.id ? '#5FA8D3' : 'rgba(255,255,255,0.55)',
+                background: selectedBoardId === board.id ? 'rgba(45,130,183,0.2)' : 'transparent'
+              }}
+              onMouseOver={e => {
+                if (selectedBoardId !== board.id) {
+                  e.currentTarget.style.color = 'white'
+                  e.currentTarget.style.background = 'rgba(45,130,183,0.15)'
+                }
+              }}
+              onMouseOut={e => {
+                if (selectedBoardId !== board.id) {
+                  e.currentTarget.style.color = 'rgba(255,255,255,0.55)'
+                  e.currentTarget.style.background = 'transparent'
+                }
+              }}
             >
               ▸ {board.name}
             </button>
           ))}
           {boards.length === 0 && (
-            <p className="text-[10px] font-bold text-muted px-3 py-1 uppercase tracking-wider">No ships docked</p>
+            <p className="text-[10px] font-bold px-3 py-1 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.35)' }}>No ships docked</p>
           )}
         </div>
       )}

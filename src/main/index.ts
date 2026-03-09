@@ -23,7 +23,7 @@ async function createWindow() {
     },
     show: false,
     titleBarStyle: 'hiddenInset',
-    backgroundColor: '#f4f8fb'
+    backgroundColor: '#E8F3FA'
   })
 
   // Initialize database

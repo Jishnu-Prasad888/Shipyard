@@ -196,7 +196,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header
       className="h-14 flex items-center justify-between px-5 z-40 border-b-4"
       style={{
-        background: 'var(--color-primary)',
+        background: 'var(--color-header)',
         borderColor: 'var(--color-border-strong)'
       }}
     >
