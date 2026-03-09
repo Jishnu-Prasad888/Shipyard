@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, Settings, Moon, Sun, Anchor, Folder, Grid, LayoutList, X, ArrowRight } from 'lucide-react'
+import { Search, Settings, Moon, Sun, Anchor, Folder, Grid, Ship, X, ArrowRight } from 'lucide-react'
 
 interface SearchResult {
   id: string
@@ -175,13 +175,13 @@ export const Header: React.FC<HeaderProps> = ({
   const typeIcon = (type: SearchResult['type']) => {
     if (type === 'folder') return <Folder className="w-4 h-4" />
     if (type === 'dock') return <Grid className="w-4 h-4" />
-    return <LayoutList className="w-4 h-4" />
+    return <Ship className="w-4 h-4" />
   }
 
   const typeLabel = (type: SearchResult['type']) => {
-    if (type === 'folder') return 'FOLDER'
+    if (type === 'folder') return 'PORT'
     if (type === 'dock') return 'DOCK'
-    return 'BOARD'
+    return 'SHIP'
   }
 
   // Group results by type
@@ -221,7 +221,7 @@ export const Header: React.FC<HeaderProps> = ({
             ref={inputRef}
             type="text"
             value={query}
-            placeholder="SEARCH BOARDS, DOCKS, FOLDERS..."
+            placeholder="SEARCH SHIPS, DOCKS, PORTS..."
             className="w-full pl-9 pr-8 py-1.5 text-xs font-bold uppercase tracking-wider border-2 border-white bg-transparent text-white placeholder:text-white/50 focus:outline-none focus:bg-white/10 transition-all"
             style={{ boxShadow: '3px 3px 0 rgba(0,0,0,0.3)' }}
             onChange={(e) => setQuery(e.target.value)}

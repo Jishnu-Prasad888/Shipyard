@@ -20,7 +20,9 @@ contextBridge.exposeInMainWorld('electron', {
     save: (settings: any) => ipcRenderer.invoke('settings:save', settings)
   },
   sync: {
-    start: () => ipcRenderer.invoke('sync:start'),
+    push: () => ipcRenderer.invoke('sync:start'),
+    pull: () => ipcRenderer.invoke('sync:pull'),
+    test: () => ipcRenderer.invoke('sync:test'),
     status: () => ipcRenderer.invoke('sync:status')
   },
   darkMode: {

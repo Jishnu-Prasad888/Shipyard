@@ -33,6 +33,20 @@ async function createWindow() {
   // Initialize sync service
   syncService = SyncService.getInstance(databaseService)
 
+  // ── Auto-restore Firebase from saved settings ──
+  const savedSettings = databaseService.getSettings()
+  if (savedSettings?.firebaseEnabled && savedSettings?.firebaseConfig) {
+    try {
+      const result = await syncService.initialize(savedSettings.firebaseConfig)
+      console.log('[Firebase] Auto-init on startup:', result.message)
+      if (result.success && savedSettings.syncEnabled) {
+        syncService.enableAutoSync()
+      }
+    } catch (err) {
+      console.error('[Firebase] Auto-init failed:', err)
+    }
+  }
+
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show()
   })
@@ -69,26 +83,18 @@ app.on('activate', () => {
   }
 })
 
-// IPC Handlers
+// ── IPC: Database ──
 ipcMain.handle('db:query', async (_event, { operation, table, data, id }) => {
   try {
     switch (operation) {
-      case 'findAll':
-        return await databaseService.findAll(table)
-      case 'findById':
-        return await databaseService.findById(table, id)
-      case 'create':
-        return await databaseService.create(table, data)
-      case 'update':
-        return await databaseService.update(table, id, data)
-      case 'delete':
-        return await databaseService.delete(table, id)
-      case 'getBoardWithDetails':
-        return await databaseService.getBoardWithDetails(id)
-      case 'getDocksWithFolders':
-        return await databaseService.getDocksWithFolders()
-      default:
-        throw new Error(`Unknown operation: ${operation}`)
+      case 'findAll':       return databaseService.findAll(table)
+      case 'findById':      return databaseService.findById(table, id)
+      case 'create':        return databaseService.create(table, data)
+      case 'update':        return databaseService.update(table, id, data)
+      case 'delete':        return databaseService.delete(table, id)
+      case 'getBoardWithDetails': return databaseService.getBoardWithDetails(id)
+      case 'getDocksWithFolders': return databaseService.getDocksWithFolders()
+      default:              throw new Error(`Unknown operation: ${operation}`)
     }
   } catch (error) {
     console.error('Database error:', error)
@@ -96,40 +102,55 @@ ipcMain.handle('db:query', async (_event, { operation, table, data, id }) => {
   }
 })
 
+// ── IPC: Settings ──
 ipcMain.handle('settings:get', async () => {
-  return await databaseService.getSettings()
+  return databaseService.getSettings()
 })
 
 ipcMain.handle('settings:save', async (_event, settings) => {
-  await databaseService.saveSettings(settings)
+  databaseService.saveSettings(settings)
 
-  // Update sync service
   if (settings.firebaseEnabled && settings.firebaseConfig) {
-    await syncService.initialize(settings.firebaseConfig)
+    const result = await syncService.initialize(settings.firebaseConfig)
+    if (result.success && settings.syncEnabled) {
+      syncService.enableAutoSync()
+    } else if (!settings.syncEnabled) {
+      syncService.stopSync()
+      // Re-init without auto-sync
+      await syncService.initialize(settings.firebaseConfig)
+    }
+    return { ...settings, _initResult: result }
+  } else {
+    syncService.stopSync()
   }
 
   return settings
 })
 
+// ── IPC: Sync ──
 ipcMain.handle('sync:start', async () => {
-  return await syncService.startSync()
+  return syncService.pushToFirebase()
+})
+
+ipcMain.handle('sync:pull', async () => {
+  return syncService.pullFromFirebase()
+})
+
+ipcMain.handle('sync:test', async () => {
+  return syncService.testConnection()
 })
 
 ipcMain.handle('sync:status', async () => {
   return syncService.getSyncStatus()
 })
 
-// Handle dark mode
+// ── IPC: Dark mode ──
 ipcMain.handle('dark-mode:toggle', async (_event, enabled) => {
   if (mainWindow) {
-    if (enabled) {
-      mainWindow.webContents.insertCSS(`
-        html { background: #0f0c1b; }
-      `)
-    } else {
-      mainWindow.webContents.insertCSS(`
-        html { background: #f4f8fb; }
-      `)
-    }
+    mainWindow.webContents.insertCSS(
+      enabled
+        ? `html { background: #0f0c1b; }`
+        : `html { background: #f4f8fb; }`
+    )
   }
 })

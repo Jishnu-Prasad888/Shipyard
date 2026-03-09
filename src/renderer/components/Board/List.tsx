@@ -174,7 +174,7 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
           }}
         >
           <Plus className="w-4 h-4 stroke-[3px] group-hover:rotate-90 transition-transform" />
-          Add Card
+          Add Cargo
         </button>
       </div>
 
@@ -203,7 +203,7 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
             }}
           >
             <Edit2 className="w-4 h-4" />
-            Rename List
+            Rename Manifest
           </button>
           <button
             className="context-menu-item border-b-2 danger"
@@ -211,7 +211,7 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
             onClick={handleDeleteList}
           >
             <Trash2 className="w-4 h-4" />
-            Delete List
+            Jettison Manifest
           </button>
           <button
             className="context-menu-item"
@@ -221,7 +221,7 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
             }}
           >
             <Plus className="w-4 h-4" />
-            Add Card
+            Add Cargo
           </button>
         </div>
       )}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Folder, Grid, Plus, ChevronDown, ChevronRight, Palette, Trash2, Edit2 } from 'lucide-react'
+import { Folder, Grid, Plus, ChevronDown, ChevronRight, Palette, Trash2, Edit2, Home } from 'lucide-react'
 import { CreateDockModal } from '../Docks/CreateDockModel'
 import {
   DndContext,
@@ -16,6 +16,8 @@ interface SidebarProps {
   selectedDockId: string | null
   onSelectBoard: (boardId: string) => void
   selectedBoardId: string | null
+  onGoHome: () => void
+  isHome: boolean
   searchQuery?: string
 }
 
@@ -35,6 +37,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   selectedDockId,
   onSelectBoard,
   selectedBoardId,
+  onGoHome,
+  isHome,
   searchQuery = ''
 }) => {
   const [docks, setDocks] = useState<any[]>([])
@@ -368,8 +372,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Accent bar */}
       <div className="brutal-accent" />
 
+      {/* Home button */}
+      <div className="p-3 border-b-4" style={{ borderColor: 'var(--color-border-strong)' }}>
+        <button
+          onClick={onGoHome}
+          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-black uppercase tracking-wider border-2 transition-all duration-100"
+          style={{
+            borderColor: isHome ? 'var(--color-primary)' : 'var(--color-border)',
+            background: isHome ? 'var(--color-primary)' : 'transparent',
+            color: isHome ? 'white' : 'var(--color-text)',
+            boxShadow: isHome ? 'var(--shadow-brutal-sm)' : 'none'
+          }}
+          onMouseOver={e => {
+            if (!isHome) {
+              e.currentTarget.style.background = 'var(--color-primary-soft)'
+              e.currentTarget.style.transform = 'translate(-1px,-1px)'
+            }
+          }}
+          onMouseOut={e => {
+            if (!isHome) {
+              e.currentTarget.style.background = 'transparent'
+              e.currentTarget.style.transform = 'translate(0,0)'
+            }
+          }}
+        >
+          <Home className="w-4 h-4" />
+          <span className="flex-1 text-left">Fleet Overview</span>
+        </button>
+      </div>
+
       {/* New Board button */}
-      <div className="p-3 border-b-3" style={{ borderColor: 'var(--color-border-strong)' }}>
+      <div className="p-3 border-b-2" style={{ borderColor: 'var(--color-border)' }}>
         <button
           onClick={() => {
             setTargetParentId(null)
@@ -378,7 +411,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className="btn-primary w-full text-xs uppercase tracking-wider"
         >
           <Plus className="w-4 h-4 stroke-[3px]" />
-          New Board
+          New Dock
         </button>
       </div>
 
@@ -405,7 +438,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           }}
         >
           <Folder className="w-3.5 h-3.5" />
-          <span className="flex-1 text-left">New Folder</span>
+          <span className="flex-1 text-left">New Port</span>
           <Plus className="w-3 h-3" />
         </button>
       </div>
@@ -465,7 +498,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
               >
                 <Plus className="w-4 h-4" />
-                New Board Here
+                New Dock Here
               </button>
               {contextMenu.type === 'folder' && (
                 <>
@@ -479,7 +512,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }}
                   >
                     <Folder className="w-4 h-4" />
-                    New Folder Inside
+                    New Port Inside
                   </button>
                   <button
                     className="context-menu-item danger border-b-2"
@@ -487,7 +520,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     onClick={() => contextMenu.targetId && handleDeleteFolder(contextMenu.targetId)}
                   >
                     <Trash2 className="w-4 h-4" />
-                    Delete Folder
+                    Decommission Port
                   </button>
                 </>
               )}
@@ -507,7 +540,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
               >
                 <Edit2 className="w-4 h-4" />
-                Edit Properties
+                Edit Dock
               </button>
               <button
                 className="context-menu-item danger border-b-2"
@@ -515,7 +548,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onClick={() => contextMenu.targetId && handleDeleteDock(contextMenu.targetId)}
               >
                 <Trash2 className="w-4 h-4" />
-                Delete Board
+                Scuttle Dock
               </button>
             </>
           )}
@@ -549,7 +582,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {editingDock && (
         <CreateDockModal
-          title="Edit Board Properties"
+          title="Edit Dock Properties"
           initialData={editingDock}
           onClose={() => setEditingDock(null)}
           onCreate={handleUpdateDock}
@@ -564,7 +597,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="flex items-center justify-between px-5 py-3 border-b-3"
               style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-primary)' }}
             >
-              <h2 className="text-base font-black text-white uppercase tracking-wider">Create Folder</h2>
+              <h2 className="text-base font-black text-white uppercase tracking-wider">Establish New Port</h2>
               <button
                 onClick={() => setShowCreateFolder(false)}
                 className="w-6 h-6 flex items-center justify-center border-2 border-white text-white font-black hover:bg-white/20 transition"
@@ -575,7 +608,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             <form onSubmit={handleCreateNewFolder} className="p-5 space-y-4">
               <div>
-                <label className="block text-xs font-black uppercase tracking-wider mb-1">Folder Name *</label>
+                <label className="block text-xs font-black uppercase tracking-wider mb-1">Port Name *</label>
                 <input
                   type="text"
                   value={newFolderName}
@@ -586,7 +619,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     color: 'var(--color-text)',
                     boxShadow: 'inset 2px 2px 0 rgba(0,0,0,0.05)'
                   }}
-                  placeholder="My Folder"
+                  placeholder="East Port, Harbor Alpha..."
                   autoFocus
                 />
               </div>
@@ -674,7 +707,7 @@ const DroppableUncategorized: React.FC<{
         className="px-3 py-1 text-[10px] font-black uppercase tracking-widest border-b-2 mb-1"
         style={{ color: 'var(--color-muted)', borderColor: 'var(--color-border)' }}
       >
-        Uncategorized
+        Uncharted Waters
       </div>
       <div className="space-y-1">{children}</div>
     </div>
@@ -774,7 +807,7 @@ const SidebarDockItem: React.FC<SidebarDockItemProps> = ({
             </button>
           ))}
           {boards.length === 0 && (
-            <p className="text-[10px] font-bold text-muted px-3 py-1 uppercase tracking-wider">No boards</p>
+            <p className="text-[10px] font-bold text-muted px-3 py-1 uppercase tracking-wider">No ships docked</p>
           )}
         </div>
       )}

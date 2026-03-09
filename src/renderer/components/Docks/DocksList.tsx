@@ -174,7 +174,7 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
             className="btn-primary text-xs uppercase tracking-wider shrink-0"
           >
             <Plus className="w-4 h-4 stroke-[3px]" />
-            New Board
+            Launch Ship
           </button>
         </div>
 
@@ -184,7 +184,7 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
             style={{ borderColor: dockColor, color: dockColor, background: dockColor + '10' }}
           >
             <LayoutGrid className="w-3 h-3" />
-            {filteredBoards.length} Boards
+            {filteredBoards.length} Ships
           </span>
         </div>
       </div>
@@ -211,17 +211,17 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
               <Plus className="w-8 h-8 stroke-[3px]" />
             </div>
             <h3 className="text-xl font-black uppercase tracking-tight mb-1" style={{ color: 'var(--color-text)' }}>
-              No Boards Yet
+              No Ships Docked
             </h3>
             <p className="text-sm font-bold" style={{ color: 'var(--color-muted)' }}>
-              Create your first Kanban board in this dock
+              Create your first Ship to set sail in this dock
             </p>
             <button
               onClick={() => setShowCreateBoard(true)}
               className="btn-primary mt-6 text-xs uppercase tracking-wider"
             >
               <Plus className="w-4 h-4 stroke-[3px]" />
-              Create Board
+              Launch Ship
             </button>
           </div>
         )}
@@ -229,7 +229,7 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
 
       {showCreateBoard && (
         <CreateDockModal
-          title="Create New Kanban Board"
+          title="Launch New Ship"
           onClose={() => setShowCreateBoard(false)}
           onCreate={handleCreateBoard}
         />

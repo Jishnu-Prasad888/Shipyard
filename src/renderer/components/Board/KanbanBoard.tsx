@@ -216,7 +216,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
               }}
             >
               <LayoutList className="w-3 h-3" />
-              {lists.length} Lists
+              {lists.length} Manifests
             </span>
             <span
               className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider px-2 py-1 border-2"
@@ -227,7 +227,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
               }}
             >
               <Hash className="w-3 h-3" />
-              {totalCards} Cards
+              {totalCards} Cargo
             </span>
           </div>
         </div>
@@ -237,7 +237,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
           className="btn-primary text-xs uppercase tracking-wider"
         >
           <Plus className="w-4 h-4 stroke-[3px]" />
-          Add List
+          Add Manifest
         </button>
       </div>
 
@@ -287,7 +287,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
                 >
                   <Plus className="w-5 h-5 stroke-[3px]" />
                 </div>
-                <span className="font-black text-sm uppercase tracking-wider">Add New List</span>
+                <span className="font-black text-sm uppercase tracking-wider">Add Manifest</span>
               </div>
             </button>
           </div>

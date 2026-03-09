@@ -5,6 +5,7 @@ import { Header } from './components/Layout/Header'
 import { DocksList } from './components/Docks/DocksList'
 import { KanbanBoard } from './components/Board/KanbanBoard'
 import { SettingsModal } from './components/Settings/SettingsModal'
+import { HomeScreen } from './components/Home/HomeScreen'
 import { RootState } from './store'
 import { setSettings } from './store/settingsSlice'
 
@@ -17,11 +18,8 @@ function App() {
   const settings = useSelector((state: RootState) => state.settings)
 
   useEffect(() => {
-    // Load settings on startup
     window.electron.settings.get().then((loadedSettings) => {
       dispatch(setSettings(loadedSettings))
-
-      // Apply theme
       if (loadedSettings.theme === 'dark') {
         document.documentElement.classList.add('dark')
         window.electron.darkMode.toggle(true)
@@ -38,27 +36,41 @@ function App() {
     setSelectedBoardId(boardId)
   }
 
-  // Called from Header search when user selects a board result
-  // We need to set dock context AND board
+  // From search: also need to set dock context
   const handleSearchSelectBoard = (boardId: string, dockId: string) => {
     setSelectedDockId(dockId)
     setSelectedBoardId(boardId)
   }
 
+  // From home screen: navigate to a board (need to first find its dockId)
+  const handleHomeSelectBoard = async (boardId: string) => {
+    const allBoards = await window.electron.db.findAll('boards')
+    const board = allBoards.find((b: any) => b.id === boardId)
+    if (board) {
+      setSelectedDockId(board.dockId)
+      setSelectedBoardId(boardId)
+    } else {
+      setSelectedBoardId(boardId)
+    }
+  }
+
+  const handleGoHome = () => {
+    setSelectedDockId(null)
+    setSelectedBoardId(null)
+  }
+
+  const isHome = !selectedDockId && !selectedBoardId
+
   const handleToggleTheme = () => {
     const newTheme = settings.theme === 'light' ? 'dark' : 'light'
     const updatedSettings = { ...settings, theme: newTheme as 'light' | 'dark' }
-
-    if (newTheme === 'dark') {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-
+    if (newTheme === 'dark') document.documentElement.classList.add('dark')
+    else document.documentElement.classList.remove('dark')
     window.electron.darkMode.toggle(newTheme === 'dark')
     window.electron.settings.save(updatedSettings)
     dispatch(setSettings(updatedSettings))
   }
+
 
   return (
     <div className="h-screen flex flex-col overflow-hidden">
@@ -77,42 +89,33 @@ function App() {
           selectedDockId={selectedDockId}
           onSelectBoard={handleSelectBoard}
           selectedBoardId={selectedBoardId}
+          onGoHome={handleGoHome}
+          isHome={isHome}
           searchQuery={searchQuery}
         />
 
         <main
-          className="flex-1 overflow-auto p-6"
+          className="flex-1 overflow-auto"
           style={{ background: 'var(--color-background)' }}
         >
           {selectedBoardId ? (
-            <KanbanBoard boardId={selectedBoardId} searchQuery={searchQuery} />
-          ) : selectedDockId ? (
-            <DocksList
-              dockId={selectedDockId}
-              onSelectBoard={handleSelectBoard}
-              searchQuery={searchQuery}
-            />
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center gap-4">
-              <div
-                className="w-20 h-20 border-4 flex items-center justify-center"
-                style={{
-                  borderColor: 'var(--color-primary)',
-                  boxShadow: '6px 6px 0 var(--color-primary)',
-                  color: 'var(--color-primary)'
-                }}
-              >
-                <span className="text-3xl font-black">⚓</span>
-              </div>
-              <div className="text-center">
-                <p className="font-black uppercase tracking-widest text-sm" style={{ color: 'var(--color-muted)' }}>
-                  SELECT A DOCK OR BOARD
-                </p>
-                <p className="text-xs font-bold mt-1" style={{ color: 'var(--color-muted)' }}>
-                  Use the sidebar or search to navigate
-                </p>
-              </div>
+            <div className="p-6 h-full">
+              <KanbanBoard boardId={selectedBoardId} searchQuery={searchQuery} />
             </div>
+          ) : selectedDockId ? (
+            <div className="p-6">
+              <DocksList
+                dockId={selectedDockId}
+                onSelectBoard={handleSelectBoard}
+                searchQuery={searchQuery}
+              />
+            </div>
+          ) : (
+            /* HOME SCREEN — always shown when nothing selected */
+            <HomeScreen
+              onSelectDock={handleSelectDock}
+              onSelectBoard={handleHomeSelectBoard}
+            />
           )}
         </main>
       </div>
