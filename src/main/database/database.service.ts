@@ -36,6 +36,15 @@ export class DatabaseService {
     // Create tables
     this.db.exec(schema)
 
+    // Migration for nested folders
+    try {
+      this.db.prepare('SELECT parentId FROM folders LIMIT 1').get()
+    } catch (e: any) {
+      if (e.message.includes('no such column')) {
+        this.db.exec('ALTER TABLE folders ADD COLUMN parentId TEXT REFERENCES folders(id) ON DELETE CASCADE')
+      }
+    }
+
     // Check if default settings exist
     const settings = this.db.prepare('SELECT * FROM settings WHERE key = ?').get('app_settings')
     if (!settings) {
