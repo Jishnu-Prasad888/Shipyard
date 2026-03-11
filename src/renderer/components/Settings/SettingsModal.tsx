@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import {
   X, Database, Moon, Sun, Key, RefreshCw, Upload,
-  Download, CheckCircle, XCircle, Loader, Wifi, WifiOff
+  Download, CheckCircle, XCircle, Loader, Wifi, WifiOff, Package
 } from 'lucide-react'
 import { FirebaseConfig } from './FirebaseConfig'
+import { ExportModal } from './ExportModal'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '../../store'
 import { setSettings } from '../../store/settingsSlice'
@@ -27,6 +28,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null)
   const [syncStatus, setSyncStatus] = useState<any>(null)
   const [saved, setSaved] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
 
   useEffect(() => {
     loadStatus()
@@ -119,6 +121,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   }
 
   const isLoading = op !== 'idle'
+
 
   const Toggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
     <div
@@ -363,6 +366,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
             </div>
           </div>
 
+          {/* ── DATA EXPORT ── */}
+          <div className="border-2" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}>
+            <div
+              className="flex items-center gap-2 px-4 py-3 border-b-2"
+              style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)' }}
+            >
+              <Package className="w-3.5 h-3.5" style={{ color: 'var(--color-muted)' }} />
+              <h3 className="font-black text-[10px] uppercase tracking-widest" style={{ color: 'var(--color-muted)' }}>Export Data</h3>
+            </div>
+            <div className="p-4">
+              <p className="text-xs font-bold mb-3" style={{ color: 'var(--color-muted)' }}>
+                Export your Ports, Docks, Ships, Manifests and Cargo to JSON, CSV, or Markdown.
+                The export wizard lets you pick exactly which items to include.
+              </p>
+              <button
+                onClick={() => setShowExportModal(true)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 border-2 font-black text-xs uppercase tracking-wider transition-all duration-100"
+                style={{
+                  borderColor: 'var(--color-primary)',
+                  color: 'var(--color-primary)',
+                  background: 'var(--color-primary)10',
+                  boxShadow: '2px 2px 0 var(--color-primary)'
+                }}
+                onMouseOver={e => { e.currentTarget.style.transform = 'translate(-1px,-1px)' }}
+                onMouseOut={e => { e.currentTarget.style.transform = '' }}
+              >
+                <Download className="w-4 h-4" />
+                Open Export Wizard
+              </button>
+            </div>
+          </div>
+
+
+
           {/* ── DATABASE INFO ── */}
           <div className="p-4 border-2" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}>
             <h3 className="font-black text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2" style={{ color: 'var(--color-muted)' }}>
@@ -402,6 +439,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
           </button>
         </div>
       </div>
+
+      {showExportModal && <ExportModal onClose={() => setShowExportModal(false)} />}
     </div>
   )
 }

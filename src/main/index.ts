@@ -1,6 +1,7 @@
-import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, Menu, dialog } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import fs from 'fs'
 import { DatabaseService } from './database/database.service.js'
 import { SyncService } from './database/sync.service.js'
 
@@ -153,5 +154,47 @@ ipcMain.handle('dark-mode:toggle', async (_event, enabled) => {
         ? `html { background: #0f0c1b; }`
         : `html { background: #f4f8fb; }`
     )
+  }
+})
+
+// ── IPC: Export — single file ──
+ipcMain.handle('export:saveFile', async (_event, { defaultName, content, ext }) => {
+  const filters: Record<string, { name: string; extensions: string[] }[]> = {
+    json: [{ name: 'JSON', extensions: ['json'] }],
+    csv:  [{ name: 'CSV',  extensions: ['csv']  }],
+    md:   [{ name: 'Markdown', extensions: ['md'] }]
+  }
+  const result = await dialog.showSaveDialog(mainWindow!, {
+    title: 'Export Shipyard Data',
+    defaultPath: `${defaultName}.${ext}`,
+    filters: filters[ext] || [{ name: 'All Files', extensions: ['*'] }]
+  })
+  if (result.canceled || !result.filePath) return { success: false }
+  try {
+    fs.writeFileSync(result.filePath, content, 'utf-8')
+    return { success: true, filePath: result.filePath }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+})
+
+// ── IPC: Export — multiple files (per-dock) ──
+ipcMain.handle('export:saveFolder', async (_event, files: { name: string; content: string; ext: string }[]) => {
+  const result = await dialog.showOpenDialog(mainWindow!, {
+    title: 'Choose Folder to Save Export Files',
+    properties: ['openDirectory', 'createDirectory']
+  })
+  if (result.canceled || !result.filePaths[0]) return { success: false }
+  const folder = result.filePaths[0]
+  const saved: string[] = []
+  try {
+    for (const file of files) {
+      const filePath = path.join(folder, `${file.name}.${file.ext}`)
+      fs.writeFileSync(filePath, file.content, 'utf-8')
+      saved.push(filePath)
+    }
+    return { success: true, folder, count: saved.length }
+  } catch (err: any) {
+    return { success: false, error: err.message }
   }
 })
