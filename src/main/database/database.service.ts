@@ -10,18 +10,21 @@ export class DatabaseService {
   private db: Database.Database
   private initialized = false
 
-  private constructor() {
-    const userDataPath = app.getPath('userData')
-    const dbPath = path.join(userDataPath, 'shipyard.db')
+ private constructor() {
+  const userDataPath = app.getPath('userData')
 
-    // Ensure the directory exists
-    if (!fs.existsSync(userDataPath)) {
-      fs.mkdirSync(userDataPath, { recursive: true })
-    }
+  // Use different DB files for dev and production
+  const dbFileName = app.isPackaged ? 'shipyard.db' : 'shipyard-dev.db'
+  const dbPath = path.join(userDataPath, dbFileName)
 
-    this.db = new Database(dbPath)
-    this.db.pragma('foreign_keys = ON')
+  // Ensure the directory exists
+  if (!fs.existsSync(userDataPath)) {
+    fs.mkdirSync(userDataPath, { recursive: true })
   }
+
+  this.db = new Database(dbPath)
+  this.db.pragma('foreign_keys = ON')
+}
 
   static getInstance(): DatabaseService {
     if (!DatabaseService.instance) {
