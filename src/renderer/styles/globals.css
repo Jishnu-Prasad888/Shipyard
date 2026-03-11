@@ -141,7 +141,7 @@
 
   body {
     @apply min-h-screen;
-    font-family: 'Poppins', 'Inter', system-ui, sans-serif;
+    font-family: var(--font-ui, 'Poppins', 'Inter', system-ui, sans-serif);
   }
 
   ::-webkit-scrollbar {

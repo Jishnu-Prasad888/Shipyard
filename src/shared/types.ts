@@ -99,4 +99,5 @@ export interface Settings {
   firebaseEnabled: boolean
   firebaseConfig?: FirebaseConfig
   syncEnabled: boolean
+  fontFamily?: string
 }
