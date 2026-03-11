@@ -28,5 +28,11 @@ contextBridge.exposeInMainWorld('electron', {
   },
   darkMode: {
     toggle: (enabled: boolean) => ipcRenderer.invoke('dark-mode:toggle', enabled)
+  },
+  export: {
+    saveFile: (opts: { defaultName: string; content: string; ext: string }) =>
+      ipcRenderer.invoke('export:saveFile', opts),
+    saveFolder: (files: { name: string; content: string; ext: string }[]) =>
+      ipcRenderer.invoke('export:saveFolder', files)
   }
 })
