@@ -1,6 +1,6 @@
 {
   "name": "shipyard",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Project Management made easy",
   "main": "./out/main/index.js",
   "author": "Jishnu",
