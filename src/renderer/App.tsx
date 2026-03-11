@@ -16,8 +16,11 @@ function App() {
   const [showSettings, setShowSettings] = useState(false)
   const [showCalendar, setShowCalendar] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [dataVersion, setDataVersion] = useState(0)
   const dispatch = useDispatch()
   const settings = useSelector((state: RootState) => state.settings)
+
+  const handleDataChange = () => setDataVersion(v => v + 1)
 
   useEffect(() => {
     window.electron.settings.get().then((loadedSettings) => {
@@ -103,6 +106,7 @@ function App() {
           searchQuery={searchQuery}
           onOpenCalendar={handleOpenCalendar}
           isCalendar={showCalendar}
+          onDataChange={handleDataChange}
         />
 
         <main
@@ -110,7 +114,7 @@ function App() {
           style={{ background: 'var(--color-background)' }}
         >
           {showCalendar ? (
-            <CalendarView />
+            <CalendarView dataVersion={dataVersion} />
           ) : selectedBoardId ? (
             <div className="p-6 h-full">
               <KanbanBoard boardId={selectedBoardId} searchQuery={searchQuery} />
@@ -128,6 +132,7 @@ function App() {
             <HomeScreen
               onSelectDock={handleSelectDock}
               onSelectBoard={handleHomeSelectBoard}
+              dataVersion={dataVersion}
             />
           )}
         </main>

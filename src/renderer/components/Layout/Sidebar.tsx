@@ -21,6 +21,7 @@ interface SidebarProps {
   onOpenCalendar: () => void
   isCalendar: boolean
   searchQuery?: string
+  onDataChange?: () => void
 }
 
 const COLORS = [
@@ -43,7 +44,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isHome,
   onOpenCalendar,
   isCalendar,
-  searchQuery = ''
+  searchQuery = '',
+  onDataChange
 }) => {
   const [docks, setDocks] = useState<any[]>([])
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
@@ -157,6 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       loadDocks()
       setShowCreateDock(false)
       setTargetParentId(null)
+      onDataChange?.()
 
       if (targetParentId && !expandedFolders.has(targetParentId)) {
         setExpandedFolders(prev => {
@@ -185,6 +188,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     await window.electron.db.update('docks', editingDock.id, update)
     loadDocks()
     setEditingDock(null)
+    onDataChange?.()
   }
 
   const handleDeleteDock = async (dockId: string) => {
@@ -198,6 +202,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       await window.electron.db.delete('docks', dockId)
       loadDocks()
       setContextMenu(null)
+      onDataChange?.()
     }
   }
 
@@ -212,6 +217,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       loadFolders()
       loadDocks()
       setContextMenu(null)
+      onDataChange?.()
     }
   }
 
@@ -231,6 +237,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     setShowCreateFolder(false)
     setNewFolderName('')
     setTargetParentId(null)
+    onDataChange?.()
 
     if (targetParentId && !expandedFolders.has(targetParentId)) {
       setExpandedFolders((prev) => {
@@ -251,6 +258,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       await window.electron.db.update('docks', dockId, { folderId })
       loadDocks()
+      onDataChange?.()
     }
   }
 

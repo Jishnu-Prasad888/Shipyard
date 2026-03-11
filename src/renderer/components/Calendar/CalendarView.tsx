@@ -153,13 +153,12 @@ const DayCell = ({
 
 // ── Main Calendar Component ──────────────────────────────────────────
 interface CalendarViewProps {
-  /** Reserved for future deep-link: clicking a chip could open the full card modal */
-  _reserved?: never
+  dataVersion?: number
 }
 
 type ViewMode = 'month' | 'week' | 'agenda'
 
-export const CalendarView: React.FC<CalendarViewProps> = () => {
+export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
   const today = useMemo(() => new Date(), [])
   const [viewDate, setViewDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
   const [viewMode, setViewMode] = useState<ViewMode>('month')
@@ -232,7 +231,7 @@ export const CalendarView: React.FC<CalendarViewProps> = () => {
       }
     }
     load()
-  }, [])
+  }, [dataVersion])
 
   // ── Map deadlines → dates ──────────────────────────────────────────
   const cardsByDate = useMemo(() => {

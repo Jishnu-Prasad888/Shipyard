@@ -8,13 +8,14 @@ import { CreateDockModal } from '../Docks/CreateDockModel'
 interface HomeScreenProps {
   onSelectDock: (dockId: string) => void
   onSelectBoard: (boardId: string) => void
+  dataVersion?: number
 }
 
 interface Port { id: string; name: string; color: string; parentId?: string | null }
 interface Dock { id: string; name: string; color: string; folderId?: string | null; description?: string; tags?: string; createdAt: number }
 interface BoardShip { id: string; name: string; dockId: string; color?: string; createdAt: number; description?: string }
 
-export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectDock, onSelectBoard }) => {
+export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectDock, onSelectBoard, dataVersion }) => {
   const [ports, setPorts] = useState<Port[]>([])
   const [docks, setDocks] = useState<Dock[]>([])
   const [ships, setShips] = useState<BoardShip[]>([])
@@ -33,7 +34,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectDock, onSelectBo
     setShips(boardData)
   }, [])
 
-  useEffect(() => { loadAll() }, [])
+  useEffect(() => { loadAll() }, [dataVersion])
 
   const handleCreateDock = async (dockData: any) => {
     await window.electron.db.create('docks', {
