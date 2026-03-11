@@ -1,6 +1,6 @@
    # ⚓ Shipyard
 
-   **Shipyard** is a premium, locally-first Kanban-style productivity application built with a distinctive maritime theme and a bold, neo-brutalist design language. It is designed for users who want a powerful, standalone desktop application to manage complex projects, notes, and tasks without relying on a cloud service by default, but with the option to sync when needed.
+   **Shipyard** is a premium, locally-first Kanban-style productivity application built with a distinctive maritime theme and a modern, glassmorphic design language. It is designed for users who want a powerful, standalone desktop application to manage complex projects, notes, and tasks without relying on a cloud service by default, but with the option to sync when needed.
 
    ---
 
@@ -18,8 +18,9 @@
    ## ✨ Key Features
 
    ### 🛠️ Core Kanban & Organization
-   *   **Drag-and-Drop:** Seamlessly drag Cargo between Ships, reorganize Ships within a Dock, or move Docks between Ports.
-   *   **Fleet Overview (Home):** A clear, Jira-style dashboard giving you a birds-eye view of your recently active Ships and a structured breakdown of all your Ports and Docks.
+*   **Rich Dock Customization:** Personalize your Docks (Boards) with custom descriptions, colors, and tags for better visual categorization.
+*   **Drag-and-Drop:** Seamlessly drag Cargo between Ships, reorganize Ships within a Dock, or move Docks between Ports.
+*   **Fleet Overview (Home):** A clear, Jira-style dashboard giving you a birds-eye view of your recently active Ships and a structured breakdown of all your Ports and Docks.
    *   **Voyage Calendar:** A dedicated calendar view (Month, Week, and Agenda) that aggregates all Cargo deadlines across your entire fleet, complete with color-coded overdue and "due soon" indicators.
    *   **Global Search:** A powerful omnipresent search bar in the header to instantly locate any Port, Dock, or Ship across your entire workspace.
    *   **Infinite Nesting:** Break tasks down infinitely with sub-tasks inside your Cargo cards, complete with visual progress bars.
@@ -32,13 +33,17 @@
    *   **Task Lists:** Create interactive `- [ ]` checkboxes directly within your notes.
    *   **Edit / Preview Modes:** Switch between a raw writing experience and a beautiful, read-only rendered view.
 
-   ### 🎨 Neo-Brutalist Maritime Design
-   The UI utilizes a striking, custom Neo-Brutalist design system defined by hard shadows, thick borders, and a carefully curated maritime color palette:
-   *   **Deep Harbor Blue (`#0B2545`):** Grounding the sidebar and structural elements.
-   *   **Port Blue (`#1F5F8B`):** Framing the header and structural borders.
-   *   **Soft Ocean (`#E8F3FA`):** A calming background for your active boards.
-   *   **Bright Marine (`#2D82B7`):** Punchy, primary action buttons.
-   *   **Light / Dark Themes:** Full support for both bright daylight sailing and deep night harbor modes.
+   ### 🎨 Premium Glassmorphic Maritime Design
+The UI utilizes a striking, modern aesthetic defined by glassmorphism effects, refined visual hierarchy, and a carefully curated maritime color palette:
+*   **Deep Harbor Blue (`#0B2545`):** Grounding the sidebar and structural elements.
+*   **Port Blue (`#1F5F8B`):** Framing the header and structural borders.
+*   **Soft Ocean (`#E8F3FA`):** A calming background for your active boards.
+*   **Glassmorphic Elements:** Elegant, semi-transparent layers for a clean, sophisticated look.
+*   **Light / Dark Themes:** Full support for both bright daylight sailing and deep night harbor modes.
+
+### ⚙️ Advanced Customization
+*   **System Font Picker:** Personalize your workspace with a built-in font picker. It uses canvas fingerprinting to detect available system fonts, providing a searchable, sortable list with live previews, and applies your choice globally.
+*   **Sample Data Generation:** Instantly populate your workspace with comprehensive sample data (ports, docks, ships, cargo with markdown, deadlines, subtasks, etc.) to fully explore and test the application's capabilities.
 
    ### 💾 Local-First & Optional Cloud Sync
    *   **SQLite Powered:** Your data is entirely yours. Shipyard stores everything locally on your machine using an embedded SQLite database, ensuring lightning-fast performance and total offline capability.
@@ -53,7 +58,7 @@
    Shipyard is built using a modern desktop stack:
    *   **Core:** Electron (Cross-platform desktop framework)
    *   **Frontend:** React 18, TypeScript, Vite
-   *   **Styling:** TailwindCSS v4 with a custom Neo-Brutalist CSS configuration
+   *   **Styling:** TailwindCSS v4 with a custom Glassmorphic CSS configuration
    *   **State Management:** Redux Toolkit
    *   **Database:** `better-sqlite3` (Local Main Process)
    *   **Sync:** Firebase Firestore Web SDK
