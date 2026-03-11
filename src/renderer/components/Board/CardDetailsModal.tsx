@@ -184,11 +184,30 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
         : card.connectedCardIds || []
 
     if (ids.length > 0) {
+      // Resolve the current card's dock
+      const currentBoard = await window.electron.db.findById('boards', card.boardId)
+      const dockId = currentBoard?.dockId
+      const allBoards = await window.electron.db.findAll('boards')
+      const boardMap: Record<string, string> = {}
+      allBoards.forEach((b: any) => { boardMap[b.id] = b.name })
+
       const details = await Promise.all(
         ids.map((id: string) => window.electron.db.findById('cards', id))
       )
-      // Only show cards that belong to the same board
-      const filtered = details.filter((d: any) => d && d.boardId === card.boardId)
+
+      let filtered = details.filter((d: any) => d != null)
+
+      if (dockId) {
+        const dockBoardIds = new Set(
+          allBoards.filter((b: any) => b.dockId === dockId).map((b: any) => b.id)
+        )
+        filtered = filtered.filter((d: any) => dockBoardIds.has(d.boardId))
+      } else {
+        filtered = filtered.filter((d: any) => d.boardId === card.boardId)
+      }
+
+      // Attach board name for display
+      filtered = filtered.map((d: any) => ({ ...d, _boardName: boardMap[d.boardId] || '' }))
       setConnectedCardDetails(filtered)
     }
   }
@@ -273,16 +292,41 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
     }
   }
 
-  // Card linking - only within the same board (dock)
+  // Card linking - only within the same dock
   const handleOpenLinkSearch = async () => {
-    const cards = await window.electron.db.findAll('cards')
-    // Filter: same board, not current card, not already connected
-    const filtered = cards.filter(
-      (c: any) =>
-        c.boardId === card.boardId &&
-        c.id !== card.id &&
-        !connectedCardIds.includes(c.id)
-    )
+    // Step 1: find the dock this card's board belongs to
+    const currentBoard = await window.electron.db.findById('boards', card.boardId)
+    const dockId = currentBoard?.dockId
+
+    const allCards = await window.electron.db.findAll('cards')
+    const allBoards = await window.electron.db.findAll('boards')
+    const boardMap: Record<string, string> = {}
+    allBoards.forEach((b: any) => { boardMap[b.id] = b.name })
+
+    let filtered: any[]
+
+    if (dockId) {
+      const dockBoardIds = new Set(
+        allBoards.filter((b: any) => b.dockId === dockId).map((b: any) => b.id)
+      )
+      filtered = allCards.filter(
+        (c: any) =>
+          dockBoardIds.has(c.boardId) &&
+          c.id !== card.id &&
+          !connectedCardIds.includes(c.id)
+      )
+    } else {
+      filtered = allCards.filter(
+        (c: any) =>
+          c.boardId === card.boardId &&
+          c.id !== card.id &&
+          !connectedCardIds.includes(c.id)
+      )
+    }
+
+    // Attach board name for display
+    filtered = filtered.map((c: any) => ({ ...c, _boardName: boardMap[c.boardId] || '' }))
+
     setAllCards(filtered)
     setShowLinkSearch(true)
   }
@@ -601,9 +645,16 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
                           key={connCard.id}
                           className="flex items-center justify-between p-2 rounded-lg border border-border hover:border-primary/50 transition"
                         >
-                          <div className="flex items-center gap-2">
-                            <Link2 className="w-3.5 h-3.5 text-primary" />
-                            <span className="text-sm truncate max-w-[140px]">{connCard.title}</span>
+                          <div className="flex items-center gap-2 min-w-0">
+                            <Link2 className="w-3.5 h-3.5 text-primary shrink-0" />
+                            <div className="min-w-0">
+                              <span className="text-sm truncate block max-w-[140px]">{connCard.title}</span>
+                              {connCard.boardId !== card.boardId && (
+                                <span className="text-[10px] text-muted font-bold uppercase tracking-wider">
+                                  {connCard._boardName || 'Other board'}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <button
                             onClick={() => handleUnlinkCard(connCard.id)}
@@ -635,9 +686,12 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
                             <button
                               key={c.id}
                               onClick={() => handleLinkCard(c.id)}
-                              className="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-primary-soft transition truncate"
+                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary-soft transition"
                             >
-                              {c.title}
+                              <p className="text-sm truncate">{c.title}</p>
+                              {c.boardId !== card.boardId && c._boardName && (
+                                <p className="text-[10px] text-muted font-bold uppercase tracking-wider">{c._boardName}</p>
+                              )}
                             </button>
                           ))
                         ) : (
