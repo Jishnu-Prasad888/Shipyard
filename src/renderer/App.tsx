@@ -29,6 +29,9 @@ function App() {
         document.documentElement.classList.add('dark')
         window.electron.darkMode.toggle(true)
       }
+      if (loadedSettings.fontFamily) {
+        document.documentElement.style.setProperty('--font-ui', `'${loadedSettings.fontFamily}', system-ui, sans-serif`)
+      }
     })
   }, [])
 

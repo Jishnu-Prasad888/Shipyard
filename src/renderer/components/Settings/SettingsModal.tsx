@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useMemo } from 'react'
 import {
   X, Database, Moon, Sun, Key, RefreshCw, Upload,
-  Download, CheckCircle, XCircle, Loader, Wifi, WifiOff, Package
+  Download, CheckCircle, XCircle, Loader, Wifi, WifiOff, Package, Type
 } from 'lucide-react'
 import { FirebaseConfig } from './FirebaseConfig'
 import { ExportModal } from './ExportModal'
@@ -30,9 +30,76 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const [saved, setSaved] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
 
+  // ── Font state ──
+  const [fontFamily, setFontFamily] = useState<string>(settings.fontFamily || '')
+  const [fontSearch, setFontSearch] = useState('')
+  const [availableFonts, setAvailableFonts] = useState<string[]>([])
+  const [fontsDetected, setFontsDetected] = useState(false)
+  const fontListRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
     loadStatus()
+    detectFonts()
   }, [])
+
+  // ── System font detection via canvas ──
+  const CANDIDATE_FONTS = [
+    // Windows
+    'Arial', 'Arial Black', 'Bahnschrift', 'Calibri', 'Cambria', 'Cambria Math',
+    'Candara', 'Comic Sans MS', 'Consolas', 'Constantia', 'Corbel', 'Courier New',
+    'Ebrima', 'Franklin Gothic Medium', 'Gabriola', 'Gadugi', 'Georgia',
+    'Impact', 'Ink Free', 'Lucida Console', 'Lucida Sans Unicode',
+    'Malgun Gothic', 'Microsoft Sans Serif', 'Palatino Linotype',
+    'Segoe Print', 'Segoe Script', 'Segoe UI', 'Segoe UI Historic',
+    'Sitka', 'Sylfaen', 'Tahoma', 'Times New Roman', 'Trebuchet MS', 'Verdana',
+    'Yu Gothic', 'Cascadia Code', 'Cascadia Mono',
+    // macOS
+    'American Typewriter', 'Andale Mono', 'Arial Narrow', 'Avenir', 'Avenir Next',
+    'Baskerville', 'Big Caslon', 'Bradley Hand', 'Brush Script MT',
+    'Chalkboard SE', 'Chalkduster', 'Charter', 'Cochin', 'Copperplate',
+    'Courier', 'Didot', 'Futura', 'Geneva', 'Gill Sans', 'Helvetica',
+    'Helvetica Neue', 'Herculanum', 'Hoefler Text', 'Impact', 'Iowan Old Style',
+    'Kefa', 'Lucida Grande', 'Luminari', 'Marker Felt', 'Menlo', 'Monaco',
+    'Noteworthy', 'Optima', 'Palatino', 'Papyrus', 'Phosphate',
+    'PT Mono', 'PT Sans', 'PT Serif', 'Rockwell', 'Savoye LET',
+    'SignPainter', 'Skia', 'Snell Roundhand', 'Superclarendon', 'Thonburi',
+    'Times', 'Trattatello', 'Zapfino',
+    // Linux
+    'Ubuntu', 'Ubuntu Mono', 'Ubuntu Condensed', 'Noto Sans', 'Noto Serif',
+    'Noto Mono', 'DejaVu Sans', 'DejaVu Serif', 'DejaVu Sans Mono',
+    'Liberation Sans', 'Liberation Serif', 'Liberation Mono',
+    'Cantarell', 'Droid Sans', 'Droid Serif', 'Droid Sans Mono',
+    // Common Google / Popular fonts
+    'Inter', 'Poppins', 'Raleway', 'Montserrat', 'Open Sans', 'Roboto',
+    'Lato', 'Oswald', 'Source Sans Pro', 'Source Code Pro', 'Noto Sans',
+    'Merriweather', 'Playfair Display', 'Nunito', 'Fira Code', 'Fira Sans',
+    'JetBrains Mono', 'IBM Plex Mono', 'IBM Plex Sans', 'IBM Plex Serif',
+    'Inconsolata', 'Hack', 'Iosevka', 'Roboto Mono', 'Space Mono',
+    'Overpass', 'Overpass Mono', 'Anonymous Pro'
+  ]
+
+  const detectFonts = () => {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    const test = 'mmmmmmmmmmlli'
+    const size = '72px'
+    const bases = ['monospace', 'sans-serif', 'serif']
+    const baseWidth: Record<string, number> = {}
+    for (const base of bases) {
+      ctx.font = `${size} ${base}`
+      baseWidth[base] = ctx.measureText(test).width
+    }
+    const found = [...new Set(CANDIDATE_FONTS)].filter(font => {
+      for (const base of bases) {
+        ctx.font = `${size} '${font}', ${base}`
+        if (ctx.measureText(test).width !== baseWidth[base]) return true
+      }
+      return false
+    })
+    setAvailableFonts(found.sort((a, b) => a.localeCompare(b)))
+    setFontsDetected(true)
+  }
 
   const loadStatus = async () => {
     try {
@@ -49,9 +116,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const handleSave = async () => {
     setOp('saving')
     try {
-      const updatedSettings = { theme, firebaseEnabled, syncEnabled, firebaseConfig }
+      const updatedSettings = { theme, firebaseEnabled, syncEnabled, firebaseConfig, fontFamily: fontFamily || undefined }
       const result = await window.electron.settings.save(updatedSettings)
-      dispatch(setSettings({ theme, firebaseEnabled, syncEnabled, firebaseConfig }))
+      dispatch(setSettings({ theme, firebaseEnabled, syncEnabled, firebaseConfig, fontFamily: fontFamily || undefined }))
 
       if (theme === 'dark') {
         document.documentElement.classList.add('dark')
@@ -61,6 +128,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         window.electron.darkMode.toggle(false)
       }
 
+      // Apply font immediately
+      if (fontFamily) {
+        document.documentElement.style.setProperty('--font-ui', `'${fontFamily}', system-ui, sans-serif`)
+      } else {
+        document.documentElement.style.removeProperty('--font-ui')
+      }
       // If settings:save returned an _initResult, show it
       if (result?._initResult) {
         showFeedback(result._initResult.success, result._initResult.message)
@@ -122,6 +195,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
   const isLoading = op !== 'idle'
 
+  // ── Filtered font list (must be at top level — no hooks inside JSX) ──
+  const filteredFonts = useMemo(
+    () => availableFonts.filter(f => f.toLowerCase().includes(fontSearch.toLowerCase())),
+    [availableFonts, fontSearch]
+  )
 
   const Toggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
     <div
@@ -200,7 +278,105 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
             </div>
           </div>
 
-          {/* ── FIREBASE SYNC ── */}
+          {/* ── TYPOGRAPHY ── */}
+          <div className="p-4 border-2" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}>
+            <h3 className="font-black text-[10px] uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: 'var(--color-muted)' }}>
+              <Type className="w-3.5 h-3.5" />
+              Typography
+            </h3>
+
+            {!fontsDetected ? (
+              <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--color-muted)' }}>
+                <Loader className="w-3.5 h-3.5 animate-spin" /> Scanning system fonts…
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Current font preview */}
+                <div
+                  className="px-3 py-2 border-2 text-center"
+                  style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)' }}
+                >
+                  <p className="text-[10px] font-black uppercase tracking-widest mb-1" style={{ color: 'var(--color-muted)' }}>Preview</p>
+                  <p
+                    className="text-base"
+                    style={{
+                      fontFamily: fontFamily ? `'${fontFamily}', system-ui` : 'inherit',
+                      color: 'var(--color-text)'
+                    }}
+                  >
+                    The quick brown fox jumps over the lazy dog.
+                  </p>
+                  <p className="text-[9px] font-black uppercase tracking-widest mt-0.5" style={{ color: 'var(--color-muted)' }}>
+                    {fontFamily || 'Default (Poppins / Inter / system-ui)'}
+                  </p>
+                </div>
+
+                {/* Search */}
+                <input
+                  type="text"
+                  value={fontSearch}
+                  onChange={e => setFontSearch(e.target.value)}
+                  placeholder={`Search ${availableFonts.length} system fonts…`}
+                  className="w-full px-3 py-2 border-2 text-xs font-bold outline-none"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    background: 'var(--color-background)',
+                    color: 'var(--color-text)'
+                  }}
+                />
+
+                {/* Font list */}
+                <div
+                  ref={fontListRef}
+                  className="border-2 overflow-auto"
+                  style={{ borderColor: 'var(--color-border)', maxHeight: '200px' }}
+                >
+                  {/* Reset to default option */}
+                  <button
+                    onClick={() => setFontFamily('')}
+                    className="w-full text-left px-3 py-2 border-b flex items-center justify-between transition-all"
+                    style={{
+                      borderColor: 'var(--color-border)',
+                      background: fontFamily === '' ? 'var(--color-primary)' : 'transparent',
+                      color: fontFamily === '' ? 'white' : 'var(--color-muted)'
+                    }}
+                  >
+                    <span className="text-xs font-black uppercase tracking-widest">Default (System)</span>
+                    {fontFamily === '' && <CheckCircle className="w-3.5 h-3.5 shrink-0" />}
+                  </button>
+
+                  {/* Filtered & sorted font list */}
+                  {filteredFonts.map(font => (
+                    <button
+                      key={font}
+                      onClick={() => setFontFamily(font)}
+                      className="w-full text-left px-3 py-2 border-b flex items-center justify-between group transition-all"
+                      style={{
+                        borderColor: 'var(--color-border)',
+                        background: fontFamily === font ? 'var(--color-primary)' : 'transparent',
+                        color: fontFamily === font ? 'white' : 'var(--color-text)'
+                      }}
+                      onMouseOver={e => { if (fontFamily !== font) e.currentTarget.style.background = 'var(--color-primary-soft)' }}
+                      onMouseOut={e => { if (fontFamily !== font) e.currentTarget.style.background = 'transparent' }}
+                    >
+                      <span style={{ fontFamily: `'${font}', system-ui`, fontSize: '14px' }}>{font}</span>
+                      {fontFamily === font && <CheckCircle className="w-3.5 h-3.5 shrink-0" style={{ color: 'white' }} />}
+                    </button>
+                  ))}
+
+                  {filteredFonts.length === 0 && (
+                    <p className="text-center text-xs py-4" style={{ color: 'var(--color-muted)' }}>No fonts match "{fontSearch}"</p>
+                  )}
+
+                </div>
+                <p className="text-[9px] font-bold" style={{ color: 'var(--color-muted)' }}>
+                  {availableFonts.length} fonts detected on your system · Click Save Settings to apply
+                </p>
+              </div>
+            )}
+          </div>
+
+
           <div className="border-2" style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}>
             {/* Firebase header */}
             <div
