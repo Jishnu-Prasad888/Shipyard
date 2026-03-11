@@ -49,9 +49,11 @@ const StatusModal: React.FC<StatusModalProps> = ({ onClose, onCreate }) => {
     <div
       className="fixed inset-0 flex items-center justify-center z-[60]"
       style={{ background: 'rgba(0,0,0,0.6)' }}
+      onClick={onClose}
     >
       <div
         className="w-80 animate-brutal-in"
+        onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--color-surface)',
           border: '3px solid var(--color-border-strong)',
@@ -349,8 +351,8 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="w-full max-w-4xl max-h-[90vh] surface rounded-xl flex flex-col">
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
+        <div className="w-full max-w-4xl max-h-[90vh] surface rounded-xl flex flex-col" onClick={(e) => e.stopPropagation()}>
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border">
             <input

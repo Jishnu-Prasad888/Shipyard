@@ -624,8 +624,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       {showCreateFolder && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="w-full max-w-sm surface animate-brutal-in">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowCreateFolder(false)}>
+          <div className="w-full max-w-sm surface animate-brutal-in" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
             <div
               className="flex items-center justify-between px-5 py-3 border-b-3"
