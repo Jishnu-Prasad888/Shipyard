@@ -593,18 +593,18 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
                     Tags
                   </h4>
                   <div className="space-y-2">
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 overflow-hidden">
                       <input
                         type="text"
                         value={newTagName}
                         onChange={(e) => setNewTagName(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
-                        className="flex-1 px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:border-primary text-sm"
+                        className="flex-1 min-w-0 px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:border-primary text-sm"
                         placeholder="New tag..."
                       />
                       <button
                         onClick={handleAddTag}
-                        className="px-3 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition"
+                        className="shrink-0 px-3 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition"
                       >
                         <Plus className="w-4 h-4" />
                       </button>
