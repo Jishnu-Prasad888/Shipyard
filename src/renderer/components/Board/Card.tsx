@@ -78,7 +78,14 @@ export const Card: React.FC<CardProps> = ({ card, listId, onUpdate }) => {
         )}
 
         {/* Title */}
-        <h4 className="font-black text-sm leading-tight" style={{ color: 'var(--color-text)' }}>
+        <h4
+          className="font-black text-sm leading-tight"
+          style={{
+            color: 'var(--color-text)',
+            textDecoration: status?.name === 'Completed' ? 'line-through' : 'none',
+            opacity: status?.name === 'Completed' ? 0.65 : 1
+          }}
+        >
           {card.title}
         </h4>
 
