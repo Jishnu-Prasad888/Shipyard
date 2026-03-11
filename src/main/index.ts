@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { DatabaseService } from './database/database.service.js'
@@ -16,6 +16,7 @@ async function createWindow() {
     height: 900,
     minWidth: 1000,
     minHeight: 600,
+    icon: path.join(__dirname, "logo.png"),   
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -25,7 +26,7 @@ async function createWindow() {
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#E8F3FA'
   })
-
+  Menu.setApplicationMenu(null)
   // Initialize database
   databaseService = DatabaseService.getInstance()
   await databaseService.initialize()
@@ -55,7 +56,7 @@ async function createWindow() {
     mainWindow.loadURL('http://localhost:5173')
     mainWindow.webContents.openDevTools()
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+    mainWindow.loadFile(path.join(__dirname, '../../dist/renderer/index.html'))
   }
 
   mainWindow.on('closed', () => {

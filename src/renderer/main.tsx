@@ -21,10 +21,13 @@ declare global {
         get: () => Promise<any>
         save: (settings: any) => Promise<any>
       }
-      sync: {
-        start: () => Promise<any>
-        status: () => Promise<any>
-      }
+     sync: {
+  start: () => Promise<any>
+  status: () => Promise<any>
+  test: () => Promise<any>
+  push: () => Promise<any>
+  pull: () => Promise<any>
+}
       darkMode: {
         toggle: (enabled: boolean) => Promise<void>
       }

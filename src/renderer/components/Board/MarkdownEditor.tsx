@@ -195,7 +195,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   // Sync external value (e.g. initial load from DB)
   useEffect(() => {
     if (editor && value !== editor.getHTML()) {
-      editor.commands.setContent(value || '', false)
+      editor.commands.setContent(value || '', { emitUpdate: false })
     }
   }, [value, editor])
 

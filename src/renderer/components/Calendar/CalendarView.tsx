@@ -62,7 +62,7 @@ const CardChip = ({
   const soon = isDueSoon(card.deadline)
 
   let chipColor = card.color || 'var(--color-primary)'
-  let urgencyIcon = null
+  let urgencyIcon: React.ReactNode = null
   if (over) {
     chipColor = '#D97B66'
     urgencyIcon = <AlertCircle className="w-3 h-3 shrink-0" />
