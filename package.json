@@ -110,7 +110,8 @@
       "target": "nsis"
     },
     "linux": {
-      "target": "AppImage"
+      "target": "AppImage",
+      "category":"productivity"
     }
   }
 }
