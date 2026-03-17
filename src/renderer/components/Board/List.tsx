@@ -81,13 +81,36 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
 
   const handleDeleteList = async () => {
     setContextMenu(null)
-    if (confirm('Delete this list? All cards inside will be removed.')) {
-      for (const card of list.cards || []) {
-        await window.electron.db.delete('cards', card.id)
-      }
-      await window.electron.db.delete('lists', list.id)
-      onCardsChange()
+    // Snapshot for undo
+    const listSnapshot = { ...list }
+    const cardSnapshots = [...(list.cards || [])]
+    const allSubCards = await window.electron.db.findAll('subcards')
+    const subCardSnapshots = allSubCards.filter((sc: any) =>
+      cardSnapshots.some((c: any) => c.id === sc.cardId)
+    )
+
+    // Delete immediately
+    for (const card of cardSnapshots) {
+      await window.electron.db.delete('cards', card.id)
     }
+    await window.electron.db.delete('lists', list.id)
+    onCardsChange()
+
+    window.dispatchEvent(new CustomEvent('show-toast', {
+      detail: {
+        message: `Manifest "${list.name}" deleted`,
+        onUndo: async () => {
+          await window.electron.db.create('lists', { id: listSnapshot.id, name: listSnapshot.name, boardId: listSnapshot.boardId, order: listSnapshot.order, createdAt: listSnapshot.createdAt })
+          for (const card of cardSnapshots) {
+            await window.electron.db.create('cards', card)
+          }
+          for (const sc of subCardSnapshots) {
+            await window.electron.db.create('subcards', sc)
+          }
+          onCardsChange()
+        }
+      }
+    }))
   }
 
   const handleCreateCard = async (cardData: any) => {

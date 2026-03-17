@@ -7,6 +7,7 @@ import { KanbanBoard } from './components/Board/KanbanBoard'
 import { SettingsModal } from './components/Settings/SettingsModal'
 import { HomeScreen } from './components/Home/HomeScreen'
 import { CalendarView } from './components/Calendar/CalendarView'
+import { Toast } from './components/common/Toast'
 import { RootState } from './store'
 import { setSettings } from './store/settingsSlice'
 
@@ -17,10 +18,19 @@ function App() {
   const [showCalendar, setShowCalendar] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [dataVersion, setDataVersion] = useState(0)
+  const [toast, setToast] = useState<{ message: string; onUndo?: () => void } | null>(null)
   const dispatch = useDispatch()
   const settings = useSelector((state: RootState) => state.settings)
 
   const handleDataChange = () => setDataVersion(v => v + 1)
+
+  useEffect(() => {
+    const handleShowToast = (e: any) => {
+      setToast({ message: e.detail.message, onUndo: e.detail.onUndo })
+    }
+    window.addEventListener('show-toast', handleShowToast)
+    return () => window.removeEventListener('show-toast', handleShowToast)
+  }, [])
 
   useEffect(() => {
     window.electron.settings.get().then((loadedSettings) => {
@@ -142,6 +152,14 @@ function App() {
       </div>
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+      
+      {toast && (
+        <Toast
+          message={toast.message}
+          onUndo={toast.onUndo}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }

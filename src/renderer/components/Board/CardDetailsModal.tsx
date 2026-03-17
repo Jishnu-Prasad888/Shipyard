@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { X, Calendar, Tag, CheckSquare, Link2, Plus, Trash2, Search } from 'lucide-react'
+import { X, Calendar, Tag, CheckSquare, Link2, Plus, Trash2, Search, RotateCcw } from 'lucide-react'
 import { MarkdownEditor } from './MarkdownEditor'
 import { SubCard } from './SubCard'
 
@@ -160,6 +160,17 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
   // Refs for autosave
   const lastSavedSubCards = useRef<any[]>(card.subCards || [])
   const isInitialRender = useRef(true)
+  const initialState = useRef({
+    title: card.title,
+    description: card.description || '',
+    deadlineStr: card.deadline ? new Date(card.deadline).toISOString().split('T')[0] : '',
+    status: typeof card.status === 'string' && card.status.startsWith('{') ? JSON.parse(card.status) : card.status || null,
+    color: card.color || '',
+    tags: typeof card.tags === 'string' ? JSON.parse(card.tags || '[]') : card.tags || [],
+    subCards: card.subCards || [],
+    notes: card.notes || '',
+    connectedCardIds: typeof card.connectedCardIds === 'string' ? JSON.parse(card.connectedCardIds || '[]') : card.connectedCardIds || []
+  })
 
   // Card linking state
   const [connectedCardIds, setConnectedCardIds] = useState<string[]>(
@@ -319,6 +330,64 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
 
   const handleSave = () => syncToDb(true)
 
+  const handleUndoChanges = async () => {
+    const s = initialState.current
+    
+    // Revert state
+    setTitle(s.title)
+    setDescription(s.description)
+    setDeadlineStr(s.deadlineStr)
+    setStatus(s.status)
+    setColor(s.color)
+    setTags(s.tags)
+    setSubCards(s.subCards)
+    setNotes(s.notes)
+    setConnectedCardIds(s.connectedCardIds)
+
+    // Revert DB (Silently sync the initial state back)
+    const revertedCard = {
+      ...card,
+      title: s.title,
+      description: s.description,
+      deadline: s.deadlineStr ? new Date(s.deadlineStr).getTime() : null,
+      status: s.status ? JSON.stringify(s.status) : null,
+      color: s.color,
+      tags: JSON.stringify(s.tags),
+      notes: s.notes,
+      connectedCardIds: JSON.stringify(s.connectedCardIds),
+      updatedAt: Date.now()
+    }
+    delete revertedCard.subCards
+
+    // Revert subcards in DB
+    const currentSubCards = subCards
+    // Delete ones that didn't exist originally
+    for (const sc of currentSubCards) {
+      if (!s.subCards.find((orig: any) => orig.id === sc.id)) {
+        await window.electron.db.delete('subcards', sc.id)
+      }
+    }
+    // Re-create/Update ones that did exist
+    for (const orig of s.subCards) {
+      const match = currentSubCards.find((sc: any) => sc.id === orig.id)
+      if (!match) {
+        // Was deleted, re-create
+        await window.electron.db.create('subcards', orig)
+      } else if (match.completed !== orig.completed || match.title !== orig.title) {
+        // Was changed, update back
+        await window.electron.db.update('subcards', orig.id, {
+          title: orig.title,
+          completed: orig.completed ? 1 : 0
+        })
+      }
+    }
+
+    await window.electron.db.update('cards', card.id, revertedCard)
+    lastSavedSubCards.current = s.subCards
+    onUpdate()
+    onClose()
+  }
+
   const handleAddTag = () => {
     if (newTagName.trim()) {
       const newTag = {
@@ -385,11 +454,29 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
   }
 
   const handleDeleteCard = async () => {
-    if (confirm('Are you sure you want to delete this card?')) {
-      await window.electron.db.delete('cards', card.id)
-      onUpdate()
-      onClose()
-    }
+    // Capture state for undo
+    const cardSnapshot = await window.electron.db.findById('cards', card.id)
+    const allSubCards = await window.electron.db.findAll('subcards')
+    const cardSubCards = allSubCards.filter((sc: any) => sc.cardId === card.id)
+
+    await window.electron.db.delete('cards', card.id)
+    
+    // Trigger toast via custom event
+    window.dispatchEvent(new CustomEvent('show-toast', {
+      detail: {
+        message: `Card "${title}" deleted`,
+        onUndo: async () => {
+          await window.electron.db.create('cards', cardSnapshot)
+          for (const sc of cardSubCards) {
+            await window.electron.db.create('subcards', sc)
+          }
+          onUpdate()
+        }
+      }
+    }))
+
+    onUpdate()
+    onClose()
   }
 
   // Card linking - only within the same dock
@@ -867,10 +954,11 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
             </span>
             <div className="flex gap-2">
               <button
-                onClick={onClose}
-                className="px-4 py-2 border border-border rounded-lg hover:bg-primary-soft transition"
+                onClick={handleUndoChanges}
+                className="px-4 py-2 border border-border rounded-lg hover:bg-primary-soft transition flex items-center gap-2"
               >
-                Close
+                <RotateCcw className="w-4 h-4" />
+                Undo Changes
               </button>
               <button
                 onClick={handleSave}
