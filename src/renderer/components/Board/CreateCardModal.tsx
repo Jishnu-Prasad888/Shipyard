@@ -93,13 +93,23 @@ export const CreateCardModal: React.FC<CreateCardModalProps> = ({ onClose, onCre
           {/* Title */}
           <div>
             <label className="block text-xs font-black uppercase tracking-wider mb-1">Title *</label>
-            <input
-              type="text"
+            <textarea
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 border-2 text-sm font-bold focus:outline-none"
+              className="w-full px-3 py-2 border-2 text-sm font-bold focus:outline-none resize-none overflow-hidden break-words whitespace-pre-wrap"
               style={inputStyle}
               placeholder="Card title"
+              rows={1}
+              onInput={(e) => {
+                e.currentTarget.style.height = 'auto'
+                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'
+              }}
+              ref={(el) => {
+                if (el) {
+                  el.style.height = 'auto'
+                  el.style.height = el.scrollHeight + 'px'
+                }
+              }}
               autoFocus
             />
           </div>

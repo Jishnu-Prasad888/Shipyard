@@ -25,7 +25,7 @@ export const SubCard: React.FC<SubCardProps> = ({ subCard, onToggle, onDelete })
         {subCard.completed ? <CheckCircle className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
       </button>
 
-      <span className={`flex-1 text-sm ${subCard.completed ? 'line-through text-muted' : ''}`}>
+      <span className={`flex-1 text-sm break-words whitespace-pre-wrap ${subCard.completed ? 'line-through text-muted' : ''}`}>
         {subCard.title}
       </span>
 

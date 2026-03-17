@@ -92,7 +92,7 @@ const CardChip = ({
       }}
     >
       {urgencyIcon}
-      <span className="flex-1 truncate font-black">{card.title}</span>
+      <span className="flex-1 break-words whitespace-pre-wrap font-black leading-tight">{card.title}</span>
       <StatusPill card={card} />
       <span className="text-[8px] shrink-0 opacity-60 group-hover:opacity-100">
         {card._boardName}
@@ -437,7 +437,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
                     <div className="w-2.5 h-2.5 border border-black/20 shrink-0 rounded-full" style={{ background: c.color || 'var(--color-primary)' }} />
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black truncate" style={{ color: 'var(--color-text)' }}>{c.title}</p>
+                      <p className="text-xs font-black break-words whitespace-pre-wrap leading-tight" style={{ color: 'var(--color-text)' }}>{c.title}</p>
                       <p className="text-[9px] font-bold" style={{ color: 'var(--color-muted)' }}>
                         {c._dockName && <><Ship className="w-2.5 h-2.5 inline mr-0.5" />{c._dockName} · </>}
                         <LayoutGrid className="w-2.5 h-2.5 inline mr-0.5" />{c._boardName}

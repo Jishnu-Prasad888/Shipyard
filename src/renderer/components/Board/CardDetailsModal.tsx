@@ -586,12 +586,22 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
         <div className="w-full max-w-4xl max-h-[90vh] surface rounded-xl flex flex-col" onClick={(e) => e.stopPropagation()}>
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border">
-            <input
-              type="text"
+            <textarea
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="text-xl font-bold bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-primary rounded px-2 flex-1"
+              className="text-xl font-bold bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-primary rounded px-2 flex-1 resize-none overflow-hidden break-words whitespace-pre-wrap leading-tight py-2"
+              rows={1}
               placeholder="Card title"
+              onInput={(e) => {
+                e.currentTarget.style.height = 'auto'
+                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'
+              }}
+              ref={(el) => {
+                if (el) {
+                  el.style.height = 'auto'
+                  el.style.height = el.scrollHeight + 'px'
+                }
+              }}
               style={
                 currentStatus?.id === '__completed__'
                   ? { textDecoration: 'line-through', opacity: 0.7 }
@@ -874,7 +884,7 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
                           <div className="flex items-center gap-2 min-w-0">
                             <Link2 className="w-3.5 h-3.5 text-primary shrink-0" />
                             <div className="min-w-0">
-                              <span className="text-sm truncate block max-w-[140px]">{connCard.title}</span>
+                              <span className="text-sm break-words whitespace-pre-wrap block max-w-full leading-tight">{connCard.title}</span>
                               {connCard.boardId !== card.boardId && (
                                 <span className="text-[10px] text-muted font-bold uppercase tracking-wider">
                                   {connCard._boardName || 'Other board'}
@@ -914,7 +924,7 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
                               onClick={() => handleLinkCard(c.id)}
                               className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary-soft transition"
                             >
-                              <p className="text-sm truncate">{c.title}</p>
+                              <p className="text-sm break-words whitespace-pre-wrap leading-tight">{c.title}</p>
                               {c.boardId !== card.boardId && c._boardName && (
                                 <p className="text-[10px] text-muted font-bold uppercase tracking-wider">{c._boardName}</p>
                               )}
