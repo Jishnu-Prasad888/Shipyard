@@ -4,14 +4,16 @@ import { Grid, Calendar, ArrowRight } from 'lucide-react'
 interface DockCardProps {
   board: any
   onClick: () => void
+  onContextMenu?: (e: React.MouseEvent) => void
 }
 
-export const DockCard: React.FC<DockCardProps> = ({ board, onClick }) => {
+export const DockCard: React.FC<DockCardProps> = ({ board, onClick, onContextMenu }) => {
   const boardColor = board.color || '#2563eb'
 
   return (
     <div
       onClick={onClick}
+      onContextMenu={onContextMenu}
       className="card group cursor-pointer animate-brutal-in"
       style={{ borderTopWidth: '4px', borderTopColor: boardColor }}
     >
