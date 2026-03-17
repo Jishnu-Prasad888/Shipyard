@@ -80,8 +80,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const handleClick = () => {
       setContextMenu(null)
     }
+    const handleContextMenu = (e: MouseEvent) => {
+      if (e.target instanceof Element && e.target.closest('.context-menu')) return
+      setContextMenu(null)
+    }
+    
     window.addEventListener('click', handleClick)
-    return () => window.removeEventListener('click', handleClick)
+    window.addEventListener('contextmenu', handleContextMenu, { capture: true })
+    return () => {
+      window.removeEventListener('click', handleClick)
+      window.removeEventListener('contextmenu', handleContextMenu, { capture: true })
+    }
   }, [])
 
   useEffect(() => {

@@ -43,8 +43,19 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
       setContextMenu(null)
       setShowHidePanel(false)
     }
+    const handleContextMenu = (e: MouseEvent) => {
+      if (e.target instanceof Element && e.target.closest('.context-menu')) return
+      setContextMenu(null)
+      setShowHidePanel(false)
+    }
+
     window.addEventListener('click', handleClick)
-    return () => window.removeEventListener('click', handleClick)
+    window.addEventListener('contextmenu', handleContextMenu, { capture: true })
+    
+    return () => {
+      window.removeEventListener('click', handleClick)
+      window.removeEventListener('contextmenu', handleContextMenu, { capture: true })
+    }
   }, [])
 
   useEffect(() => {
