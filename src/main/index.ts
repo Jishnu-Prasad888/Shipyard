@@ -198,3 +198,13 @@ ipcMain.handle('export:saveFolder', async (_event, files: { name: string; conten
     return { success: false, error: err.message }
   }
 })
+
+// ── IPC: Utility — open file/folder ──
+ipcMain.handle('export:openItem', async (_event, targetPath: string) => {
+  try {
+    shell.showItemInFolder(targetPath)
+    return { success: true }
+  } catch (err: any) {
+    return { success: false, error: err.message }
+  }
+})

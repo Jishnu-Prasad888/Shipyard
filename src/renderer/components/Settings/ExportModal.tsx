@@ -143,7 +143,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
   const [format, setFormat] = useState<ExportFormat>('json')
   const [splitPerDock, setSplitPerDock] = useState(false)
   const [exporting, setExporting] = useState(false)
-  const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [result, setResult] = useState<{ ok: boolean; msg: string; path?: string } | null>(null)
 
   // ── Load data ──
   const loadAll = useCallback(async () => {
@@ -355,7 +355,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
         })
         const res = await (window.electron as any).export.saveFolder(files)
         if (res?.success) {
-          setResult({ ok: true, msg: `Exported ${res.count} file(s) to ${res.folder}` })
+          setResult({ ok: true, msg: `Exported ${res.count} file(s) to ${res.folder}`, path: res.folder })
         } else if (!res?.error) {
           setResult(null)
         } else {
@@ -388,7 +388,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
           ext: format
         })
         if (res?.success) {
-          setResult({ ok: true, msg: `Saved to ${res.filePath}` })
+          setResult({ ok: true, msg: `Saved to ${res.filePath}`, path: res.filePath })
         } else if (!res?.error) {
           setResult(null)
         } else {
@@ -636,15 +636,30 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
             {/* Feedback */}
             {result && (
               <div
-                className="flex items-start gap-1.5 p-2 border-2 text-[10px] font-bold animate-brutal-in"
+                className="flex flex-col gap-2 p-3 border-2 text-[10px] font-bold animate-brutal-in mt-4"
                 style={{
                   borderColor: result.ok ? '#059669' : '#dc2626',
                   background: result.ok ? '#05966910' : '#dc262610',
                   color: result.ok ? '#059669' : '#dc2626'
                 }}
               >
-                {result.ok ? <CheckCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> : <XCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
-                <span className="break-all">{result.msg}</span>
+                <div className="flex items-start gap-1.5">
+                  {result.ok ? <CheckCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> : <XCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
+                  <span className="break-all leading-tight">{result.msg}</span>
+                </div>
+                {result.ok && result.path && (
+                  <button
+                    onClick={() => (window.electron as any).export.openItem(result.path)}
+                    className="self-start mt-1 px-3 py-1.5 border-2 text-[9px] font-black uppercase tracking-widest transition-transform hover:-translate-y-0.5"
+                    style={{
+                      borderColor: '#059669',
+                      color: '#059669',
+                      background: '#05966920'
+                    }}
+                  >
+                    Open {splitPerDock ? 'Folder' : 'File'}
+                  </button>
+                )}
               </div>
             )}
           </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Plus, Edit2, Trash2, Eye, EyeOff } from 'lucide-react'
+import { Plus, Edit2, Trash2, Eye, EyeOff, Download } from 'lucide-react'
 import { Card } from './Card'
 import { CreateCardModal } from './CreateCardModal'
 
@@ -111,6 +111,53 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
         }
       }
     }))
+  }
+
+  const handleExportList = async () => {
+    setContextMenu(null)
+    const listSnapshot = { ...list }
+    const cardSnapshots = [...(list.cards || [])]
+    
+    // Clean items
+    const cleanList = (() => {
+      const { id, createdAt, updatedAt, boardId, listId, order, ...rest } = listSnapshot
+      return rest
+    })()
+    
+    const cleanCards = cardSnapshots.map(c => {
+      const { id, createdAt, updatedAt, boardId, listId, order, ...rest } = c
+      
+      // Basic parse
+      const tags = (() => { try { return JSON.parse(rest.tags) } catch { return rest.tags } })()
+      if (Array.isArray(tags)) rest.tags = tags.map((t: any) => t.name).join(', ')
+
+      const subCards = (() => { try { return JSON.parse(rest.subCards) } catch { return rest.subCards } })()
+      if (Array.isArray(subCards)) rest.subCards = subCards.map((sc: any) => `${sc.completed ? '[x]' : '[ ]'} ${sc.title}`).join('; ')
+
+      const status = (() => { try { return JSON.parse(rest.status) } catch { return rest.status } })()
+      if (status && status.name) rest.status = status.name
+
+      return rest
+    })
+
+    // Turn to markdown
+    const md = `## Manifest: ${cleanList.name}\n` + (cleanCards.length 
+      ? `| ${Object.keys(cleanCards[0]).join(' | ')} |\n| ${Object.keys(cleanCards[0]).map(() => '---').join(' | ')} |\n` + cleanCards.map(c => `| ${Object.keys(c).map(k => String(c[k] ?? '')).join(' | ')} |`).join('\n')
+      : '_No cargo_')
+
+    const res = await (window.electron as any).export.saveFile({
+      defaultName: `manifest-${cleanList.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`,
+      content: md,
+      ext: 'md'
+    })
+
+    if (res?.success) {
+      window.dispatchEvent(new CustomEvent('show-toast', {
+        detail: { message: `Exported manifest to ${res.filePath}` } // Open handled below or let user find it, we could add onUndo as an open action if we wanted
+      }))
+      // As requested, also open it:
+      ;(window.electron as any).export.openItem(res.filePath)
+    }
   }
 
   const handleCreateCard = async (cardData: any) => {
@@ -379,6 +426,14 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
           >
             <Edit2 className="w-4 h-4" />
             Rename Manifest
+          </button>
+          <button
+            className="context-menu-item border-b-2"
+            style={{ borderColor: 'var(--color-border)' }}
+            onClick={handleExportList}
+          >
+            <Download className="w-4 h-4" />
+            Export Manifest
           </button>
           <button
             className="context-menu-item border-b-2 danger"

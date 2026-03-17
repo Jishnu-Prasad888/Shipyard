@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld('electron', {
     saveFile: (opts: { defaultName: string; content: string; ext: string }) =>
       ipcRenderer.invoke('export:saveFile', opts),
     saveFolder: (files: { name: string; content: string; ext: string }[]) =>
-      ipcRenderer.invoke('export:saveFolder', files)
+      ipcRenderer.invoke('export:saveFolder', files),
+    openItem: (targetPath: string) =>
+      ipcRenderer.invoke('export:openItem', targetPath)
   }
 })
