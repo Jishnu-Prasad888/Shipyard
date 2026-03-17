@@ -221,10 +221,41 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
       status: status ? JSON.stringify(status) : null,
       color,
       tags: JSON.stringify(tags),
-      subCards,
       notes,
       connectedCardIds: JSON.stringify(connectedCardIds),
       updatedAt: Date.now()
+    }
+    delete updatedCard.subCards // Don't save to the cards table text column
+
+    // Sync subcards
+    const oldSubCards = card.subCards || []
+    
+    // Delete removed
+    for (const oldSc of oldSubCards) {
+      if (!subCards.find(sc => sc.id === oldSc.id)) {
+        await window.electron.db.delete('subcards', oldSc.id)
+      }
+    }
+
+    // Create or update
+    for (const sc of subCards) {
+      const oldSc = oldSubCards.find((o: any) => o.id === sc.id)
+      if (!oldSc) {
+        // Create new
+        await window.electron.db.create('subcards', {
+          id: sc.id,
+          title: sc.title,
+          completed: sc.completed ? 1 : 0,
+          cardId: card.id,
+          createdAt: sc.createdAt || Date.now()
+        })
+      } else if (oldSc.completed !== sc.completed || oldSc.title !== sc.title) {
+        // Update existing
+        await window.electron.db.update('subcards', sc.id, {
+          title: sc.title,
+          completed: sc.completed ? 1 : 0
+        })
+      }
     }
 
     await window.electron.db.update('cards', card.id, updatedCard)
