@@ -154,6 +154,8 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
   const [newSubCardTitle, setNewSubCardTitle] = useState('')
   const [showStatusModal, setShowStatusModal] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [dockTagSuggestions, setDockTagSuggestions] = useState<any[]>([])
+  const [showTagSuggestions, setShowTagSuggestions] = useState(false)
 
   // Refs for autosave
   const lastSavedSubCards = useRef<any[]>(card.subCards || [])
@@ -173,6 +175,7 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
   useEffect(() => {
     loadStatuses()
     loadConnectedCards()
+    loadDockTagSuggestions()
   }, [])
 
   // Debounced autosave
@@ -190,8 +193,37 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
   const loadStatuses = async () => {
     const dbStatuses = await window.electron.db.findAll('statuses')
     const boardStatuses = dbStatuses.filter((s: any) => s.boardId === card.boardId)
-    // Merge defaults (shown first, then custom ones)
     setAvailableStatuses([...DEFAULT_STATUSES, ...boardStatuses])
+  }
+
+  const loadDockTagSuggestions = async () => {
+    // Find the dock this card belongs to (via its board)
+    const currentBoard = await window.electron.db.findById('boards', card.boardId)
+    const dockId = currentBoard?.dockId
+    const allBoards = await window.electron.db.findAll('boards')
+    const allCards = await window.electron.db.findAll('cards')
+
+    let relevantCards: any[]
+    if (dockId) {
+      const dockBoardIds = new Set(
+        allBoards.filter((b: any) => b.dockId === dockId).map((b: any) => b.id)
+      )
+      relevantCards = allCards.filter((c: any) => dockBoardIds.has(c.boardId) && c.id !== card.id)
+    } else {
+      relevantCards = allCards.filter((c: any) => c.boardId === card.boardId && c.id !== card.id)
+    }
+
+    // Collect all unique tags (by name) from those cards
+    const tagMap = new Map<string, any>()
+    for (const c of relevantCards) {
+      const cardTags = typeof c.tags === 'string' ? JSON.parse(c.tags || '[]') : c.tags || []
+      for (const t of cardTags) {
+        if (t.name && !tagMap.has(t.name.toLowerCase())) {
+          tagMap.set(t.name.toLowerCase(), t)
+        }
+      }
+    }
+    setDockTagSuggestions(Array.from(tagMap.values()))
   }
 
   const loadConnectedCards = async () => {
@@ -291,12 +323,25 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
     if (newTagName.trim()) {
       const newTag = {
         id: Date.now().toString(),
-        name: newTagName,
+        name: newTagName.trim(),
         color: PRESET_COLORS[tags.length % PRESET_COLORS.length]
       }
       setTags([...tags, newTag])
       setNewTagName('')
+      setShowTagSuggestions(false)
     }
+  }
+
+  const handleAddTagFromSuggestion = (suggestion: any) => {
+    // Don't add if already present
+    if (tags.find((t: any) => t.name.toLowerCase() === suggestion.name.toLowerCase())) {
+      setNewTagName('')
+      setShowTagSuggestions(false)
+      return
+    }
+    setTags([...tags, { ...suggestion, id: Date.now().toString() }])
+    setNewTagName('')
+    setShowTagSuggestions(false)
   }
 
   const handleRemoveTag = (tagId: string) => {
@@ -648,21 +693,60 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
                     Tags
                   </h4>
                   <div className="space-y-2">
-                    <div className="flex gap-2 overflow-hidden">
-                      <input
-                        type="text"
-                        value={newTagName}
-                        onChange={(e) => setNewTagName(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
-                        className="flex-1 min-w-0 px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:border-primary text-sm"
-                        placeholder="New tag..."
-                      />
-                      <button
-                        onClick={handleAddTag}
-                        className="shrink-0 px-3 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
+                    <div className="relative">
+                      <div className="flex gap-2 overflow-hidden">
+                        <input
+                          type="text"
+                          value={newTagName}
+                          onChange={(e) => {
+                            setNewTagName(e.target.value)
+                            setShowTagSuggestions(true)
+                          }}
+                          onFocus={() => setShowTagSuggestions(true)}
+                          onBlur={() => setTimeout(() => setShowTagSuggestions(false), 200)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
+                          className="flex-1 min-w-0 px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:border-primary text-sm"
+                          placeholder="New tag..."
+                        />
+                        <button
+                          onClick={handleAddTag}
+                          className="shrink-0 px-3 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {showTagSuggestions && (
+                        <div className="absolute top-full left-0 right-0 mt-1 surface border border-border rounded-lg shadow-xl z-20 max-h-48 overflow-auto">
+                          {dockTagSuggestions
+                            .filter((s) => 
+                              s.name.toLowerCase().includes(newTagName.toLowerCase()) &&
+                              !tags.find((t: any) => t.name.toLowerCase() === s.name.toLowerCase())
+                            )
+                            .map((suggestion) => (
+                              <button
+                                key={suggestion.id}
+                                onMouseDown={(e) => {
+                                  e.preventDefault()
+                                  handleAddTagFromSuggestion(suggestion)
+                                }}
+                                className="w-full text-left px-3 py-2 hover:bg-primary-soft transition flex items-center gap-2"
+                              >
+                                <div
+                                  className="w-2 h-2 rounded-full"
+                                  style={{ backgroundColor: suggestion.color }}
+                                />
+                                <span className="text-sm">{suggestion.name}</span>
+                              </button>
+                            ))}
+                          {dockTagSuggestions.filter((s) => 
+                              s.name.toLowerCase().includes(newTagName.toLowerCase()) &&
+                              !tags.find((t: any) => t.name.toLowerCase() === s.name.toLowerCase())
+                          ).length === 0 && newTagName.trim() === '' && (
+                            <div className="px-3 py-2 text-xs text-muted italic">No other tags found in this dock</div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap gap-2 mt-2">
