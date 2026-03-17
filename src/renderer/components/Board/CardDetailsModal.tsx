@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Calendar, Tag, CheckSquare, Link2, Plus, Trash2, Search } from 'lucide-react'
 import { MarkdownEditor } from './MarkdownEditor'
 import { SubCard } from './SubCard'
@@ -153,6 +153,11 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
   const [newTagName, setNewTagName] = useState('')
   const [newSubCardTitle, setNewSubCardTitle] = useState('')
   const [showStatusModal, setShowStatusModal] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+
+  // Refs for autosave
+  const lastSavedSubCards = useRef<any[]>(card.subCards || [])
+  const isInitialRender = useRef(true)
 
   // Card linking state
   const [connectedCardIds, setConnectedCardIds] = useState<string[]>(
@@ -169,6 +174,18 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
     loadStatuses()
     loadConnectedCards()
   }, [])
+
+  // Debounced autosave
+  useEffect(() => {
+    if (isInitialRender.current) {
+      isInitialRender.current = false
+      return
+    }
+    const timer = setTimeout(() => {
+      syncToDb(false)
+    }, 1000)
+    return () => clearTimeout(timer)
+  }, [title, description, deadlineStr, status, color, tags, notes, connectedCardIds, subCards])
 
   const loadStatuses = async () => {
     const dbStatuses = await window.electron.db.findAll('statuses')
@@ -212,56 +229,63 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
     }
   }
 
-  const handleSave = async () => {
-    const updatedCard = {
-      ...card,
-      title,
-      description,
-      deadline: deadlineStr ? new Date(deadlineStr).getTime() : null,
-      status: status ? JSON.stringify(status) : null,
-      color,
-      tags: JSON.stringify(tags),
-      notes,
-      connectedCardIds: JSON.stringify(connectedCardIds),
-      updatedAt: Date.now()
-    }
-    delete updatedCard.subCards // Don't save to the cards table text column
-
-    // Sync subcards
-    const oldSubCards = card.subCards || []
-    
-    // Delete removed
-    for (const oldSc of oldSubCards) {
-      if (!subCards.find(sc => sc.id === oldSc.id)) {
-        await window.electron.db.delete('subcards', oldSc.id)
+  // Shared save logic — closeAfter=true for manual save, false for autosave
+  const syncToDb = useCallback(async (closeAfter: boolean) => {
+    setIsSaving(true)
+    try {
+      const updatedCard = {
+        ...card,
+        title,
+        description,
+        deadline: deadlineStr ? new Date(deadlineStr).getTime() : null,
+        status: status ? JSON.stringify(status) : null,
+        color,
+        tags: JSON.stringify(tags),
+        notes,
+        connectedCardIds: JSON.stringify(connectedCardIds),
+        updatedAt: Date.now()
       }
-    }
+      delete updatedCard.subCards // Don't store in cards text column
 
-    // Create or update
-    for (const sc of subCards) {
-      const oldSc = oldSubCards.find((o: any) => o.id === sc.id)
-      if (!oldSc) {
-        // Create new
-        await window.electron.db.create('subcards', {
-          id: sc.id,
-          title: sc.title,
-          completed: sc.completed ? 1 : 0,
-          cardId: card.id,
-          createdAt: sc.createdAt || Date.now()
-        })
-      } else if (oldSc.completed !== sc.completed || oldSc.title !== sc.title) {
-        // Update existing
-        await window.electron.db.update('subcards', sc.id, {
-          title: sc.title,
-          completed: sc.completed ? 1 : 0
-        })
+      // Sync subcards against last known saved state
+      const oldSubCards = lastSavedSubCards.current
+
+      // Delete removed subcards
+      for (const oldSc of oldSubCards) {
+        if (!subCards.find((sc: any) => sc.id === oldSc.id)) {
+          await window.electron.db.delete('subcards', oldSc.id)
+        }
       }
-    }
 
-    await window.electron.db.update('cards', card.id, updatedCard)
-    onUpdate()
-    onClose()
-  }
+      // Create or update subcards
+      for (const sc of subCards) {
+        const oldSc = oldSubCards.find((o: any) => o.id === sc.id)
+        if (!oldSc) {
+          await window.electron.db.create('subcards', {
+            id: sc.id,
+            title: sc.title,
+            completed: sc.completed ? 1 : 0,
+            cardId: card.id,
+            createdAt: sc.createdAt || Date.now()
+          })
+        } else if (oldSc.completed !== sc.completed || oldSc.title !== sc.title) {
+          await window.electron.db.update('subcards', sc.id, {
+            title: sc.title,
+            completed: sc.completed ? 1 : 0
+          })
+        }
+      }
+
+      await window.electron.db.update('cards', card.id, updatedCard)
+      lastSavedSubCards.current = subCards
+      onUpdate()
+      if (closeAfter) onClose()
+    } finally {
+      setIsSaving(false)
+    }
+  }, [title, description, deadlineStr, status, color, tags, notes, connectedCardIds, subCards])
+
+  const handleSave = () => syncToDb(true)
 
   const handleAddTag = () => {
     if (newTagName.trim()) {
@@ -753,19 +777,25 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end gap-2 p-4 border-t border-border">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 border border-border rounded-lg hover:bg-primary-soft transition"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSave}
-              className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition"
-            >
-              Save Changes
-            </button>
+          <div className="flex items-center justify-between p-4 border-t border-border">
+            <span className="text-xs text-muted italic select-none">
+              {isSaving ? '⏳ Saving…' : '✓ Auto-saved'}
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 border border-border rounded-lg hover:bg-primary-soft transition"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                Save &amp; Close
+              </button>
+            </div>
           </div>
         </div>
       </div>
