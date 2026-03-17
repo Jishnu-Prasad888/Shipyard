@@ -130,7 +130,7 @@ function App() {
             <CalendarView dataVersion={dataVersion} />
           ) : selectedBoardId ? (
             <div className="p-6 h-full">
-              <KanbanBoard boardId={selectedBoardId} searchQuery={searchQuery} />
+              <KanbanBoard boardId={selectedBoardId} searchQuery={searchQuery} onGoBack={() => setSelectedBoardId(null)} />
             </div>
           ) : selectedDockId ? (
             <div className="p-6">

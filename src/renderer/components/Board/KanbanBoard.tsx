@@ -9,7 +9,7 @@ import {
   useSensors
 } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
-import { Plus, LayoutList, Hash, Pencil, Check, X } from 'lucide-react'
+import { Plus, LayoutList, Hash, Pencil, Check, X, ChevronLeft } from 'lucide-react'
 import { List } from './List'
 import { CreateListModal } from './CreateListModal'
 
@@ -23,9 +23,10 @@ const SHIP_COLORS = [
 interface KanbanBoardProps {
   boardId: string
   searchQuery?: string
+  onGoBack?: () => void
 }
 
-export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery = '' }) => {
+export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery = '', onGoBack }) => {
   const [board, setBoard] = useState<any>(null)
   const [lists, setLists] = useState<any[]>([])
   const [showCreateList, setShowCreateList] = useState(false)
@@ -174,6 +175,24 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
     <div className="h-full flex flex-col">
       {/* ── Board header ── */}
       <div className="mb-6 pb-4 border-b-4" style={{ borderColor: 'var(--color-border-strong)' }}>
+        
+        {/* Back button */}
+        {onGoBack && (
+          <button
+            onClick={onGoBack}
+            className="flex items-center gap-1.5 mb-4 px-2.5 py-1.5 border-2 text-[10px] font-black uppercase tracking-widest transition-transform hover:-translate-x-1 hover:-translate-y-0.5"
+            style={{
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-muted)',
+              background: 'var(--color-surface)',
+              boxShadow: '2px 2px 0 var(--color-border)'
+            }}
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+            Back to Dock
+          </button>
+        )}
+
         {!editing ? (
           /* View mode */
           <div className="flex items-start justify-between gap-4">
