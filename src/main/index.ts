@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, Menu, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, shell, Menu, dialog, Tray } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import fs from 'fs'
@@ -6,6 +6,22 @@ import { DatabaseService } from './database/database.service.js'
 import { SyncService } from './database/sync.service.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+let tray: Tray
+let isQuitting = false
+
+const gotLock = app.requestSingleInstanceLock()
+
+if (!gotLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    if (mainWindow) {
+      mainWindow.show()
+      mainWindow.focus()
+    }
+  })
+}
 
 let mainWindow: BrowserWindow | null = null
 let databaseService: DatabaseService
@@ -27,7 +43,9 @@ async function createWindow() {
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#E8F3FA'
   })
+
   Menu.setApplicationMenu(null)
+
   // Initialize database
   databaseService = DatabaseService.getInstance()
   await databaseService.initialize()
@@ -35,7 +53,7 @@ async function createWindow() {
   // Initialize sync service
   syncService = SyncService.getInstance(databaseService)
 
-  // ── Auto-restore Firebase from saved settings ──
+  // Auto-restore Firebase from saved settings
   const savedSettings = databaseService.getSettings()
   if (savedSettings?.firebaseEnabled && savedSettings?.firebaseConfig) {
     try {
@@ -60,8 +78,19 @@ async function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../../dist/renderer/index.html'))
   }
 
-  mainWindow.on('closed', () => {
-    mainWindow = null
+  mainWindow.on('close', (e) => {
+    const settings = databaseService.getSettings()
+    if (!isQuitting && settings?.minimizeToTray) {
+      e.preventDefault()
+      mainWindow?.hide()
+    }
+  })
+
+  mainWindow.on('minimize', () => {
+    const settings = databaseService.getSettings()
+    if (settings?.minimizeToTray) {
+      mainWindow?.hide()
+    }
   })
 
   // Handle external links
@@ -71,12 +100,54 @@ async function createWindow() {
   })
 }
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  createWindow()
+
+  tray = new Tray(path.join(__dirname, 'logo.png'))
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: 'Open',
+      click: () => {
+        mainWindow?.show()
+        mainWindow?.focus()
+      }
+    },
+    {
+      type: 'separator'
+    },
+    {
+      label: 'Quit',
+      click: () => {
+        isQuitting = true
+        app.quit()
+      }
+    }
+  ])
+
+  tray.setToolTip('Shipyard')
+  tray.setContextMenu(contextMenu)
+
+  tray.on('click', () => {
+    if (mainWindow?.isVisible()) {
+      mainWindow?.hide()
+    } else {
+      mainWindow?.show()
+    }
+  })
+
+  tray.on('double-click', () => {
+    mainWindow?.show()
+    mainWindow?.focus()
+  })
+})
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit()
-  }
+  // no-op: keep the app alive; quitting is handled via tray or before-quit
+})
+
+app.on('before-quit', () => {
+  isQuitting = true
 })
 
 app.on('activate', () => {
@@ -126,7 +197,6 @@ ipcMain.handle('settings:save', async (_event, settings) => {
       syncService.enableAutoSync()
     } else if (!settings.syncEnabled) {
       syncService.stopSync()
-      // Re-init without auto-sync
       await syncService.initialize(settings.firebaseConfig)
     }
     return { ...settings, _initResult: result }

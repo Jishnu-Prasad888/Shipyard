@@ -10,21 +10,21 @@ export class DatabaseService {
   private db: Database.Database
   private initialized = false
 
- private constructor() {
-  const userDataPath = app.getPath('userData')
+  private constructor() {
+    const userDataPath = app.getPath('userData')
 
-  // Use different DB files for dev and production
-  const dbFileName = app.isPackaged ? 'shipyard.db' : 'shipyard-dev.db'
-  const dbPath = path.join(userDataPath, dbFileName)
+    // Use different DB files for dev and production
+    const dbFileName = app.isPackaged ? 'shipyard.db' : 'shipyard-dev.db'
+    const dbPath = path.join(userDataPath, dbFileName)
 
-  // Ensure the directory exists
-  if (!fs.existsSync(userDataPath)) {
-    fs.mkdirSync(userDataPath, { recursive: true })
+    // Ensure the directory exists
+    if (!fs.existsSync(userDataPath)) {
+      fs.mkdirSync(userDataPath, { recursive: true })
+    }
+
+    this.db = new Database(dbPath)
+    this.db.pragma('foreign_keys = ON')
   }
-
-  this.db = new Database(dbPath)
-  this.db.pragma('foreign_keys = ON')
-}
 
   static getInstance(): DatabaseService {
     if (!DatabaseService.instance) {
@@ -88,7 +88,8 @@ export class DatabaseService {
       const defaultSettings = {
         theme: 'light',
         firebaseEnabled: false,
-        syncEnabled: false
+        syncEnabled: false,
+        minimizeToTray: true
       }
       this.db
         .prepare('INSERT INTO settings (key, value, updatedAt) VALUES (?, ?, ?)')
