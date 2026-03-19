@@ -128,11 +128,7 @@ const StatusModal: React.FC<StatusModalProps> = ({ onClose, onCreate }) => {
   )
 }
 
-export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
-  card,
-  onClose,
-  onUpdate
-}) => {
+export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClose, onUpdate }) => {
   const [title, setTitle] = useState(card.title)
   const [description, setDescription] = useState(card.description || '')
   const [deadlineStr, setDeadlineStr] = useState(
@@ -164,12 +160,18 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
     title: card.title,
     description: card.description || '',
     deadlineStr: card.deadline ? new Date(card.deadline).toISOString().split('T')[0] : '',
-    status: typeof card.status === 'string' && card.status.startsWith('{') ? JSON.parse(card.status) : card.status || null,
+    status:
+      typeof card.status === 'string' && card.status.startsWith('{')
+        ? JSON.parse(card.status)
+        : card.status || null,
     color: card.color || '',
     tags: typeof card.tags === 'string' ? JSON.parse(card.tags || '[]') : card.tags || [],
     subCards: card.subCards || [],
     notes: card.notes || '',
-    connectedCardIds: typeof card.connectedCardIds === 'string' ? JSON.parse(card.connectedCardIds || '[]') : card.connectedCardIds || []
+    connectedCardIds:
+      typeof card.connectedCardIds === 'string'
+        ? JSON.parse(card.connectedCardIds || '[]')
+        : card.connectedCardIds || []
   })
 
   // Card linking state
@@ -203,7 +205,13 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
 
   const loadStatuses = async () => {
     const dbStatuses = await window.electron.db.findAll('statuses')
-    const boardStatuses = dbStatuses.filter((s: any) => s.boardId === card.boardId)
+    const boardStatuses = dbStatuses
+      .filter((s: any) => s.boardId === card.boardId)
+      .map((s: any) => ({
+        ...s,
+        isDefault: s.isDefault ?? false
+      }))
+
     setAvailableStatuses([...DEFAULT_STATUSES, ...boardStatuses])
   }
 
@@ -249,7 +257,9 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
       const dockId = currentBoard?.dockId
       const allBoards = await window.electron.db.findAll('boards')
       const boardMap: Record<string, string> = {}
-      allBoards.forEach((b: any) => { boardMap[b.id] = b.name })
+      allBoards.forEach((b: any) => {
+        boardMap[b.id] = b.name
+      })
 
       const details = await Promise.all(
         ids.map((id: string) => window.electron.db.findById('cards', id))
@@ -273,66 +283,69 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
   }
 
   // Shared save logic — closeAfter=true for manual save, false for autosave
-  const syncToDb = useCallback(async (closeAfter: boolean) => {
-    setIsSaving(true)
-    try {
-      const updatedCard = {
-        ...card,
-        title,
-        description,
-        deadline: deadlineStr ? new Date(deadlineStr).getTime() : null,
-        status: status ? JSON.stringify(status) : null,
-        color,
-        tags: JSON.stringify(tags),
-        notes,
-        connectedCardIds: JSON.stringify(connectedCardIds),
-        updatedAt: Date.now()
-      }
-      delete updatedCard.subCards // Don't store in cards text column
-
-      // Sync subcards against last known saved state
-      const oldSubCards = lastSavedSubCards.current
-
-      // Delete removed subcards
-      for (const oldSc of oldSubCards) {
-        if (!subCards.find((sc: any) => sc.id === oldSc.id)) {
-          await window.electron.db.delete('subcards', oldSc.id)
+  const syncToDb = useCallback(
+    async (closeAfter: boolean) => {
+      setIsSaving(true)
+      try {
+        const updatedCard = {
+          ...card,
+          title,
+          description,
+          deadline: deadlineStr ? new Date(deadlineStr).getTime() : null,
+          status: status ? JSON.stringify(status) : null,
+          color,
+          tags: JSON.stringify(tags),
+          notes,
+          connectedCardIds: JSON.stringify(connectedCardIds),
+          updatedAt: Date.now()
         }
-      }
+        delete updatedCard.subCards // Don't store in cards text column
 
-      // Create or update subcards
-      for (const sc of subCards) {
-        const oldSc = oldSubCards.find((o: any) => o.id === sc.id)
-        if (!oldSc) {
-          await window.electron.db.create('subcards', {
-            id: sc.id,
-            title: sc.title,
-            completed: sc.completed ? 1 : 0,
-            cardId: card.id,
-            createdAt: sc.createdAt || Date.now()
-          })
-        } else if (oldSc.completed !== sc.completed || oldSc.title !== sc.title) {
-          await window.electron.db.update('subcards', sc.id, {
-            title: sc.title,
-            completed: sc.completed ? 1 : 0
-          })
+        // Sync subcards against last known saved state
+        const oldSubCards = lastSavedSubCards.current
+
+        // Delete removed subcards
+        for (const oldSc of oldSubCards) {
+          if (!subCards.find((sc: any) => sc.id === oldSc.id)) {
+            await window.electron.db.delete('subcards', oldSc.id)
+          }
         }
-      }
 
-      await window.electron.db.update('cards', card.id, updatedCard)
-      lastSavedSubCards.current = subCards
-      onUpdate()
-      if (closeAfter) onClose()
-    } finally {
-      setIsSaving(false)
-    }
-  }, [title, description, deadlineStr, status, color, tags, notes, connectedCardIds, subCards])
+        // Create or update subcards
+        for (const sc of subCards) {
+          const oldSc = oldSubCards.find((o: any) => o.id === sc.id)
+          if (!oldSc) {
+            await window.electron.db.create('subcards', {
+              id: sc.id,
+              title: sc.title,
+              completed: sc.completed ? 1 : 0,
+              cardId: card.id,
+              createdAt: sc.createdAt || Date.now()
+            })
+          } else if (oldSc.completed !== sc.completed || oldSc.title !== sc.title) {
+            await window.electron.db.update('subcards', sc.id, {
+              title: sc.title,
+              completed: sc.completed ? 1 : 0
+            })
+          }
+        }
+
+        await window.electron.db.update('cards', card.id, updatedCard)
+        lastSavedSubCards.current = subCards
+        onUpdate()
+        if (closeAfter) onClose()
+      } finally {
+        setIsSaving(false)
+      }
+    },
+    [title, description, deadlineStr, status, color, tags, notes, connectedCardIds, subCards]
+  )
 
   const handleSave = () => syncToDb(true)
 
   const handleUndoChanges = async () => {
     const s = initialState.current
-    
+
     // Revert state
     setTitle(s.title)
     setDescription(s.description)
@@ -446,45 +459,89 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
     const newStatus = {
       name,
       color,
-      boardId: card.boardId
+      boardId: card.boardId,
+      isDefault: false
     }
     const created = await window.electron.db.create('statuses', newStatus)
     setAvailableStatuses([...availableStatuses, created])
     setStatus(created)
   }
 
+  // ===== UPDATED: Delete any status (including default) =====
   const handleDeleteStatus = async (statusToDelete: any) => {
-    if (statusToDelete.isDefault) {
-      alert("Cannot delete default statuses.")
+    // Determine if this is a default status (not stored in DB)
+    const isDefault = statusToDelete.isDefault === true
+
+    // Snapshot: for default, use the object itself; for custom, fetch from DB
+    let statusSnapshot = isDefault
+      ? { ...statusToDelete }
+      : await window.electron.db.findById('statuses', statusToDelete.id)
+
+    if (!statusSnapshot) {
+      console.warn('Status snapshot not found, aborting delete')
       return
     }
 
-    // 1. Snapshot for undo
-    const statusSnapshot = await window.electron.db.findById('statuses', statusToDelete.id)
+    // Find all cards that use this status (by matching the status id)
+    const allCards = await window.electron.db.findAll('cards')
+    const affectedCards = allCards.filter((c: any) => {
+      const cardStatus =
+        typeof c.status === 'string' && c.status.startsWith('{') ? JSON.parse(c.status) : c.status
+      return cardStatus && cardStatus.id === statusToDelete.id
+    })
+    const affectedCardIds = affectedCards.map((c: any) => c.id)
 
-    // 2. Clear status from active card if selected
-    if (status?.id === statusToDelete.id) {
-      setStatus(null)
+    // Update local state immediately
+    if (status?.id === statusToDelete.id) setStatus(null)
+    setAvailableStatuses((prev) => prev.filter((s) => s?.id !== statusToDelete.id))
+
+    // Perform deletions
+    if (!isDefault) {
+      // Only delete from DB if it's a custom status
+      await window.electron.db.delete('statuses', statusToDelete.id)
+    }
+    for (const cardId of affectedCardIds) {
+      await window.electron.db.update('cards', cardId, { status: null })
     }
 
-    // 3. Remove from local state
-    setAvailableStatuses(availableStatuses.filter(s => s.id !== statusToDelete.id))
-
-    // 4. Delete from DB
-    await window.electron.db.delete('statuses', statusToDelete.id)
-
-    // 5. Toast
-    window.dispatchEvent(new CustomEvent('show-toast', {
-      detail: {
-        message: `Status "${statusToDelete.name}" deleted`,
-        onUndo: async () => {
-          if (statusSnapshot) {
-            await window.electron.db.create('statuses', statusSnapshot)
-            setAvailableStatuses(prev => [...prev, statusSnapshot])
+    // Show toast with safe undo
+    window.dispatchEvent(
+      new CustomEvent('show-toast', {
+        detail: {
+          message: `Status "${statusToDelete.name}" deleted`,
+          onUndo: async () => {
+            try {
+              if (!isDefault) {
+                // Re-create the status in DB
+                statusSnapshot = await window.electron.db.create('statuses', statusSnapshot)
+              }
+              // Restore status on previously affected cards
+              for (const cardId of affectedCardIds) {
+                await window.electron.db.update('cards', cardId, {
+                  status: JSON.stringify(statusSnapshot)
+                })
+              }
+              // If the current card was affected, update its local status
+              if (affectedCardIds.includes(card.id)) {
+                setStatus(statusSnapshot)
+              }
+              // Refresh the entire status list to ensure consistency
+              const freshStatuses = await window.electron.db.findAll('statuses')
+              const boardFreshStatuses = freshStatuses
+                .filter((s: any) => s.boardId === card.boardId)
+                .map((s: any) => ({ ...s, isDefault: s.isDefault ?? false }))
+              // Merge with DEFAULT_STATUSES, making sure we don't duplicate if a default was re-added
+              const merged = [...DEFAULT_STATUSES, ...boardFreshStatuses].filter(
+                (s, index, self) => self.findIndex((t) => t.id === s.id) === index
+              )
+              setAvailableStatuses(merged)
+            } catch (error) {
+              console.error('Undo failed:', error)
+            }
           }
         }
-      }
-    }))
+      })
+    )
   }
 
   const handleDeleteTagGlobal = async (tagToDelete: any) => {
@@ -495,19 +552,21 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
     handleRemoveTag(tagToDelete.id)
 
     // 3. Toast
-    window.dispatchEvent(new CustomEvent('show-toast', {
-      detail: {
-        message: `Tag "${tagToDelete.name}" removed`,
-        onUndo: () => {
-          setTags(prev => {
-            if (!prev.find(t => t.id === snapshotTag.id)) {
-              return [...prev, snapshotTag]
-            }
-            return prev
-          })
+    window.dispatchEvent(
+      new CustomEvent('show-toast', {
+        detail: {
+          message: `Tag "${tagToDelete.name}" removed`,
+          onUndo: () => {
+            setTags((prev) => {
+              if (!prev.find((t) => t.id === snapshotTag.id)) {
+                return [...prev, snapshotTag]
+              }
+              return prev
+            })
+          }
         }
-      }
-    }))
+      })
+    )
   }
 
   const handleDeleteCard = async () => {
@@ -517,20 +576,22 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
     const cardSubCards = allSubCards.filter((sc: any) => sc.cardId === card.id)
 
     await window.electron.db.delete('cards', card.id)
-    
+
     // Trigger toast via custom event
-    window.dispatchEvent(new CustomEvent('show-toast', {
-      detail: {
-        message: `Card "${title}" deleted`,
-        onUndo: async () => {
-          await window.electron.db.create('cards', cardSnapshot)
-          for (const sc of cardSubCards) {
-            await window.electron.db.create('subcards', sc)
+    window.dispatchEvent(
+      new CustomEvent('show-toast', {
+        detail: {
+          message: `Card "${title}" deleted`,
+          onUndo: async () => {
+            await window.electron.db.create('cards', cardSnapshot)
+            for (const sc of cardSubCards) {
+              await window.electron.db.create('subcards', sc)
+            }
+            onUpdate()
           }
-          onUpdate()
         }
-      }
-    }))
+      })
+    )
 
     onUpdate()
     onClose()
@@ -545,7 +606,9 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
     const allCards = await window.electron.db.findAll('cards')
     const allBoards = await window.electron.db.findAll('boards')
     const boardMap: Record<string, string> = {}
-    allBoards.forEach((b: any) => { boardMap[b.id] = b.name })
+    allBoards.forEach((b: any) => {
+      boardMap[b.id] = b.name
+    })
 
     let filtered: any[]
 
@@ -555,16 +618,12 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
       )
       filtered = allCards.filter(
         (c: any) =>
-          dockBoardIds.has(c.boardId) &&
-          c.id !== card.id &&
-          !connectedCardIds.includes(c.id)
+          dockBoardIds.has(c.boardId) && c.id !== card.id && !connectedCardIds.includes(c.id)
       )
     } else {
       filtered = allCards.filter(
         (c: any) =>
-          c.boardId === card.boardId &&
-          c.id !== card.id &&
-          !connectedCardIds.includes(c.id)
+          c.boardId === card.boardId && c.id !== card.id && !connectedCardIds.includes(c.id)
       )
     }
 
@@ -639,8 +698,14 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={onClose}>
-        <div className="w-full max-w-4xl max-h-[90vh] surface rounded-xl flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+        onClick={onClose}
+      >
+        <div
+          className="w-full max-w-4xl max-h-[90vh] surface rounded-xl flex flex-col"
+          onClick={(e) => e.stopPropagation()}
+        >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border">
             <textarea
@@ -768,31 +833,35 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
 
                   {/* Status chips */}
                   <div className="flex flex-wrap gap-2 mb-3">
-                    {availableStatuses.map((s: any) => {
-                      const isSelected =
-                        status?.id === s.id || status?.name === s.name
-                      return (
-                        <button
-                          key={s.id}
-                          onClick={() => setStatus(isSelected ? null : s)}
-                          onContextMenu={(e) => {
-                            e.preventDefault()
-                            if (!s.isDefault) handleDeleteStatus(s)
-                          }}
-                          className={`text-[10px] px-2 py-1 font-black uppercase tracking-wider border-2 transition-all ${s.isDefault ? '' : 'cursor-context-menu'}`}
-                          title={s.isDefault ? "Default status" : "Right-click to delete"}
-                          style={{
-                            backgroundColor: isSelected ? s.color : s.color + '15',
-                            color: isSelected ? 'white' : s.color,
-                            borderColor: s.color,
-                            transform: isSelected ? 'translate(-1px,-1px)' : 'none',
-                            boxShadow: isSelected ? `2px 2px 0 ${s.color}88` : 'none'
-                          }}
-                        >
-                          {s.name}
-                        </button>
-                      )
-                    })}
+                    {availableStatuses
+                      .filter((s) => s && typeof s === 'object' && s.id) // Ensure valid objects
+                      .map((s: any) => {
+                        const isSelected = status?.id === s.id || status?.name === s.name
+
+                        return (
+                          <div key={s.id} className="inline-flex items-center gap-1">
+                            <button
+                              onClick={() => setStatus(isSelected ? null : s)}
+                              className="text-[10px] px-2 py-1 font-black uppercase tracking-wider border-2"
+                              style={{
+                                backgroundColor: isSelected ? s.color : s.color + '15',
+                                color: isSelected ? 'white' : s.color,
+                                borderColor: s.color
+                              }}
+                            >
+                              {s.name}
+                            </button>
+
+                            {/* Trash icon now shows for ALL statuses (including default) */}
+                            <button
+                              onClick={() => handleDeleteStatus(s)}
+                              className="p-1 rounded hover:bg-red-500/10"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-500" />
+                            </button>
+                          </div>
+                        )
+                      })}
                   </div>
 
                   <button
@@ -878,9 +947,12 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
                       {showTagSuggestions && (
                         <div className="absolute top-full left-0 right-0 mt-1 surface border border-border rounded-lg shadow-xl z-20 max-h-48 overflow-auto">
                           {dockTagSuggestions
-                            .filter((s) => 
-                              s.name.toLowerCase().includes(newTagName.toLowerCase()) &&
-                              !tags.find((t: any) => t.name.toLowerCase() === s.name.toLowerCase())
+                            .filter(
+                              (s) =>
+                                s.name.toLowerCase().includes(newTagName.toLowerCase()) &&
+                                !tags.find(
+                                  (t: any) => t.name.toLowerCase() === s.name.toLowerCase()
+                                )
                             )
                             .map((suggestion) => (
                               <button
@@ -898,12 +970,16 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
                                 <span className="text-sm">{suggestion.name}</span>
                               </button>
                             ))}
-                          {dockTagSuggestions.filter((s) => 
+                          {dockTagSuggestions.filter(
+                            (s) =>
                               s.name.toLowerCase().includes(newTagName.toLowerCase()) &&
                               !tags.find((t: any) => t.name.toLowerCase() === s.name.toLowerCase())
-                          ).length === 0 && newTagName.trim() === '' && (
-                            <div className="px-3 py-2 text-xs text-muted italic">No other tags found in this dock</div>
-                          )}
+                          ).length === 0 &&
+                            newTagName.trim() === '' && (
+                              <div className="px-3 py-2 text-xs text-muted italic">
+                                No other tags found in this dock
+                              </div>
+                            )}
                         </div>
                       )}
                     </div>
@@ -951,7 +1027,9 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
                           <div className="flex items-center gap-2 min-w-0">
                             <Link2 className="w-3.5 h-3.5 text-primary shrink-0" />
                             <div className="min-w-0">
-                              <span className="text-sm break-words whitespace-pre-wrap block max-w-full leading-tight">{connCard.title}</span>
+                              <span className="text-sm break-words whitespace-pre-wrap block max-w-full leading-tight">
+                                {connCard.title}
+                              </span>
                               {connCard.boardId !== card.boardId && (
                                 <span className="text-[10px] text-muted font-bold uppercase tracking-wider">
                                   {connCard._boardName || 'Other board'}
@@ -991,9 +1069,13 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
                               onClick={() => handleLinkCard(c.id)}
                               className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary-soft transition"
                             >
-                              <p className="text-sm break-words whitespace-pre-wrap leading-tight">{c.title}</p>
+                              <p className="text-sm break-words whitespace-pre-wrap leading-tight">
+                                {c.title}
+                              </p>
                               {c.boardId !== card.boardId && c._boardName && (
-                                <p className="text-[10px] text-muted font-bold uppercase tracking-wider">{c._boardName}</p>
+                                <p className="text-[10px] text-muted font-bold uppercase tracking-wider">
+                                  {c._boardName}
+                                </p>
                               )}
                             </button>
                           ))
