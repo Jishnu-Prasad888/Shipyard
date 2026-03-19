@@ -453,6 +453,63 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
     setStatus(created)
   }
 
+  const handleDeleteStatus = async (statusToDelete: any) => {
+    if (statusToDelete.isDefault) {
+      alert("Cannot delete default statuses.")
+      return
+    }
+
+    // 1. Snapshot for undo
+    const statusSnapshot = await window.electron.db.findById('statuses', statusToDelete.id)
+
+    // 2. Clear status from active card if selected
+    if (status?.id === statusToDelete.id) {
+      setStatus(null)
+    }
+
+    // 3. Remove from local state
+    setAvailableStatuses(availableStatuses.filter(s => s.id !== statusToDelete.id))
+
+    // 4. Delete from DB
+    await window.electron.db.delete('statuses', statusToDelete.id)
+
+    // 5. Toast
+    window.dispatchEvent(new CustomEvent('show-toast', {
+      detail: {
+        message: `Status "${statusToDelete.name}" deleted`,
+        onUndo: async () => {
+          if (statusSnapshot) {
+            await window.electron.db.create('statuses', statusSnapshot)
+            setAvailableStatuses(prev => [...prev, statusSnapshot])
+          }
+        }
+      }
+    }))
+  }
+
+  const handleDeleteTagGlobal = async (tagToDelete: any) => {
+    // 1. Snapshot
+    const snapshotTag = { ...tagToDelete }
+
+    // 2. Remove
+    handleRemoveTag(tagToDelete.id)
+
+    // 3. Toast
+    window.dispatchEvent(new CustomEvent('show-toast', {
+      detail: {
+        message: `Tag "${tagToDelete.name}" removed`,
+        onUndo: () => {
+          setTags(prev => {
+            if (!prev.find(t => t.id === snapshotTag.id)) {
+              return [...prev, snapshotTag]
+            }
+            return prev
+          })
+        }
+      }
+    }))
+  }
+
   const handleDeleteCard = async () => {
     // Capture state for undo
     const cardSnapshot = await window.electron.db.findById('cards', card.id)
@@ -718,7 +775,12 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
                         <button
                           key={s.id}
                           onClick={() => setStatus(isSelected ? null : s)}
-                          className="text-[10px] px-2 py-1 font-black uppercase tracking-wider border-2 transition-all"
+                          onContextMenu={(e) => {
+                            e.preventDefault()
+                            if (!s.isDefault) handleDeleteStatus(s)
+                          }}
+                          className={`text-[10px] px-2 py-1 font-black uppercase tracking-wider border-2 transition-all ${s.isDefault ? '' : 'cursor-context-menu'}`}
+                          title={s.isDefault ? "Default status" : "Right-click to delete"}
                           style={{
                             backgroundColor: isSelected ? s.color : s.color + '15',
                             color: isSelected ? 'white' : s.color,
@@ -850,7 +912,12 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({
                       {tags.map((tag: any) => (
                         <span
                           key={tag.id}
-                          className="tag flex items-center gap-1"
+                          className="tag flex items-center gap-1 cursor-context-menu"
+                          title="Right-click to remove"
+                          onContextMenu={(e) => {
+                            e.preventDefault()
+                            handleDeleteTagGlobal(tag)
+                          }}
                           style={{ backgroundColor: tag.color + '20', color: tag.color }}
                         >
                           {tag.name}
