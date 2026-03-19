@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Plus, Edit2, Trash2, Eye, EyeOff, Download } from 'lucide-react'
@@ -26,6 +26,7 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
   const [hideStatuses, setHideStatuses] = useState<string[]>([])
   const [showHidePanel, setShowHidePanel] = useState(false)
   const [boardStatuses, setBoardStatuses] = useState<any[]>([])
+  const hidePanelRef = useRef<HTMLDivElement | null>(null)
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: list.id,
@@ -39,24 +40,22 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
   }
 
   useEffect(() => {
-    const handleClick = () => {
-      setContextMenu(null)
-      setShowHidePanel(false)
-    }
-    const handleContextMenu = (e: MouseEvent) => {
-      if (e.target instanceof Element && e.target.closest('.context-menu')) return
-      setContextMenu(null)
-      setShowHidePanel(false)
+    const handleClickOutside = (e: MouseEvent) => {
+      if (hidePanelRef.current && !hidePanelRef.current.contains(e.target as Node)) {
+        setShowHidePanel(false)
+      }
+
+      if (contextMenu && !(e.target as Element).closest('.context-menu')) {
+        setContextMenu(null)
+      }
     }
 
-    window.addEventListener('click', handleClick)
-    window.addEventListener('contextmenu', handleContextMenu, { capture: true })
-    
+    window.addEventListener('mousedown', handleClickOutside)
+
     return () => {
-      window.removeEventListener('click', handleClick)
-      window.removeEventListener('contextmenu', handleContextMenu, { capture: true })
+      window.removeEventListener('mousedown', handleClickOutside)
     }
-  }, [])
+  }, [contextMenu])
 
   useEffect(() => {
     loadBoardStatuses()
@@ -96,54 +95,95 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
     await window.electron.db.delete('lists', list.id)
     onCardsChange()
 
-    window.dispatchEvent(new CustomEvent('show-toast', {
-      detail: {
-        message: `Manifest "${list.name}" deleted`,
-        onUndo: async () => {
-          await window.electron.db.create('lists', { id: listSnapshot.id, name: listSnapshot.name, boardId: listSnapshot.boardId, order: listSnapshot.order, createdAt: listSnapshot.createdAt })
-          for (const card of cardSnapshots) {
-            await window.electron.db.create('cards', card)
+    window.dispatchEvent(
+      new CustomEvent('show-toast', {
+        detail: {
+          message: `Manifest "${list.name}" deleted`,
+          onUndo: async () => {
+            await window.electron.db.create('lists', {
+              id: listSnapshot.id,
+              name: listSnapshot.name,
+              boardId: listSnapshot.boardId,
+              order: listSnapshot.order,
+              createdAt: listSnapshot.createdAt
+            })
+            for (const card of cardSnapshots) {
+              await window.electron.db.create('cards', card)
+            }
+            for (const sc of subCardSnapshots) {
+              await window.electron.db.create('subcards', sc)
+            }
+            onCardsChange()
           }
-          for (const sc of subCardSnapshots) {
-            await window.electron.db.create('subcards', sc)
-          }
-          onCardsChange()
         }
-      }
-    }))
+      })
+    )
   }
 
   const handleExportList = async () => {
     setContextMenu(null)
     const listSnapshot = { ...list }
     const cardSnapshots = [...(list.cards || [])]
-    
+
     // Clean items
     const cleanList = (() => {
       const { id, createdAt, updatedAt, boardId, listId, order, ...rest } = listSnapshot
       return rest
     })()
-    
-    const cleanCards = cardSnapshots.map(c => {
+
+    const cleanCards = cardSnapshots.map((c) => {
       const { id, createdAt, updatedAt, boardId, listId, order, ...rest } = c
-      
+
       // Basic parse
-      const tags = (() => { try { return JSON.parse(rest.tags) } catch { return rest.tags } })()
+      const tags = (() => {
+        try {
+          return JSON.parse(rest.tags)
+        } catch {
+          return rest.tags
+        }
+      })()
       if (Array.isArray(tags)) rest.tags = tags.map((t: any) => t.name).join(', ')
 
-      const subCards = (() => { try { return JSON.parse(rest.subCards) } catch { return rest.subCards } })()
-      if (Array.isArray(subCards)) rest.subCards = subCards.map((sc: any) => `${sc.completed ? '[x]' : '[ ]'} ${sc.title}`).join('; ')
+      const subCards = (() => {
+        try {
+          return JSON.parse(rest.subCards)
+        } catch {
+          return rest.subCards
+        }
+      })()
+      if (Array.isArray(subCards))
+        rest.subCards = subCards
+          .map((sc: any) => `${sc.completed ? '[x]' : '[ ]'} ${sc.title}`)
+          .join('; ')
 
-      const status = (() => { try { return JSON.parse(rest.status) } catch { return rest.status } })()
+      const status = (() => {
+        try {
+          return JSON.parse(rest.status)
+        } catch {
+          return rest.status
+        }
+      })()
       if (status && status.name) rest.status = status.name
 
       return rest
     })
 
     // Turn to markdown
-    const md = `## Manifest: ${cleanList.name}\n` + (cleanCards.length 
-      ? `| ${Object.keys(cleanCards[0]).join(' | ')} |\n| ${Object.keys(cleanCards[0]).map(() => '---').join(' | ')} |\n` + cleanCards.map(c => `| ${Object.keys(c).map(k => String(c[k] ?? '')).join(' | ')} |`).join('\n')
-      : '_No cargo_')
+    const md =
+      `## Manifest: ${cleanList.name}\n` +
+      (cleanCards.length
+        ? `| ${Object.keys(cleanCards[0]).join(' | ')} |\n| ${Object.keys(cleanCards[0])
+            .map(() => '---')
+            .join(' | ')} |\n` +
+          cleanCards
+            .map(
+              (c) =>
+                `| ${Object.keys(c)
+                  .map((k) => String(c[k] ?? ''))
+                  .join(' | ')} |`
+            )
+            .join('\n')
+        : '_No cargo_')
 
     const res = await (window.electron as any).export.saveFile({
       defaultName: `manifest-${cleanList.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`,
@@ -152,9 +192,11 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
     })
 
     if (res?.success) {
-      window.dispatchEvent(new CustomEvent('show-toast', {
-        detail: { message: `Exported manifest to ${res.filePath}` } // Open handled below or let user find it, we could add onUndo as an open action if we wanted
-      }))
+      window.dispatchEvent(
+        new CustomEvent('show-toast', {
+          detail: { message: `Exported manifest to ${res.filePath}` } // Open handled below or let user find it, we could add onUndo as an open action if we wanted
+        })
+      )
       // As requested, also open it:
       ;(window.electron as any).export.openItem(res.filePath)
     }
@@ -204,12 +246,7 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
 
   return (
     <>
-      <div
-        ref={setNodeRef}
-        style={style}
-        className="column"
-        onContextMenu={openContextMenu}
-      >
+      <div ref={setNodeRef} style={style} className="column" onContextMenu={openContextMenu}>
         {/* List Header */}
         <div
           className="flex items-center justify-between pb-3 border-b-2 shrink-0"
@@ -284,6 +321,7 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
                   boxShadow: 'var(--shadow-brutal)'
                 }}
                 onClick={(e) => e.stopPropagation()}
+                ref={hidePanelRef}
               >
                 <div
                   className="px-3 py-2 text-[10px] font-black uppercase tracking-widest border-b-2"
@@ -345,9 +383,18 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
             title="Drag to reorder"
           >
             <div className="flex flex-col gap-0.5 p-1">
-              <div className="w-4 h-0.5 rounded" style={{ background: 'var(--color-border-strong)' }} />
-              <div className="w-4 h-0.5 rounded" style={{ background: 'var(--color-border-strong)' }} />
-              <div className="w-4 h-0.5 rounded" style={{ background: 'var(--color-border-strong)' }} />
+              <div
+                className="w-4 h-0.5 rounded"
+                style={{ background: 'var(--color-border-strong)' }}
+              />
+              <div
+                className="w-4 h-0.5 rounded"
+                style={{ background: 'var(--color-border-strong)' }}
+              />
+              <div
+                className="w-4 h-0.5 rounded"
+                style={{ background: 'var(--color-border-strong)' }}
+              />
             </div>
           </div>
         </div>
@@ -412,7 +459,10 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
         >
           <div
             className="px-4 py-2 text-xs font-black uppercase tracking-widest text-white border-b-2"
-            style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
+            style={{
+              background: 'var(--color-primary)',
+              borderColor: 'var(--color-border-strong)'
+            }}
           >
             {list.name}
           </div>
