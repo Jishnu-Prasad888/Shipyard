@@ -27,7 +27,10 @@ export class SyncService {
     try {
       // Validate required fields
       if (!config?.apiKey || !config?.projectId || !config?.authDomain) {
-        return { success: false, message: 'Missing required Firebase config fields (apiKey, projectId, authDomain)' }
+        return {
+          success: false,
+          message: 'Missing required Firebase config fields (apiKey, projectId, authDomain)'
+        }
       }
 
       // Reset old instance if re-initializing
@@ -68,7 +71,10 @@ export class SyncService {
     } catch (error: any) {
       // Permission denied is actually OK — it means we reached Firebase
       if (error?.code === 'permission-denied') {
-        return { success: true, message: 'Reached Firebase (permission denied on ping — configure Firestore rules)' }
+        return {
+          success: true,
+          message: 'Reached Firebase (permission denied on ping — configure Firestore rules)'
+        }
       }
       return { success: false, message: error?.message || 'Connection failed' }
     }
@@ -117,7 +123,11 @@ export class SyncService {
           case 'CREATE':
           case 'UPDATE':
             if (data) {
-              batch.set(docRef, { ...data, _syncedAt: Date.now(), _lastModified: record.timestamp }, { merge: true })
+              batch.set(
+                docRef,
+                { ...data, _syncedAt: Date.now(), _lastModified: record.timestamp },
+                { merge: true }
+              )
             }
             break
           case 'DELETE':
@@ -131,7 +141,10 @@ export class SyncService {
       this.databaseService.markAsSynced(syncedIds)
 
       this.lastSyncTime = Date.now()
-      this.lastSyncResult = { success: true, message: `Pushed ${unsyncedRecords.length} changes to Firebase` }
+      this.lastSyncResult = {
+        success: true,
+        message: `Pushed ${unsyncedRecords.length} changes to Firebase`
+      }
       return this.lastSyncResult
     } catch (error: any) {
       const result = { success: false, message: error?.message || 'Push failed' }
@@ -147,7 +160,11 @@ export class SyncService {
     return this.pushToFirebase()
   }
 
-  async pullFromFirebase(): Promise<{ success: boolean; message: string; counts?: Record<string, number> }> {
+  async pullFromFirebase(): Promise<{
+    success: boolean
+    message: string
+    counts?: Record<string, number>
+  }> {
     if (!this.syncEnabled || !this.firebaseService) {
       return { success: false, message: 'Firebase not configured' }
     }
@@ -173,11 +190,15 @@ export class SyncService {
               const remoteTs = _lastModified || 0
               const localTs = existing.updatedAt || existing.createdAt || 0
               if (remoteTs >= localTs) {
-                try { this.databaseService.update(tableName, docSnap.id, record) } catch {}
+                try {
+                  this.databaseService.update(tableName, docSnap.id, record)
+                } catch {}
                 count++
               }
             } else {
-              try { this.databaseService.create(tableName, record) } catch {}
+              try {
+                this.databaseService.create(tableName, record)
+              } catch {}
               count++
             }
           }

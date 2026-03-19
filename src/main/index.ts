@@ -17,7 +17,7 @@ async function createWindow() {
     height: 900,
     minWidth: 1000,
     minHeight: 600,
-    icon: path.join(__dirname, "logo.png"),   
+    icon: path.join(__dirname, 'logo.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -89,14 +89,22 @@ app.on('activate', () => {
 ipcMain.handle('db:query', async (_event, { operation, table, data, id }) => {
   try {
     switch (operation) {
-      case 'findAll':       return databaseService.findAll(table)
-      case 'findById':      return databaseService.findById(table, id)
-      case 'create':        return databaseService.create(table, data)
-      case 'update':        return databaseService.update(table, id, data)
-      case 'delete':        return databaseService.delete(table, id)
-      case 'getBoardWithDetails': return databaseService.getBoardWithDetails(id)
-      case 'getDocksWithFolders': return databaseService.getDocksWithFolders()
-      default:              throw new Error(`Unknown operation: ${operation}`)
+      case 'findAll':
+        return databaseService.findAll(table)
+      case 'findById':
+        return databaseService.findById(table, id)
+      case 'create':
+        return databaseService.create(table, data)
+      case 'update':
+        return databaseService.update(table, id, data)
+      case 'delete':
+        return databaseService.delete(table, id)
+      case 'getBoardWithDetails':
+        return databaseService.getBoardWithDetails(id)
+      case 'getDocksWithFolders':
+        return databaseService.getDocksWithFolders()
+      default:
+        throw new Error(`Unknown operation: ${operation}`)
     }
   } catch (error) {
     console.error('Database error:', error)
@@ -146,13 +154,15 @@ ipcMain.handle('sync:status', async () => {
   return syncService.getSyncStatus()
 })
 
+ipcMain.handle('sync:push', async () => {
+  return syncService.pushToFirebase()
+})
+
 // ── IPC: Dark mode ──
 ipcMain.handle('dark-mode:toggle', async (_event, enabled) => {
   if (mainWindow) {
     mainWindow.webContents.insertCSS(
-      enabled
-        ? `html { background: #0f0c1b; }`
-        : `html { background: #f4f8fb; }`
+      enabled ? `html { background: #0f0c1b; }` : `html { background: #f4f8fb; }`
     )
   }
 })
@@ -161,8 +171,8 @@ ipcMain.handle('dark-mode:toggle', async (_event, enabled) => {
 ipcMain.handle('export:saveFile', async (_event, { defaultName, content, ext }) => {
   const filters: Record<string, { name: string; extensions: string[] }[]> = {
     json: [{ name: 'JSON', extensions: ['json'] }],
-    csv:  [{ name: 'CSV',  extensions: ['csv']  }],
-    md:   [{ name: 'Markdown', extensions: ['md'] }]
+    csv: [{ name: 'CSV', extensions: ['csv'] }],
+    md: [{ name: 'Markdown', extensions: ['md'] }]
   }
   const result = await dialog.showSaveDialog(mainWindow!, {
     title: 'Export Shipyard Data',
@@ -179,25 +189,28 @@ ipcMain.handle('export:saveFile', async (_event, { defaultName, content, ext }) 
 })
 
 // ── IPC: Export — multiple files (per-dock) ──
-ipcMain.handle('export:saveFolder', async (_event, files: { name: string; content: string; ext: string }[]) => {
-  const result = await dialog.showOpenDialog(mainWindow!, {
-    title: 'Choose Folder to Save Export Files',
-    properties: ['openDirectory', 'createDirectory']
-  })
-  if (result.canceled || !result.filePaths[0]) return { success: false }
-  const folder = result.filePaths[0]
-  const saved: string[] = []
-  try {
-    for (const file of files) {
-      const filePath = path.join(folder, `${file.name}.${file.ext}`)
-      fs.writeFileSync(filePath, file.content, 'utf-8')
-      saved.push(filePath)
+ipcMain.handle(
+  'export:saveFolder',
+  async (_event, files: { name: string; content: string; ext: string }[]) => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      title: 'Choose Folder to Save Export Files',
+      properties: ['openDirectory', 'createDirectory']
+    })
+    if (result.canceled || !result.filePaths[0]) return { success: false }
+    const folder = result.filePaths[0]
+    const saved: string[] = []
+    try {
+      for (const file of files) {
+        const filePath = path.join(folder, `${file.name}.${file.ext}`)
+        fs.writeFileSync(filePath, file.content, 'utf-8')
+        saved.push(filePath)
+      }
+      return { success: true, folder, count: saved.length }
+    } catch (err: any) {
+      return { success: false, error: err.message }
     }
-    return { success: true, folder, count: saved.length }
-  } catch (err: any) {
-    return { success: false, error: err.message }
   }
-})
+)
 
 // ── IPC: Utility — open file/folder ──
 ipcMain.handle('export:openItem', async (_event, targetPath: string) => {
