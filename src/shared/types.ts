@@ -100,4 +100,5 @@ export interface Settings {
   firebaseConfig?: FirebaseConfig
   syncEnabled: boolean
   fontFamily?: string
+  minimizeToTray: boolean
 }

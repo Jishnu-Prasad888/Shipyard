@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { Plus, Edit2, Tag, LayoutGrid } from 'lucide-react'
+import { Plus, Edit2, Tag, LayoutGrid, Trash2 } from 'lucide-react'
 import { DockCard } from './DockCard'
 import { CreateDockModal } from './CreateDockModel'
 
@@ -15,6 +15,27 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
   const [filteredBoards, setFilteredBoards] = useState<any[]>([])
   const [showCreateBoard, setShowCreateBoard] = useState(false)
   const [showEditDock, setShowEditDock] = useState(false)
+  const [editingBoard, setEditingBoard] = useState<any>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, boardId: string } | null>(null)
+
+  useEffect(() => {
+    const handleReload = () => loadData()
+    window.addEventListener('reload-docks', handleReload)
+    const handleClick = () => setContextMenu(null)
+    const handleContextClick = (e: MouseEvent) => {
+      if (e.target instanceof Element && e.target.closest('.context-menu')) return
+      setContextMenu(null)
+    }
+    
+    window.addEventListener('click', handleClick)
+    window.addEventListener('contextmenu', handleContextClick, { capture: true })
+    
+    return () => {
+      window.removeEventListener('reload-docks', handleReload)
+      window.removeEventListener('click', handleClick)
+      window.removeEventListener('contextmenu', handleContextClick, { capture: true })
+    }
+  }, [dockId]) // dockId isn't really needed for these global listeners but safe to re-bind
 
   useEffect(() => {
     loadData()
@@ -89,6 +110,65 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
     })
     loadData()
     setShowEditDock(false)
+  }
+
+  const handleUpdateBoard = async (boardData: any) => {
+    if (!editingBoard) return
+    await window.electron.db.update('boards', editingBoard.id, {
+      ...boardData,
+      updatedAt: Date.now()
+    })
+    loadData()
+    setEditingBoard(null)
+  }
+
+  const handleDeleteBoard = async (boardIdToDelete: string) => {
+    setContextMenu(null)
+    const boardSnapshot = await window.electron.db.findById('boards', boardIdToDelete)
+    if (!boardSnapshot) return
+
+    const allCards = await window.electron.db.findAll('cards')
+    const boardCards = allCards.filter((c: any) => c.boardId === boardIdToDelete)
+    const allSubCards = await window.electron.db.findAll('subcards')
+    const boardSubCards = allSubCards.filter((sc: any) => boardCards.some((c: any) => c.id === sc.cardId))
+    const allLists = await window.electron.db.findAll('lists')
+    const boardLists = allLists.filter((l: any) => l.boardId === boardIdToDelete)
+
+    // Delete everything
+    for (const card of boardCards) await window.electron.db.delete('cards', card.id)
+    for (const list of boardLists) await window.electron.db.delete('lists', list.id)
+    await window.electron.db.delete('boards', boardIdToDelete)
+
+    // Also remove from dock.boardIds
+    if (dock) {
+      const boardIds = (() => {
+        try { return JSON.parse(dock.boardIds || '[]') } catch { return [] }
+      })()
+      const newBoardIds = boardIds.filter((id: string) => id !== boardIdToDelete)
+      await window.electron.db.update('docks', dock.id, { boardIds: JSON.stringify(newBoardIds) })
+    }
+
+    loadData()
+
+    window.dispatchEvent(
+      new CustomEvent('show-toast', {
+        detail: {
+          message: `Ship "${boardSnapshot.name}" jettisoned`,
+          onUndo: async () => {
+            await window.electron.db.create('boards', boardSnapshot)
+            for (const list of boardLists) await window.electron.db.create('lists', list)
+            for (const card of boardCards) await window.electron.db.create('cards', card)
+            for (const sc of boardSubCards) await window.electron.db.create('subcards', sc)
+            if (dock) {
+              const bIds = (() => { try { return JSON.parse(dock.boardIds || '[]') } catch { return [] } })()
+              bIds.push(boardIdToDelete)
+              await window.electron.db.update('docks', dock.id, { boardIds: JSON.stringify(bIds) })
+            }
+            loadData()
+          }
+        }
+      })
+    )
   }
 
   if (!dock) return null
@@ -192,7 +272,16 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
       {/* Board Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
         {filteredBoards.map((board) => (
-          <DockCard key={board.id} board={board} onClick={() => onSelectBoard(board.id)} />
+          <DockCard
+            key={board.id}
+            board={board}
+            onClick={() => onSelectBoard(board.id)}
+            onContextMenu={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              setContextMenu({ x: e.clientX, y: e.clientY, boardId: board.id })
+            }}
+          />
         ))}
 
         {filteredBoards.length === 0 && (
@@ -242,6 +331,57 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
           onClose={() => setShowEditDock(false)}
           onCreate={handleUpdateDock}
         />
+      )}
+
+      {editingBoard && (
+        <CreateDockModal
+          title="Edit Ship Properties"
+          initialData={editingBoard}
+          onClose={() => setEditingBoard(null)}
+          onCreate={handleUpdateBoard}
+        />
+      )}
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="context-menu fixed z-50 min-w-[180px] animate-brutal-in"
+          style={{
+            top: Math.min(contextMenu.y, window.innerHeight - 150),
+            left: Math.min(contextMenu.x, window.innerWidth - 200),
+            background: 'var(--color-surface)',
+            border: '3px solid var(--color-border-strong)',
+            boxShadow: '4px 4px 0 var(--color-border-strong)'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className="px-4 py-2 text-xs font-black uppercase tracking-widest text-white border-b-2 truncate"
+            style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
+          >
+            {boards.find(b => b.id === contextMenu.boardId)?.name || 'Ship'}
+          </div>
+          <button
+            className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold transition hover:bg-primary-soft border-b-2"
+            style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
+            onClick={() => {
+              const b = boards.find(b => b.id === contextMenu.boardId)
+              if (b) setEditingBoard(b)
+              setContextMenu(null)
+            }}
+          >
+            <Edit2 className="w-4 h-4" />
+            Edit Ship Properties
+          </button>
+          <button
+            className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold transition duration-100 hover:bg-red-50"
+            style={{ color: 'var(--color-alert, #dc2626)' }}
+            onClick={() => handleDeleteBoard(contextMenu.boardId)}
+          >
+            <Trash2 className="w-4 h-4" />
+            Jettison Ship
+          </button>
+        </div>
       )}
     </div>
   )

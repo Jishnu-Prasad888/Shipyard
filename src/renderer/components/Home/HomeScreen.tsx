@@ -245,11 +245,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectDock, onSelectBo
                       }}
                     >
                       <Ship className="w-5 h-5 mb-2" style={{ color: c }} />
-                      <div className="text-[11px] font-black uppercase leading-tight line-clamp-2" style={{ color: 'var(--color-text)' }}>
+                      <div className="text-[11px] font-black uppercase leading-tight break-words whitespace-pre-wrap" style={{ color: 'var(--color-text)' }}>
                         {ship.name}
                       </div>
                       {dock && (
-                        <div className="text-[9px] font-bold mt-1 truncate" style={{ color: c }}>
+                        <div className="text-[9px] font-bold mt-1 break-words whitespace-pre-wrap" style={{ color: c }}>
                           {dock.name}
                         </div>
                       )}
@@ -355,7 +355,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectDock, onSelectBo
                               style={{ background: dockColor }}
                             />
                             <Ship className="w-4 h-4 mb-2" style={{ color: dockColor }} />
-                            <div className="font-black text-xs uppercase tracking-wide leading-tight line-clamp-2" style={{ color: 'var(--color-text)' }}>
+                            <div className="font-black text-xs uppercase tracking-wide leading-tight break-words whitespace-pre-wrap" style={{ color: 'var(--color-text)' }}>
                               {ship.name}
                             </div>
                             <div className="flex items-center justify-between mt-2">

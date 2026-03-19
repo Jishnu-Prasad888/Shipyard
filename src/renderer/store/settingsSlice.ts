@@ -4,7 +4,8 @@ import { Settings } from '@shared/types'
 const initialState: Settings = {
   theme: 'light',
   firebaseEnabled: false,
-  syncEnabled: false
+  syncEnabled: false,
+  minimizeToTray: true
 }
 
 const settingsSlice = createSlice({

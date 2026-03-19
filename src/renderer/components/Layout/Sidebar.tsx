@@ -201,33 +201,69 @@ export const Sidebar: React.FC<SidebarProps> = ({
   }
 
   const handleDeleteDock = async (dockId: string) => {
-    if (confirm('Delete this dock? All boards inside will also be deleted.')) {
-      // delete boards in this dock first
-      const allBoards = await window.electron.db.findAll('boards')
-      const dockBoards = allBoards.filter((b: any) => b.dockId === dockId)
-      for (const board of dockBoards) {
-        await window.electron.db.delete('boards', board.id)
+    // Snapshot everything for undo
+    const dockSnapshot = await window.electron.db.findById('docks', dockId)
+    const allBoards = await window.electron.db.findAll('boards')
+    const dockBoards = allBoards.filter((b: any) => b.dockId === dockId)
+    const allCards = await window.electron.db.findAll('cards')
+    const dockCards = allCards.filter((c: any) => dockBoards.some((b: any) => b.id === c.boardId))
+    const allSubCards = await window.electron.db.findAll('subcards')
+    const dockSubCards = allSubCards.filter((sc: any) => dockCards.some((c: any) => c.id === sc.cardId))
+    const allLists = await window.electron.db.findAll('lists')
+    const dockLists = allLists.filter((l: any) => dockBoards.some((b: any) => b.id === l.boardId))
+
+    // Delete everything
+    for (const board of dockBoards) await window.electron.db.delete('boards', board.id)
+    await window.electron.db.delete('docks', dockId)
+    loadDocks()
+    setContextMenu(null)
+    onDataChange?.()
+
+    window.dispatchEvent(new CustomEvent('show-toast', {
+      detail: {
+        message: `Dock "${dockSnapshot?.name}" deleted`,
+        onUndo: async () => {
+          await window.electron.db.create('docks', dockSnapshot)
+          for (const board of dockBoards) await window.electron.db.create('boards', board)
+          for (const list of dockLists) await window.electron.db.create('lists', list)
+          for (const card of dockCards) await window.electron.db.create('cards', card)
+          for (const sc of dockSubCards) await window.electron.db.create('subcards', sc)
+          loadDocks()
+          onDataChange?.()
+        }
       }
-      await window.electron.db.delete('docks', dockId)
-      loadDocks()
-      setContextMenu(null)
-      onDataChange?.()
-    }
+    }))
   }
 
   const handleDeleteFolder = async (folderId: string) => {
-    if (confirm('Delete this folder? Boards inside will become uncategorized.')) {
-      // Move docks out of folder
-      const folderDocks = docks.filter((d) => d.folderId === folderId)
-      for (const dock of folderDocks) {
-        await window.electron.db.update('docks', dock.id, { folderId: null })
-      }
-      await window.electron.db.delete('folders', folderId)
-      loadFolders()
-      loadDocks()
-      setContextMenu(null)
-      onDataChange?.()
+    const folderSnapshot = await window.electron.db.findById('folders', folderId)
+    const folderDocks = docks.filter((d) => d.folderId === folderId)
+
+    // Move docks out of folder
+    for (const dock of folderDocks) {
+      await window.electron.db.update('docks', dock.id, { folderId: null })
     }
+    await window.electron.db.delete('folders', folderId)
+    loadFolders()
+    loadDocks()
+    setContextMenu(null)
+    onDataChange?.()
+
+    window.dispatchEvent(new CustomEvent('show-toast', {
+      detail: {
+        message: `Port "${folderSnapshot?.name}" deleted`,
+        onUndo: async () => {
+          await window.electron.db.create('folders', folderSnapshot)
+          // Re-assign docks back to the folder
+          for (const dock of folderDocks) {
+            await window.electron.db.update('docks', dock.id, { folderId })
+          }
+          loadFolders()
+          loadDocks()
+          onDataChange?.()
+        }
+      }
+    }))
   }
 
   const handleCreateNewFolder = async (e: React.FormEvent) => {

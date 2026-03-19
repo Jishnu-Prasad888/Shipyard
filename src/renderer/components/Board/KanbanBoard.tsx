@@ -9,7 +9,7 @@ import {
   useSensors
 } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
-import { Plus, LayoutList, Hash, Pencil, Check, X } from 'lucide-react'
+import { Plus, LayoutList, Hash, Pencil, Check, X, ChevronLeft, Trash2 } from 'lucide-react'
 import { List } from './List'
 import { CreateListModal } from './CreateListModal'
 
@@ -23,9 +23,10 @@ const SHIP_COLORS = [
 interface KanbanBoardProps {
   boardId: string
   searchQuery?: string
+  onGoBack?: () => void
 }
 
-export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery = '' }) => {
+export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery = '', onGoBack }) => {
   const [board, setBoard] = useState<any>(null)
   const [lists, setLists] = useState<any[]>([])
   const [showCreateList, setShowCreateList] = useState(false)
@@ -165,6 +166,41 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
     setShowCreateList(false)
   }
 
+  const handleDeleteBoard = async () => {
+    // Snapshot for undo
+    const boardSnapshot = await window.electron.db.findById('boards', boardId)
+    if (!boardSnapshot) return
+
+    const allCards = await window.electron.db.findAll('cards')
+    const boardCards = allCards.filter((c: any) => c.boardId === boardId)
+    const allSubCards = await window.electron.db.findAll('subcards')
+    const boardSubCards = allSubCards.filter((sc: any) => boardCards.some((c: any) => c.id === sc.cardId))
+    const allLists = await window.electron.db.findAll('lists')
+    const boardLists = allLists.filter((l: any) => l.boardId === boardId)
+
+    // Delete everything
+    for (const card of boardCards) await window.electron.db.delete('cards', card.id)
+    for (const list of boardLists) await window.electron.db.delete('lists', list.id)
+    await window.electron.db.delete('boards', boardId)
+
+    if (onGoBack) onGoBack()
+
+    window.dispatchEvent(
+      new CustomEvent('show-toast', {
+        detail: {
+          message: `Ship "${boardSnapshot.name}" jettisoned`,
+          onUndo: async () => {
+            await window.electron.db.create('boards', boardSnapshot)
+            for (const list of boardLists) await window.electron.db.create('lists', list)
+            for (const card of boardCards) await window.electron.db.create('cards', card)
+            for (const sc of boardSubCards) await window.electron.db.create('subcards', sc)
+            window.dispatchEvent(new CustomEvent('reload-docks')) // Tells dock view to reload if active
+          }
+        }
+      })
+    )
+  }
+
   if (!board) return null
 
   const totalCards = lists.reduce((acc, l) => acc + (l.cards?.length || 0), 0)
@@ -174,6 +210,24 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
     <div className="h-full flex flex-col">
       {/* ── Board header ── */}
       <div className="mb-6 pb-4 border-b-4" style={{ borderColor: 'var(--color-border-strong)' }}>
+        
+        {/* Back button */}
+        {onGoBack && (
+          <button
+            onClick={onGoBack}
+            className="flex items-center gap-1.5 mb-4 px-2.5 py-1.5 border-2 text-[10px] font-black uppercase tracking-widest transition-transform hover:-translate-x-1 hover:-translate-y-0.5"
+            style={{
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-muted)',
+              background: 'var(--color-surface)',
+              boxShadow: '2px 2px 0 var(--color-border)'
+            }}
+          >
+            <ChevronLeft className="w-3.5 h-3.5" />
+            Back to Dock
+          </button>
+        )}
+
         {!editing ? (
           /* View mode */
           <div className="flex items-start justify-between gap-4">
@@ -220,6 +274,24 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
               >
                 <Pencil className="w-3.5 h-3.5" />
                 Edit Ship
+              </button>
+              <button
+                onClick={handleDeleteBoard}
+                className="flex items-center gap-1.5 px-3 py-2 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
+                onMouseOver={e => {
+                  e.currentTarget.style.borderColor = '#dc2626'
+                  e.currentTarget.style.color = '#dc2626'
+                  e.currentTarget.style.background = '#dc262615'
+                }}
+                onMouseOut={e => {
+                  e.currentTarget.style.borderColor = 'var(--color-border)'
+                  e.currentTarget.style.color = 'var(--color-muted)'
+                  e.currentTarget.style.background = 'transparent'
+                }}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Jettison
               </button>
               <button onClick={() => setShowCreateList(true)} className="btn-primary text-xs uppercase tracking-wider">
                 <Plus className="w-4 h-4 stroke-[3px]" />

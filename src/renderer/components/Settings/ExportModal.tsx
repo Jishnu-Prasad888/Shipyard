@@ -52,6 +52,15 @@ const safeParse = (v: any) => {
 
 const slugify = (s: string) => s.replace(/[^a-z0-9]/gi, '_').toLowerCase()
 
+const cleanExportItem = (item: any) => {
+  if (!item) return item
+  const {
+    id, createdAt, updatedAt, folderId, dockId, boardId, listId,
+    boardIds, connectedCardIds, order, _boardName, ...rest
+  } = item
+  return rest
+}
+
 // ────────────────────────────────────────────
 // Tri-state Checkbox component
 // ────────────────────────────────────────────
@@ -134,7 +143,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
   const [format, setFormat] = useState<ExportFormat>('json')
   const [splitPerDock, setSplitPerDock] = useState(false)
   const [exporting, setExporting] = useState(false)
-  const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [result, setResult] = useState<{ ok: boolean; msg: string; path?: string } | null>(null)
 
   // ── Load data ──
   const loadAll = useCallback(async () => {
@@ -274,35 +283,55 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
     const exportListIds = new Set(exportLists.map(l => l.id))
     const exportCards = allCards.filter((c: any) => exportListIds.has(c.listId))
 
+    const cleanedDocks = exportDocks.map(cleanExportItem)
+    const cleanedBoards = exportBoards.map(cleanExportItem)
+    const cleanedLists = exportLists.map(cleanExportItem)
+    
+    const cleanedCards = exportCards.map(c => {
+      const cleaned = cleanExportItem(c)
+      const tags = safeParse(c.tags)
+      if (Array.isArray(tags)) cleaned.tags = tags.map((t: any) => ({ name: t.name, color: t.color }))
+      
+      const subCards = safeParse(c.subCards)
+      if (Array.isArray(subCards)) cleaned.subCards = subCards.map((sc: any) => ({ title: sc.title, completed: sc.completed }))
+      
+      const status = safeParse(c.status)
+      if (status && status.name) cleaned.status = status.name
+      
+      return cleaned
+    })
+
     if (ext === 'json') {
       return JSON.stringify({
-        docks: exportDocks,
-        ships: exportBoards,
-        manifests: exportLists.map(l => ({
+        docks: cleanedDocks,
+        ships: cleanedBoards,
+        manifests: cleanedLists.map((l, i) => ({
           ...l,
-          cargo: exportCards
-            .filter((c: any) => c.listId === l.id)
-            .map((c: any) => ({
-              ...c,
-              tags: safeParse(c.tags),
-              subCards: safeParse(c.subCards),
-              connectedCardIds: safeParse(c.connectedCardIds)
-            }))
+          cargo: cleanedCards.filter((_, idx) => exportCards[idx].listId === exportLists[i].id)
         }))
       }, null, 2)
-    } else if (ext === 'csv') {
+    }
+    
+    // Format arrays into strings for CSV / Markdown
+    const textCards = cleanedCards.map((c: any) => ({
+      ...c,
+      tags: Array.isArray(c.tags) ? c.tags.map((t: any) => t.name).join(', ') : (c.tags || ''),
+      subCards: Array.isArray(c.subCards) ? c.subCards.map((sc: any) => `${sc.completed ? '[x]' : '[ ]'} ${sc.title}`).join('; ') : (c.subCards || '')
+    }))
+
+    if (ext === 'csv') {
       return [
-        '# DOCKS', toCSV(exportDocks), '',
-        '# SHIPS (BOARDS)', toCSV(exportBoards), '',
-        '# MANIFESTS (LISTS)', toCSV(exportLists), '',
-        '# CARGO (CARDS)', toCSV(exportCards)
+        '# DOCKS', toCSV(cleanedDocks), '',
+        '# SHIPS (BOARDS)', toCSV(cleanedBoards), '',
+        '# MANIFESTS (LISTS)', toCSV(cleanedLists), '',
+        '# CARGO (CARDS)', toCSV(textCards)
       ].join('\n')
     } else {
       return [
-        toMarkdown('Docks', exportDocks),
-        toMarkdown('Ships (Boards)', exportBoards),
-        toMarkdown('Manifests (Lists)', exportLists),
-        toMarkdown('Cargo (Cards)', exportCards)
+        toMarkdown('Docks', cleanedDocks),
+        toMarkdown('Ships (Boards)', cleanedBoards),
+        toMarkdown('Manifests (Lists)', cleanedLists),
+        toMarkdown('Cargo (Cards)', textCards)
       ].join('\n')
     }
   }
@@ -326,7 +355,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
         })
         const res = await (window.electron as any).export.saveFolder(files)
         if (res?.success) {
-          setResult({ ok: true, msg: `Exported ${res.count} file(s) to ${res.folder}` })
+          setResult({ ok: true, msg: `Exported ${res.count} file(s) to ${res.folder}`, path: res.folder })
         } else if (!res?.error) {
           setResult(null)
         } else {
@@ -334,8 +363,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
         }
       } else {
         const selectedPorts = ports.filter(p => selPorts[p.id])
+        const cleanedPorts = selectedPorts.map(cleanExportItem)
         const portSection = selectedPorts.length && format === 'json'
-          ? { ports: selectedPorts } : {}
+          ? { ports: cleanedPorts } : {}
 
         const content = JSON.stringify(portSection, null, 2) === '{}'
           ? buildContent(selectedDockIds, format, allowedListIds)
@@ -347,9 +377,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
         // For non-JSON, prepend ports section
         let finalContent = content
         if (format === 'md' && selectedPorts.length) {
-          finalContent = toMarkdown('Ports', selectedPorts) + '\n' + content
+          finalContent = toMarkdown('Ports', cleanedPorts) + '\n' + content
         } else if (format === 'csv' && selectedPorts.length) {
-          finalContent = '# PORTS\n' + toCSV(selectedPorts) + '\n\n' + content
+          finalContent = '# PORTS\n' + toCSV(cleanedPorts) + '\n\n' + content
         }
 
         const res = await (window.electron as any).export.saveFile({
@@ -358,7 +388,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
           ext: format
         })
         if (res?.success) {
-          setResult({ ok: true, msg: `Saved to ${res.filePath}` })
+          setResult({ ok: true, msg: `Saved to ${res.filePath}`, path: res.filePath })
         } else if (!res?.error) {
           setResult(null)
         } else {
@@ -606,15 +636,30 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
             {/* Feedback */}
             {result && (
               <div
-                className="flex items-start gap-1.5 p-2 border-2 text-[10px] font-bold animate-brutal-in"
+                className="flex flex-col gap-2 p-3 border-2 text-[10px] font-bold animate-brutal-in mt-4"
                 style={{
                   borderColor: result.ok ? '#059669' : '#dc2626',
                   background: result.ok ? '#05966910' : '#dc262610',
                   color: result.ok ? '#059669' : '#dc2626'
                 }}
               >
-                {result.ok ? <CheckCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> : <XCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
-                <span className="break-all">{result.msg}</span>
+                <div className="flex items-start gap-1.5">
+                  {result.ok ? <CheckCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> : <XCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
+                  <span className="break-all leading-tight">{result.msg}</span>
+                </div>
+                {result.ok && result.path && (
+                  <button
+                    onClick={() => (window.electron as any).export.openItem(result.path)}
+                    className="self-start mt-1 px-3 py-1.5 border-2 text-[9px] font-black uppercase tracking-widest transition-transform hover:-translate-y-0.5"
+                    style={{
+                      borderColor: '#059669',
+                      color: '#059669',
+                      background: '#05966920'
+                    }}
+                  >
+                    Open {splitPerDock ? 'Folder' : 'File'}
+                  </button>
+                )}
               </div>
             )}
           </div>
