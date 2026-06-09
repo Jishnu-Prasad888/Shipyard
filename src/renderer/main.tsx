@@ -1,39 +1,22 @@
+/**
+ * src/renderer/main.tsx
+ *
+ * Only change from the original:
+ *   1. Import './lib/tauri-bridge' at the top  ← this is the only diff
+ *   2. Remove the old ReactDOM.createRoot pattern if you used StrictMode
+ *
+ * Everything else (App, store, index.css) is identical.
+ */
+
+// ★ Must be first import — installs window.electron before any component loads
+import './lib/tauri-bridge'
+
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { Provider } from 'react-redux'
 import { store } from './store'
 import App from './App'
 import './index.css'
-
-declare global {
-  interface Window {
-    electron: {
-      db: {
-        findAll: (table: string) => Promise<any[]>
-        findById: (table: string, id: string) => Promise<any>
-        create: (table: string, data: any) => Promise<any>
-        update: (table: string, id: string, data: any) => Promise<any>
-        delete: (table: string, id: string) => Promise<boolean>
-        getBoardWithDetails: (id: string) => Promise<any>
-        getDocksWithFolders: () => Promise<any[]>
-      }
-      settings: {
-        get: () => Promise<any>
-        save: (settings: any) => Promise<any>
-      }
-     sync: {
-  start: () => Promise<any>
-  status: () => Promise<any>
-  test: () => Promise<any>
-  push: () => Promise<any>
-  pull: () => Promise<any>
-}
-      darkMode: {
-        toggle: (enabled: boolean) => Promise<void>
-      }
-    }
-  }
-}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
