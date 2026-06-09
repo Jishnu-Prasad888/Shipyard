@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::path::PathBuf;
-use tauri::{AppHandle, Manager, State};
+use tauri::{AppHandle, State};
 
 use crate::db::Database;
 
@@ -152,8 +152,9 @@ pub async fn export_save_file(
 
     match file_path {
         Some(path) => {
-            std::fs::write(&path, content.as_bytes())
-                .map(|_| json!({ "success": true, "filePath": path.to_string_lossy() }))
+            let path_buf = PathBuf::from(path.to_string());
+            std::fs::write(&path_buf, content.as_bytes())
+                .map(|_| json!({ "success": true, "filePath": path_buf.to_string_lossy() }))
                 .map_err(|e| e.to_string())
         }
         None => Ok(json!({ "success": false })),

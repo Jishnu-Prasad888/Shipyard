@@ -1,4 +1,3 @@
-use once_cell::sync::OnceCell;
 use rusqlite::{Connection, Result, params};
 use serde_json::{Value, json};
 use std::sync::Mutex;
@@ -322,15 +321,14 @@ impl Database {
                 "SELECT * FROM lists WHERE boardId = ?1 ORDER BY \"order\" ASC",
             )?;
             let cols: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
-            stmt.query_map(params![board_id], |row| {
+            let mapped_rows = stmt.query_map(params![board_id], |row| {
                 let mut obj = serde_json::Map::new();
                 for (i, col) in cols.iter().enumerate() {
                     obj.insert(col.clone(), row_value_to_json(row, i));
                 }
                 Ok(Value::Object(obj))
-            })?
-            .filter_map(|r| r.ok())
-            .collect()
+            })?;
+            mapped_rows.filter_map(|r| r.ok()).collect()
         };
 
         // Cards + SubCards per list
@@ -342,15 +340,14 @@ impl Database {
                 )?;
                 let cols: Vec<String> =
                     stmt.column_names().iter().map(|s| s.to_string()).collect();
-                stmt.query_map(params![list_id], |row| {
+                let mapped_rows = stmt.query_map(params![list_id], |row| {
                     let mut obj = serde_json::Map::new();
                     for (i, col) in cols.iter().enumerate() {
                         obj.insert(col.clone(), row_value_to_json(row, i));
                     }
                     Ok(Value::Object(obj))
-                })?
-                .filter_map(|r| r.ok())
-                .collect()
+                })?;
+                mapped_rows.filter_map(|r| r.ok()).collect()
             };
 
             for card in &mut cards {
@@ -361,15 +358,14 @@ impl Database {
                     )?;
                     let cols: Vec<String> =
                         stmt.column_names().iter().map(|s| s.to_string()).collect();
-                    stmt.query_map(params![card_id], |row| {
+                    let mapped_rows = stmt.query_map(params![card_id], |row| {
                         let mut obj = serde_json::Map::new();
                         for (i, col) in cols.iter().enumerate() {
                             obj.insert(col.clone(), row_value_to_json(row, i));
                         }
                         Ok(Value::Object(obj))
-                    })?
-                    .filter_map(|r| r.ok())
-                    .collect()
+                    })?;
+                    mapped_rows.filter_map(|r| r.ok()).collect()
                 };
                 if let Some(obj) = card.as_object_mut() {
                     obj.insert("subCards".into(), json!(subcards));
