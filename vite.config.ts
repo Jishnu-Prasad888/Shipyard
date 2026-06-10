@@ -4,7 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
 // https://tauri.app/start/frontend/vite/
-export default defineConfig(async () => ({
+export default defineConfig({
   plugins: [react(), tailwindcss()],
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
@@ -50,4 +50,4 @@ export default defineConfig(async () => ({
   css: {
     postcss: {}
   }
-}))
+})
