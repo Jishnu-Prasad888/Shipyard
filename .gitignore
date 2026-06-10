@@ -1,12 +1,42 @@
+# Dependencies
 node_modules/
-dist
-out
-.DS_Store
-.eslintcache
-*.log*
-*.exe
-release/
+
+# Build outputs
 dist/
-*.exe
+out/
+release/
+
+# Tauri / Rust build artifacts
+src-tauri/target/
+target/
+
+# Bundled application artifacts
 *.asar
-node_modules/
+*.exe
+*.msi
+*.dmg
+*.appimage
+*.deb
+*.rpm
+
+# Logs
+*.log
+*.log.*
+
+# Cache files
+.eslintcache
+
+# macOS
+.DS_Store
+
+# Environment files 
+.env
+.env.local
+.env.*.local
+
+# IDE files 
+.vscode/
+.idea/
+
+# Tauri updater artifacts 
+latest.json
