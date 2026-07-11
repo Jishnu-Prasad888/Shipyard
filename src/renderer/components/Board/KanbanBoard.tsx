@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -37,6 +37,110 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('')
   const [saving, setSaving] = useState(false)
+  const dragStateRef = useRef<{ previousLists: any[]; changedListIds: string[] } | null>(null)
+
+  const normalizeListOrders = (list: any) => ({
+    ...list,
+    cards: (list.cards || []).map((card: any, index: number) =>
+      card.order === index && card.listId === list.id
+        ? card
+        : { ...card, order: index, listId: list.id }
+    )
+  })
+
+  const reorderCards = (activeId: string, overId: string, currentLists: any[]) => {
+    if (activeId === overId) return { lists: currentLists, changedListIds: [], moved: false }
+
+    const listsCopy = currentLists.map(list => ({ ...list, cards: [...(list.cards || [])] }))
+
+    let sourceListIndex = -1
+    let targetListIndex = -1
+    let activeCardIndex = -1
+    let overCardIndex = -1
+
+    for (let i = 0; i < listsCopy.length; i++) {
+      const cards = listsCopy[i].cards || []
+      if (activeCardIndex === -1) {
+        const idx = cards.findIndex((c: any) => c.id === activeId)
+        if (idx !== -1) {
+          sourceListIndex = i
+          activeCardIndex = idx
+        }
+      }
+      if (overCardIndex === -1) {
+        const idx = cards.findIndex((c: any) => c.id === overId)
+        if (idx !== -1) {
+          targetListIndex = i
+          overCardIndex = idx
+        }
+      }
+      if (activeCardIndex !== -1 && overCardIndex !== -1) break
+    }
+
+    if (sourceListIndex === -1 || targetListIndex === -1 || activeCardIndex === -1 || overCardIndex === -1)
+      return { lists: currentLists, changedListIds: [], moved: false }
+
+    if (sourceListIndex === targetListIndex && activeCardIndex === overCardIndex)
+      return { lists: currentLists, changedListIds: [], moved: false }
+
+    if (sourceListIndex === targetListIndex) {
+      const updatedCards = arrayMove(listsCopy[sourceListIndex].cards, activeCardIndex, overCardIndex)
+      listsCopy[sourceListIndex] = normalizeListOrders({ ...listsCopy[sourceListIndex], cards: updatedCards })
+      return { lists: listsCopy, changedListIds: [listsCopy[sourceListIndex].id], moved: true }
+    }
+
+    const sourceList = listsCopy[sourceListIndex]
+    const targetList = listsCopy[targetListIndex]
+    const [movingCard] = sourceList.cards.splice(activeCardIndex, 1)
+    if (!movingCard) return { lists: currentLists, changedListIds: [], moved: false }
+
+    const targetCards = [...targetList.cards]
+    targetCards.splice(overCardIndex, 0, { ...movingCard, listId: targetList.id })
+
+    listsCopy[sourceListIndex] = normalizeListOrders({ ...sourceList })
+    listsCopy[targetListIndex] = normalizeListOrders({ ...targetList, cards: targetCards })
+
+    return { lists: listsCopy, changedListIds: [sourceList.id, targetList.id], moved: true }
+  }
+
+  const persistCardOrder = async (
+    nextLists: any[],
+    changedListIds: string[],
+    prevLists: any[]
+  ) => {
+    const uniqueListIds = Array.from(new Set(changedListIds)).filter(Boolean)
+    if (uniqueListIds.length === 0) return
+
+    const previousMap = new Map<string, Map<string, { order: number; listId: string }>>()
+    for (const listId of uniqueListIds) {
+      const prevList = prevLists.find(l => l.id === listId)
+      if (!prevList) continue
+      const cardMap = new Map<string, { order: number; listId: string }>()
+      ;(prevList.cards || []).forEach((card: any, index: number) => {
+        cardMap.set(card.id, { order: card.order ?? index, listId: prevList.id })
+      })
+      previousMap.set(listId, cardMap)
+    }
+
+    const updates: Promise<any>[] = []
+
+    for (const listId of uniqueListIds) {
+      const nextList = nextLists.find(l => l.id === listId)
+      if (!nextList) continue
+      const prevCards = previousMap.get(listId)
+
+      ;(nextList.cards || []).forEach((card: any, index: number) => {
+        const prev = prevCards?.get(card.id)
+        if (!prev || prev.order !== index || prev.listId !== listId) {
+          updates.push(window.electron.db.update('cards', card.id, { listId, order: index }))
+        }
+      })
+    }
+
+    if (updates.length > 0) {
+      await Promise.all(updates)
+    }
+  }
 
   const filteredLists = searchQuery
     ? lists.map((list) => ({
@@ -94,68 +198,73 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
     if (!over) return
     const isActiveCard = active.data.current?.type === 'card'
     const isOverCard = over.data.current?.type === 'card'
-    if (isActiveCard && isOverCard) handleCardReorder(active.id as string, over.id as string)
+    if (isActiveCard && isOverCard) {
+      setLists(prev => {
+        const result = reorderCards(active.id as string, over.id as string, prev)
+        if (result.moved) {
+          dragStateRef.current = { previousLists: prev, changedListIds: result.changedListIds }
+        }
+        return result.moved ? result.lists : prev
+      })
+    }
   }
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveId(null)
     const { active, over } = event
-    if (!over) return
-    if (active.data.current?.type === 'list' && over.data.current?.type === 'list')
-      handleListReorder(active.id as string, over.id as string)
-  }
-
-  const handleCardReorder = async (activeId: string, overId: string) => {
-    let activeCard: any = null, activeList: any = null
-    let overCard: any = null, overList: any = null
-    for (const list of lists) {
-      const card = list.cards?.find((c: any) => c.id === activeId)
-      if (card) { activeCard = card; activeList = list }
-      const overCardFound = list.cards?.find((c: any) => c.id === overId)
-      if (overCardFound) { overCard = overCardFound; overList = list }
+    if (!over) {
+      if (dragStateRef.current?.previousLists) {
+        setLists(dragStateRef.current.previousLists)
+      }
+      dragStateRef.current = null
+      return
     }
-    if (!activeCard || !overCard) return
 
-    if (activeList.id === overList.id) {
-      const oldIndex = activeList.cards.findIndex((c: any) => c.id === activeId)
-      const newIndex = activeList.cards.findIndex((c: any) => c.id === overId)
-      const reorderedCards = arrayMove<any>(activeList.cards, oldIndex, newIndex)
-      for (let i = 0; i < reorderedCards.length; i++) {
-        if (reorderedCards[i].order !== i) {
-          reorderedCards[i].order = i
-          await window.electron.db.update('cards', reorderedCards[i].id, { order: i })
+    if (active.data.current?.type === 'card' && over.data.current?.type === 'card') {
+      const dragState = dragStateRef.current
+      dragStateRef.current = null
+
+      if (dragState?.changedListIds?.length) {
+        void persistCardOrder(lists, dragState.changedListIds, dragState.previousLists)
+      } else {
+        const { lists: nextLists, changedListIds, moved } = reorderCards(
+          active.id as string,
+          over.id as string,
+          lists
+        )
+
+        if (moved) {
+          setLists(nextLists)
+          void persistCardOrder(nextLists, changedListIds, lists)
         }
       }
-      setLists(prev => prev.map(l => l.id === activeList.id ? { ...l, cards: reorderedCards } : l))
-    } else {
-      const newActiveCards = activeList.cards.filter((c: any) => c.id !== activeId)
-      const newOverCards = [...overList.cards]
-      const overIndex = newOverCards.findIndex((c: any) => c.id === overId)
-      newOverCards.splice(overIndex, 0, activeCard)
-      await window.electron.db.update('cards', activeId, { listId: overList.id, order: overIndex })
-      for (let i = 0; i < newActiveCards.length; i++)
-        await window.electron.db.update('cards', newActiveCards[i].id, { order: i })
-      for (let i = 0; i < newOverCards.length; i++)
-        await window.electron.db.update('cards', newOverCards[i].id, { order: i })
-      setLists(prev => prev.map(l => {
-        if (l.id === activeList.id) return { ...l, cards: newActiveCards }
-        if (l.id === overList.id) return { ...l, cards: newOverCards }
-        return l
-      }))
+      return
     }
+
+    if (active.data.current?.type === 'list' && over.data.current?.type === 'list')
+      handleListReorder(active.id as string, over.id as string)
   }
 
   const handleListReorder = async (activeId: string, overId: string) => {
     const oldIndex = lists.findIndex((l: any) => l.id === activeId)
     const newIndex = lists.findIndex((l: any) => l.id === overId)
-    const newLists = arrayMove(lists, oldIndex, newIndex)
-    for (let i = 0; i < newLists.length; i++) {
-      if (newLists[i].order !== i) {
-        newLists[i].order = i
-        await window.electron.db.update('lists', newLists[i].id, { order: i })
-      }
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const previousOrder = new Map(lists.map((l: any) => [l.id, l.order]))
+    const reorderedLists = arrayMove(lists, oldIndex, newIndex)
+    const normalized = reorderedLists.map((list: any, index: number) =>
+      list.order === index ? list : { ...list, order: index }
+    )
+
+    setLists(normalized)
+
+    const updates = normalized
+      .filter((list: any) => previousOrder.get(list.id) !== list.order)
+      .map((list: any) => window.electron.db.update('lists', list.id, { order: list.order }))
+
+    if (updates.length > 0) {
+      await Promise.all(updates)
     }
-    setLists(newLists)
   }
 
   const handleCreateList = async (listData: any) => {
@@ -209,18 +318,21 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
   return (
     <div className="h-full flex flex-col">
       {/* ── Board header ── */}
-      <div className="mb-6 pb-4 border-b-4" style={{ borderColor: 'var(--color-border-strong)' }}>
-        
+      <div
+        className="mb-6 p-4 border-4"
+        style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-surface)', boxShadow: 'var(--shadow-brutal)' }}
+      >
+
         {/* Back button */}
         {onGoBack && (
           <button
             onClick={onGoBack}
-            className="flex items-center gap-1.5 mb-4 px-2.5 py-1.5 border-2 text-[10px] font-black uppercase tracking-widest transition-transform hover:-translate-x-1 hover:-translate-y-0.5"
+            className="flex items-center gap-1.5 mb-4 px-3 py-2 border-2 text-[10px] font-black uppercase tracking-[0.2em] transition-transform duration-100"
             style={{
               borderColor: 'var(--color-border)',
               color: 'var(--color-muted)',
-              background: 'var(--color-surface)',
-              boxShadow: '2px 2px 0 var(--color-border)'
+              background: 'var(--color-surface-2)',
+              boxShadow: 'var(--shadow-brutal-sm)'
             }}
           >
             <ChevronLeft className="w-3.5 h-3.5" />
@@ -232,22 +344,22 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
           /* View mode */
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-1.5 shrink-0 self-stretch" style={{ background: shipColor, borderRadius: '2px' }} />
+              <div className="w-2 h-12 shrink-0 self-stretch" style={{ background: shipColor, boxShadow: `var(--shadow-brutal-sm)` }} />
               <div className="min-w-0">
                 <h1 className="text-3xl font-black uppercase tracking-tight" style={{ color: 'var(--color-text)' }}>
                   {board.name}
                 </h1>
-                <div className="flex items-center gap-4 mt-1">
+                <div className="flex items-center gap-3 mt-2 flex-wrap">
                   <span
-                    className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider px-2 py-1 border-2"
+                    className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide px-3 py-1 border-2"
                     style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)', background: 'var(--color-primary-soft)' }}
                   >
                     <LayoutList className="w-3 h-3" />
                     {lists.length} Manifests
                   </span>
                   <span
-                    className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider px-2 py-1 border-2"
-                    style={{ borderColor: 'var(--color-cyan, #0891b2)', color: 'var(--color-cyan, #0891b2)', background: '#ecfeff' }}
+                    className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide px-3 py-1 border-2"
+                    style={{ borderColor: 'var(--color-cyan, #0891b2)', color: 'var(--color-cyan, #0891b2)', background: 'rgba(53,194,255,0.12)' }}
                   >
                     <Hash className="w-3 h-3" />
                     {totalCards} Cargo
@@ -259,41 +371,24 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={openEdit}
-                className="flex items-center gap-1.5 px-3 py-2 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100"
-                style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
-                onMouseOver={e => {
-                  e.currentTarget.style.borderColor = 'var(--color-primary)'
-                  e.currentTarget.style.color = 'var(--color-primary)'
-                  e.currentTarget.style.background = 'var(--color-primary-soft)'
-                }}
-                onMouseOut={e => {
-                  e.currentTarget.style.borderColor = 'var(--color-border)'
-                  e.currentTarget.style.color = 'var(--color-muted)'
-                  e.currentTarget.style.background = 'transparent'
-                }}
+                className="btn-secondary text-xs px-4"
               >
                 <Pencil className="w-3.5 h-3.5" />
                 Edit Ship
               </button>
               <button
                 onClick={handleDeleteBoard}
-                className="flex items-center gap-1.5 px-3 py-2 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100"
-                style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
-                onMouseOver={e => {
-                  e.currentTarget.style.borderColor = '#dc2626'
-                  e.currentTarget.style.color = '#dc2626'
-                  e.currentTarget.style.background = '#dc262615'
-                }}
-                onMouseOut={e => {
-                  e.currentTarget.style.borderColor = 'var(--color-border)'
-                  e.currentTarget.style.color = 'var(--color-muted)'
-                  e.currentTarget.style.background = 'transparent'
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-black uppercase tracking-wide border-2 transition-all duration-100"
+                style={{
+                  borderColor: 'rgba(217,76,87,0.4)',
+                  color: '#d94c57',
+                  background: 'rgba(217,76,87,0.12)'
                 }}
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Jettison
               </button>
-              <button onClick={() => setShowCreateList(true)} className="btn-primary text-xs uppercase tracking-wider">
+              <button onClick={() => setShowCreateList(true)} className="btn-primary text-xs uppercase tracking-wider px-5">
                 <Plus className="w-4 h-4 stroke-[3px]" />
                 Add Manifest
               </button>
@@ -302,8 +397,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
         ) : (
           /* Edit mode inline panel */
           <div
-            className="p-4 border-2 space-y-4 animate-brutal-in"
-            style={{ borderColor: 'var(--color-primary)', background: 'var(--color-background)', boxShadow: 'var(--shadow-brutal-sm)' }}
+            className="p-4 border-4 space-y-4 animate-brutal-in"
+            style={{ borderColor: 'var(--color-primary)', background: 'var(--color-background)', boxShadow: 'var(--shadow-brutal)' }}
           >
             <div className="flex items-center gap-2">
               <Pencil className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
@@ -321,8 +416,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
                 value={editName}
                 onChange={e => setEditName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit() }}
-                className="w-full px-3 py-2.5 border-2 font-black text-sm outline-none"
-                style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)' }}
+                className="w-full px-3 py-2.5 border-3 font-black text-sm outline-none"
+                style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-surface)', color: 'var(--color-text)' }}
                 onFocus={e => e.target.style.borderColor = 'var(--color-primary)'}
                 onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
                 placeholder="Ship name…"
@@ -339,10 +434,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
                   <button
                     key={c}
                     onClick={() => setEditColor(c)}
-                    className="w-7 h-7 border-2 shrink-0 transition-all duration-100"
-                    style={{
-                      background: c,
-                      borderColor: editColor === c ? 'var(--color-border-strong)' : 'transparent',
+                   className="w-7 h-7 border-3 shrink-0 transition-all duration-100"
+                   style={{
+                     background: c,
+                     borderColor: editColor === c ? 'var(--color-border-strong)' : 'transparent',
                       transform: editColor === c ? 'scale(1.3)' : 'scale(1)',
                       boxShadow: editColor === c ? `0 0 0 2px ${c}66` : 'none'
                     }}
@@ -352,7 +447,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
               </div>
 
               {/* Live preview */}
-              <div className="flex items-center gap-3 mt-3 px-3 py-2 border-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
+               <div className="flex items-center gap-3 mt-3 px-3 py-2 border-3" style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-surface)' }}>
                 <div className="w-1.5 h-8 shrink-0" style={{ background: editColor, borderRadius: '2px' }} />
                 <span className="font-black text-sm truncate" style={{ color: 'var(--color-text)' }}>
                   {editName || 'Preview'}
@@ -365,7 +460,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
               <button
                 onClick={saveEdit}
                 disabled={saving || !editName.trim()}
-                className="flex items-center gap-1.5 px-4 py-2 border-2 font-black text-xs uppercase tracking-wider transition-all disabled:opacity-40"
+                className="flex items-center gap-1.5 px-4 py-2 border-3 font-black text-xs uppercase tracking-wider transition-all disabled:opacity-40"
                 style={{ borderColor: 'var(--color-primary)', background: 'var(--color-primary)', color: 'white', boxShadow: 'var(--shadow-brutal-sm)' }}
               >
                 <Check className="w-3.5 h-3.5" />
@@ -373,8 +468,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
               </button>
               <button
                 onClick={cancelEdit}
-                className="flex items-center gap-1.5 px-4 py-2 border-2 font-black text-xs uppercase tracking-wider"
-                style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
+                className="flex items-center gap-1.5 px-4 py-2 border-3 font-black text-xs uppercase tracking-wider"
+                style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-muted)' }}
               >
                 <X className="w-3.5 h-3.5" />
                 Cancel
@@ -397,21 +492,21 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
             {/* Add manifest placeholder */}
             <button
               onClick={() => setShowCreateList(true)}
-              className="w-80 shrink-0 h-fit p-5 border-4 border-dashed transition-all duration-150"
-              style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
+              className="w-80 shrink-0 h-fit p-5 border-4 border-dashed transition-all duration-100"
+              style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-muted)', boxShadow: 'var(--shadow-brutal-sm)' }}
               onMouseOver={e => {
                 e.currentTarget.style.borderColor = 'var(--color-primary)'
                 e.currentTarget.style.background = 'var(--color-primary-soft)'
                 e.currentTarget.style.color = 'var(--color-primary)'
               }}
               onMouseOut={e => {
-                e.currentTarget.style.borderColor = 'var(--color-border)'
+                e.currentTarget.style.borderColor = 'var(--color-border-strong)'
                 e.currentTarget.style.background = 'transparent'
                 e.currentTarget.style.color = 'var(--color-muted)'
               }}
             >
               <div className="flex items-center justify-center gap-3">
-                <div className="w-8 h-8 border-2 flex items-center justify-center font-black" style={{ borderColor: 'currentColor' }}>
+                <div className="w-8 h-8 border-3 flex items-center justify-center font-black" style={{ borderColor: 'currentColor' }}>
                   <Plus className="w-5 h-5 stroke-[3px]" />
                 </div>
                 <span className="font-black text-sm uppercase tracking-wider">Add Manifest</span>
