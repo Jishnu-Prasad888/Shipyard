@@ -53,7 +53,8 @@ const electronBridge = {
     status: () => invoke<any>('sync_status'),
     test: () => invoke<any>('sync_test'),
     push: () => invoke<any>('sync_push'),
-    pull: () => invoke<any>('sync_pull')
+    pull: () => invoke<any>('sync_pull'),
+    markSynced: (ids: string[]) => invoke<any>('sync_mark_synced', { ids })
   },
 
   darkMode: {
