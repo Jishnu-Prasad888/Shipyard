@@ -6,77 +6,56 @@
  ====================== */
 
 @theme {
-  /* ── Maritime Palette ── */
+  /* ── Brutalist Maritime Palette — light mode ── */
 
   /* Layout zones */
-  --color-background: #E8F3FA;
-  /* Soft Ocean — board / app bg */
-  --color-surface: #FFFFFF;
-  /* White Deck — cards, panels */
-  --color-surface-2: #DCECF7;
-  /* Light Sky Panel — column headers */
-  --color-surface-3: #C8E1F0;
-  /* Sea Mist — subtle panels */
+  --color-background: #e7f0fa;
+  --color-surface: #ffffff;
+  --color-surface-2: #f0f5fb;
+  --color-surface-3: #dfe9f6;
 
-  /* Sidebar / Header */
-  --color-sidebar: #0B2545;
-  /* Deep Harbor Blue */
-  --color-header: #1F5F8B;
-  /* Port Blue */
+  /* Shells */
+  --color-sidebar: #0b2545;
+  --color-header: #123b66;
 
-  /* Borders */
-  --color-border: #1F5F8B;
-  /* Port Blue borders */
-  --color-border-strong: #0B2545;
-  /* Deep Harbor strong borders */
+  /* Lines */
+  --color-border: #1f4f7a;
+  --color-border-strong: #0b2545;
 
   /* Text */
-  --color-text: #0B2545;
-  /* Deep Harbor — primary text */
-  --color-muted: #1F5F8B;
-  /* Port Blue — muted text */
+  --color-text: #0b1f33;
+  --color-muted: #36506b;
 
   /* Primary action */
-  --color-primary: #2D82B7;
-  /* Bright Marine — buttons */
-  --color-primary-soft: #DCECF7;
-  /* Light Sky Panel — button bg tint */
-  --color-primary-hover: #1F5F8B;
-  /* Port Blue — hover */
+  --color-primary: #2d7bc7;
+  --color-primary-soft: #d7e8ff;
+  --color-primary-hover: #1f5f9d;
 
   /* Accent / secondary */
-  --color-secondary: #5FA8D3;
-  /* Sky Accent — hover / focus rings */
-  --color-accent: #3FA796;
-  /* Done teal */
+  --color-secondary: #5fb6ff;
+  --color-accent: #2aa789;
 
   /* Status */
-  --color-status-info: #5FA8D3;
-  /* Info / Planning */
-  --color-status-in-progress: #2D82B7;
-  /* In Progress */
-  --color-status-blocked: #D97B66;
-  /* Blocked */
-  --color-status-done: #3FA796;
-  /* Done */
+  --color-status-info: #2d7bc7;
+  --color-status-in-progress: #5fb6ff;
+  --color-status-blocked: #e57d60;
+  --color-status-done: #2aa789;
 
   /* Semantic */
-  --color-warning: #D97B66;
-  /* Warm coral warning / blocked */
-  --color-alert: #c0392b;
-  /* Error red */
+  --color-warning: #e57d60;
+  --color-alert: #c94046;
 
   /* Legacy aliases (components still reference these) */
-  --color-cyan: #5FA8D3;
-  --color-indigo: #1F5F8B;
-  --color-violet: #0B2545;
+  --color-cyan: #5fb6ff;
+  --color-indigo: #2d7bc7;
+  --color-violet: #0b2545;
 
-  /* Shadows — keyed to Deep Harbor */
-  --shadow-brutal: 4px 4px 0px 0px #0B2545;
-  --shadow-brutal-sm: 2px 2px 0px 0px #0B2545;
-  --shadow-brutal-lg: 6px 6px 0px 0px #0B2545;
-  --shadow-brutal-blue: 4px 4px 0px 0px #2D82B7;
-  --shadow-brutal-cyan: 4px 4px 0px 0px #5FA8D3;
+  /* Shadows — hard offset */
+  --shadow-brutal: 6px 6px 0 #0b2545;
+  --shadow-brutal-sm: 3px 3px 0 #0b2545;
+  --shadow-brutal-lg: 10px 10px 0 #0b2545;
+  --shadow-brutal-blue: 6px 6px 0 #2d7bc7;
+  --shadow-brutal-cyan: 6px 6px 0 #5fb6ff;
 }
 
 /* ======================
@@ -84,49 +63,45 @@
  ====================== */
 
 .dark {
-  /* ── Dark Maritime — Deep Night Harbour ── */
-  --color-background: #060e1a;
-  /* Very deep navy */
+  /* ── Midnight Harbor — dark mode ── */
+  --color-background: #050d1a;
   --color-surface: #0d1f33;
-  /* Dark hull */
-  --color-surface-2: #112640;
-  /* Slightly lighter panel */
-  --color-surface-3: #163050;
-  /* Sea depth */
+  --color-surface-2: #122946;
+  --color-surface-3: #163255;
 
-  --color-sidebar: #040d18;
-  --color-header: #0a1e35;
+  --color-sidebar: #041223;
+  --color-header: #0a2039;
 
-  --color-border: #2D82B7;
-  --color-border-strong: #5FA8D3;
+  --color-border: #1f4f7a;
+  --color-border-strong: #5fb6ff;
 
-  --color-text: #DCF0FB;
-  --color-muted: #7BC0DE;
+  --color-text: #e5f2ff;
+  --color-muted: #8fb5d6;
 
-  --color-primary: #2D82B7;
-  --color-primary-soft: rgba(45, 130, 183, 0.18);
-  --color-primary-hover: #5FA8D3;
+  --color-primary: #4bb7ff;
+  --color-primary-soft: rgba(75, 183, 255, 0.16);
+  --color-primary-hover: #8bd5ff;
 
-  --color-secondary: #5FA8D3;
-  --color-accent: #3FA796;
+  --color-secondary: #60f0e0;
+  --color-accent: #2aa789;
 
-  --color-status-info: #5FA8D3;
-  --color-status-in-progress: #2D82B7;
-  --color-status-blocked: #D97B66;
-  --color-status-done: #3FA796;
+  --color-status-info: #4bb7ff;
+  --color-status-in-progress: #5fb6ff;
+  --color-status-blocked: #e7a188;
+  --color-status-done: #35c6a9;
 
-  --color-warning: #D97B66;
-  --color-alert: #e74c3c;
+  --color-warning: #e7a188;
+  --color-alert: #f06b75;
 
-  --color-cyan: #5FA8D3;
-  --color-indigo: #2D82B7;
-  --color-violet: #3FA796;
+  --color-cyan: #60f0e0;
+  --color-indigo: #4bb7ff;
+  --color-violet: #2d7bc7;
 
-  --shadow-brutal: 4px 4px 0px 0px #2D82B7;
-  --shadow-brutal-sm: 2px 2px 0px 0px #2D82B7;
-  --shadow-brutal-lg: 6px 6px 0px 0px #2D82B7;
-  --shadow-brutal-blue: 4px 4px 0px 0px #5FA8D3;
-  --shadow-brutal-cyan: 4px 4px 0px 0px #3FA796;
+  --shadow-brutal: 6px 6px 0 #0b2545;
+  --shadow-brutal-sm: 3px 3px 0 #0b2545;
+  --shadow-brutal-lg: 10px 10px 0 #0b2545;
+  --shadow-brutal-blue: 6px 6px 0 #4bb7ff;
+  --shadow-brutal-cyan: 6px 6px 0 #60f0e0;
 }
 
 /* ======================
@@ -136,26 +111,28 @@
 @layer base {
   html {
     background: var(--color-background);
-    @apply text-[var(--color-text)] antialiased;
+    color: var(--color-text);
+    @apply antialiased;
   }
 
   body {
     @apply min-h-screen;
     font-family: var(--font-ui, 'Poppins', 'Inter', system-ui, sans-serif);
+    color: var(--color-text);
   }
 
   ::-webkit-scrollbar {
-    @apply w-2 h-2;
+    @apply w-3 h-3;
   }
 
   ::-webkit-scrollbar-track {
-    background: var(--color-background);
+    background: var(--color-surface-2);
     border: 2px solid var(--color-border);
   }
 
   ::-webkit-scrollbar-thumb {
     background: var(--color-primary);
-    border: 2px solid var(--color-border);
+    border: 2px solid var(--color-border-strong);
   }
 
   ::-webkit-scrollbar-thumb:hover {
@@ -171,13 +148,14 @@
 
   /* ===== Sidebar/Navigation Item ===== */
   .nav-item {
-    @apply flex items-center gap-3 px-3 py-2 text-sm font-bold transition-all duration-100 cursor-pointer border-2 border-transparent;
-    color: rgba(255, 255, 255, 0.65);
+    @apply flex items-center gap-3 px-3 py-2 text-sm font-black uppercase tracking-wide transition-all duration-100 cursor-pointer border-2 border-transparent;
+    color: rgba(255, 255, 255, 0.85);
+    background: transparent;
   }
 
   .nav-item:hover {
-    background: rgba(45, 130, 183, 0.2);
-    border-color: var(--color-primary);
+    background: rgba(95, 182, 255, 0.15);
+    border-color: var(--color-border-strong);
     color: white;
     transform: translate(-1px, -1px);
     box-shadow: var(--shadow-brutal-sm);
@@ -186,7 +164,7 @@
   .nav-item.active {
     background: var(--color-primary);
     border-color: var(--color-secondary);
-    color: white;
+    color: #041020;
     box-shadow: var(--shadow-brutal-sm);
   }
 
@@ -195,9 +173,10 @@
     @apply w-80 shrink-0 p-4 flex flex-col gap-3;
     background: var(--color-surface-2);
     border: 3px solid var(--color-border-strong);
-    box-shadow: var(--shadow-brutal);
+    box-shadow: var(--shadow-brutal-lg);
     max-height: calc(100vh - 200px);
     overflow: hidden;
+    border-radius: 10px;
   }
 
   /* ===== Card ===== */
@@ -206,6 +185,7 @@
     background: var(--color-surface);
     border-color: var(--color-border-strong);
     box-shadow: var(--shadow-brutal-sm);
+    border-radius: 10px;
   }
 
   .card:hover {
@@ -220,11 +200,12 @@
 
   /* ===== Brutalist Button (Primary) ===== */
   .btn-primary {
-    @apply flex items-center justify-center gap-2 px-4 py-2 text-sm font-black transition-all duration-100 border-2;
+    @apply flex items-center justify-center gap-2 px-4 py-2 text-sm font-black uppercase tracking-wide transition-all duration-100 border-3;
     background: var(--color-primary);
     border-color: var(--color-border-strong);
-    color: white;
+    color: #041020;
     box-shadow: var(--shadow-brutal-sm);
+    border-radius: 10px;
   }
 
   .btn-primary:hover {
@@ -234,15 +215,16 @@
 
   .btn-primary:active {
     transform: translate(0, 0);
-    box-shadow: none;
+    box-shadow: var(--shadow-brutal-sm);
   }
 
   .btn-secondary {
-    @apply flex items-center justify-center gap-2 px-4 py-2 text-sm font-black transition-all duration-100 border-2;
-    background: transparent;
+    @apply flex items-center justify-center gap-2 px-4 py-2 text-sm font-black uppercase tracking-wide transition-all duration-100 border-3;
+    background: var(--color-surface-2);
     border-color: var(--color-border-strong);
     color: var(--color-text);
     box-shadow: var(--shadow-brutal-sm);
+    border-radius: 10px;
   }
 
   .btn-secondary:hover {
@@ -253,7 +235,7 @@
 
   .btn-secondary:active {
     transform: translate(0, 0);
-    box-shadow: none;
+    box-shadow: var(--shadow-brutal-sm);
   }
 
   /* ===== Surface / Panel ===== */
@@ -261,6 +243,7 @@
     background: var(--color-surface);
     border: 3px solid var(--color-border-strong);
     box-shadow: var(--shadow-brutal);
+    border-radius: 10px;
   }
 
   /* ===== Glass (still used in header/sidebar) ===== */
@@ -279,14 +262,15 @@
 
   /* ===== Metadata ===== */
   .meta {
-    @apply text-xs flex items-center gap-1.5 font-bold;
+    @apply text-xs flex items-center gap-1.5 font-semibold;
     color: var(--color-muted);
   }
 
   /* ===== Brutal Accent Bar ===== */
   .brutal-accent {
     @apply h-1.5 w-full;
-    background: linear-gradient(90deg, #0B2545, #1F5F8B, #2D82B7, #5FA8D3, #3FA796);
+    background: linear-gradient(90deg, #0b2545, #1f4f7a, #2d7bc7, #5fb6ff, #2aa789);
+    box-shadow: var(--shadow-brutal-sm);
   }
 
   /* ===== Context Menu ===== */
@@ -294,6 +278,7 @@
     background: var(--color-surface);
     border: 3px solid var(--color-border-strong);
     box-shadow: var(--shadow-brutal);
+    border-radius: 12px;
   }
 
   .context-menu-item {
@@ -303,8 +288,8 @@
   }
 
   .context-menu-item:hover {
-    background: var(--color-primary);
-    color: white;
+    background: var(--color-primary-soft);
+    color: var(--color-text);
   }
 
   .context-menu-item:last-child {

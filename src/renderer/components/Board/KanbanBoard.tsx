@@ -209,18 +209,21 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
   return (
     <div className="h-full flex flex-col">
       {/* ── Board header ── */}
-      <div className="mb-6 pb-4 border-b-4" style={{ borderColor: 'var(--color-border-strong)' }}>
-        
+      <div
+        className="mb-6 p-4 border-4"
+        style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-surface)', boxShadow: 'var(--shadow-brutal)' }}
+      >
+
         {/* Back button */}
         {onGoBack && (
           <button
             onClick={onGoBack}
-            className="flex items-center gap-1.5 mb-4 px-2.5 py-1.5 border-2 text-[10px] font-black uppercase tracking-widest transition-transform hover:-translate-x-1 hover:-translate-y-0.5"
+            className="flex items-center gap-1.5 mb-4 px-3 py-2 border-2 text-[10px] font-black uppercase tracking-[0.2em] transition-transform duration-100"
             style={{
               borderColor: 'var(--color-border)',
               color: 'var(--color-muted)',
-              background: 'var(--color-surface)',
-              boxShadow: '2px 2px 0 var(--color-border)'
+              background: 'var(--color-surface-2)',
+              boxShadow: 'var(--shadow-brutal-sm)'
             }}
           >
             <ChevronLeft className="w-3.5 h-3.5" />
@@ -232,22 +235,22 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
           /* View mode */
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-1.5 shrink-0 self-stretch" style={{ background: shipColor, borderRadius: '2px' }} />
+              <div className="w-2 h-12 shrink-0 self-stretch" style={{ background: shipColor, boxShadow: `var(--shadow-brutal-sm)` }} />
               <div className="min-w-0">
                 <h1 className="text-3xl font-black uppercase tracking-tight" style={{ color: 'var(--color-text)' }}>
                   {board.name}
                 </h1>
-                <div className="flex items-center gap-4 mt-1">
+                <div className="flex items-center gap-3 mt-2 flex-wrap">
                   <span
-                    className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider px-2 py-1 border-2"
+                    className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide px-3 py-1 border-2"
                     style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)', background: 'var(--color-primary-soft)' }}
                   >
                     <LayoutList className="w-3 h-3" />
                     {lists.length} Manifests
                   </span>
                   <span
-                    className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider px-2 py-1 border-2"
-                    style={{ borderColor: 'var(--color-cyan, #0891b2)', color: 'var(--color-cyan, #0891b2)', background: '#ecfeff' }}
+                    className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide px-3 py-1 border-2"
+                    style={{ borderColor: 'var(--color-cyan, #0891b2)', color: 'var(--color-cyan, #0891b2)', background: 'rgba(53,194,255,0.12)' }}
                   >
                     <Hash className="w-3 h-3" />
                     {totalCards} Cargo
@@ -259,41 +262,24 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={openEdit}
-                className="flex items-center gap-1.5 px-3 py-2 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100"
-                style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
-                onMouseOver={e => {
-                  e.currentTarget.style.borderColor = 'var(--color-primary)'
-                  e.currentTarget.style.color = 'var(--color-primary)'
-                  e.currentTarget.style.background = 'var(--color-primary-soft)'
-                }}
-                onMouseOut={e => {
-                  e.currentTarget.style.borderColor = 'var(--color-border)'
-                  e.currentTarget.style.color = 'var(--color-muted)'
-                  e.currentTarget.style.background = 'transparent'
-                }}
+                className="btn-secondary text-xs px-4"
               >
                 <Pencil className="w-3.5 h-3.5" />
                 Edit Ship
               </button>
               <button
                 onClick={handleDeleteBoard}
-                className="flex items-center gap-1.5 px-3 py-2 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100"
-                style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
-                onMouseOver={e => {
-                  e.currentTarget.style.borderColor = '#dc2626'
-                  e.currentTarget.style.color = '#dc2626'
-                  e.currentTarget.style.background = '#dc262615'
-                }}
-                onMouseOut={e => {
-                  e.currentTarget.style.borderColor = 'var(--color-border)'
-                  e.currentTarget.style.color = 'var(--color-muted)'
-                  e.currentTarget.style.background = 'transparent'
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-black uppercase tracking-wide border-2 transition-all duration-100"
+                style={{
+                  borderColor: 'rgba(217,76,87,0.4)',
+                  color: '#d94c57',
+                  background: 'rgba(217,76,87,0.12)'
                 }}
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Jettison
               </button>
-              <button onClick={() => setShowCreateList(true)} className="btn-primary text-xs uppercase tracking-wider">
+              <button onClick={() => setShowCreateList(true)} className="btn-primary text-xs uppercase tracking-wider px-5">
                 <Plus className="w-4 h-4 stroke-[3px]" />
                 Add Manifest
               </button>
@@ -302,8 +288,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
         ) : (
           /* Edit mode inline panel */
           <div
-            className="p-4 border-2 space-y-4 animate-brutal-in"
-            style={{ borderColor: 'var(--color-primary)', background: 'var(--color-background)', boxShadow: 'var(--shadow-brutal-sm)' }}
+            className="p-4 border-4 space-y-4 animate-brutal-in"
+            style={{ borderColor: 'var(--color-primary)', background: 'var(--color-background)', boxShadow: 'var(--shadow-brutal)' }}
           >
             <div className="flex items-center gap-2">
               <Pencil className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
@@ -321,8 +307,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
                 value={editName}
                 onChange={e => setEditName(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit() }}
-                className="w-full px-3 py-2.5 border-2 font-black text-sm outline-none"
-                style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)', color: 'var(--color-text)' }}
+                className="w-full px-3 py-2.5 border-3 font-black text-sm outline-none"
+                style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-surface)', color: 'var(--color-text)' }}
                 onFocus={e => e.target.style.borderColor = 'var(--color-primary)'}
                 onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
                 placeholder="Ship name…"
@@ -339,10 +325,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
                   <button
                     key={c}
                     onClick={() => setEditColor(c)}
-                    className="w-7 h-7 border-2 shrink-0 transition-all duration-100"
-                    style={{
-                      background: c,
-                      borderColor: editColor === c ? 'var(--color-border-strong)' : 'transparent',
+                   className="w-7 h-7 border-3 shrink-0 transition-all duration-100"
+                   style={{
+                     background: c,
+                     borderColor: editColor === c ? 'var(--color-border-strong)' : 'transparent',
                       transform: editColor === c ? 'scale(1.3)' : 'scale(1)',
                       boxShadow: editColor === c ? `0 0 0 2px ${c}66` : 'none'
                     }}
@@ -352,7 +338,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
               </div>
 
               {/* Live preview */}
-              <div className="flex items-center gap-3 mt-3 px-3 py-2 border-2" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
+               <div className="flex items-center gap-3 mt-3 px-3 py-2 border-3" style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-surface)' }}>
                 <div className="w-1.5 h-8 shrink-0" style={{ background: editColor, borderRadius: '2px' }} />
                 <span className="font-black text-sm truncate" style={{ color: 'var(--color-text)' }}>
                   {editName || 'Preview'}
@@ -365,7 +351,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
               <button
                 onClick={saveEdit}
                 disabled={saving || !editName.trim()}
-                className="flex items-center gap-1.5 px-4 py-2 border-2 font-black text-xs uppercase tracking-wider transition-all disabled:opacity-40"
+                className="flex items-center gap-1.5 px-4 py-2 border-3 font-black text-xs uppercase tracking-wider transition-all disabled:opacity-40"
                 style={{ borderColor: 'var(--color-primary)', background: 'var(--color-primary)', color: 'white', boxShadow: 'var(--shadow-brutal-sm)' }}
               >
                 <Check className="w-3.5 h-3.5" />
@@ -373,8 +359,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
               </button>
               <button
                 onClick={cancelEdit}
-                className="flex items-center gap-1.5 px-4 py-2 border-2 font-black text-xs uppercase tracking-wider"
-                style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
+                className="flex items-center gap-1.5 px-4 py-2 border-3 font-black text-xs uppercase tracking-wider"
+                style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-muted)' }}
               >
                 <X className="w-3.5 h-3.5" />
                 Cancel
@@ -397,21 +383,21 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
             {/* Add manifest placeholder */}
             <button
               onClick={() => setShowCreateList(true)}
-              className="w-80 shrink-0 h-fit p-5 border-4 border-dashed transition-all duration-150"
-              style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
+              className="w-80 shrink-0 h-fit p-5 border-4 border-dashed transition-all duration-100"
+              style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-muted)', boxShadow: 'var(--shadow-brutal-sm)' }}
               onMouseOver={e => {
                 e.currentTarget.style.borderColor = 'var(--color-primary)'
                 e.currentTarget.style.background = 'var(--color-primary-soft)'
                 e.currentTarget.style.color = 'var(--color-primary)'
               }}
               onMouseOut={e => {
-                e.currentTarget.style.borderColor = 'var(--color-border)'
+                e.currentTarget.style.borderColor = 'var(--color-border-strong)'
                 e.currentTarget.style.background = 'transparent'
                 e.currentTarget.style.color = 'var(--color-muted)'
               }}
             >
               <div className="flex items-center justify-center gap-3">
-                <div className="w-8 h-8 border-2 flex items-center justify-center font-black" style={{ borderColor: 'currentColor' }}>
+                <div className="w-8 h-8 border-3 flex items-center justify-center font-black" style={{ borderColor: 'currentColor' }}>
                   <Plus className="w-5 h-5 stroke-[3px]" />
                 </div>
                 <span className="font-black text-sm uppercase tracking-wider">Add Manifest</span>

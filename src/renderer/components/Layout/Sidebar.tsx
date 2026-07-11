@@ -420,141 +420,118 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      className="w-60 flex flex-col relative h-full z-10 border-r-4"
+      className="w-64 flex flex-col relative h-full z-10 overflow-hidden border-r-4"
       style={{
         background: 'var(--color-sidebar)',
-        borderColor: 'var(--color-border-strong)'
+        borderColor: 'var(--color-border-strong)',
+        boxShadow: 'var(--shadow-brutal)'
       }}
     >
-      {/* Accent bar */}
-      <div className="brutal-accent" />
+      <div className="relative z-10 flex flex-col h-full">
+        {/* Accent bar */}
+        <div className="brutal-accent" />
 
-      {/* Home button */}
-      <div className="p-3 border-b-2" style={{ borderColor: 'rgba(255,255,255,0.12)' }}>
-        <button
-          onClick={onGoHome}
-          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-black uppercase tracking-wider border-2 transition-all duration-100"
-          style={{
-            borderColor: isHome ? 'var(--color-primary)' : 'rgba(255,255,255,0.2)',
-            background: isHome ? 'var(--color-primary)' : 'rgba(255,255,255,0.06)',
-            color: 'white',
-            boxShadow: isHome ? 'var(--shadow-brutal-sm)' : 'none'
-          }}
-          onMouseOver={e => {
-            if (!isHome) {
-              e.currentTarget.style.background = 'rgba(45,130,183,0.25)'
+        {/* Home + calendar */}
+        <div className="p-4 pb-3 border-b-4" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
+          <button
+            onClick={onGoHome}
+            className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-black uppercase tracking-wider border-2 transition-all duration-100"
+            style={{
+              borderColor: isHome ? 'var(--color-primary)' : 'rgba(255,255,255,0.18)',
+              background: isHome ? 'var(--color-primary)' : 'rgba(255,255,255,0.06)',
+              color: 'white',
+              boxShadow: isHome ? 'var(--shadow-brutal-sm)' : 'none'
+            }}
+          >
+            <Home className="w-4 h-4" />
+            <span className="flex-1 text-left">Fleet Overview</span>
+          </button>
+
+          <button
+            onClick={onOpenCalendar}
+            className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-black uppercase tracking-wider border-2 transition-all duration-100 mt-2"
+            style={{
+              borderColor: isCalendar ? 'var(--color-secondary)' : 'rgba(255,255,255,0.18)',
+              background: isCalendar ? 'var(--color-secondary)' : 'rgba(255,255,255,0.06)',
+              color: 'white',
+              boxShadow: isCalendar ? 'var(--shadow-brutal-sm)' : 'none'
+            }}
+          >
+            <Calendar className="w-4 h-4" />
+            <span className="flex-1 text-left">Voyage Calendar</span>
+          </button>
+        </div>
+
+        {/* New Dock */}
+        <div className="p-4 border-b-4" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
+          <button
+            onClick={() => {
+              setTargetParentId(null)
+              setShowCreateDock(true)
+            }}
+            className="btn-primary w-full text-xs uppercase tracking-wider"
+          >
+            <Plus className="w-4 h-4 stroke-[3px]" />
+            New Dock
+          </button>
+        </div>
+
+        {/* New Folder */}
+        <div className="px-4 pt-4 pb-2">
+          <button
+            onClick={() => {
+              setTargetParentId(null)
+              setShowCreateFolder(true)
+            }}
+            className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-black uppercase tracking-wider border-2 transition-all duration-100"
+            style={{
+              borderColor: 'rgba(255,255,255,0.2)',
+              color: 'rgba(255,255,255,0.85)',
+              background: 'rgba(255,255,255,0.06)'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = 'rgba(95,182,255,0.18)'
               e.currentTarget.style.borderColor = 'var(--color-primary)'
-            }
-          }}
-          onMouseOut={e => {
-            if (!isHome) {
+              e.currentTarget.style.color = 'white'
+            }}
+            onMouseOut={(e) => {
               e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
               e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
-            }
-          }}
-        >
-          <Home className="w-4 h-4" />
-          <span className="flex-1 text-left">Fleet Overview</span>
-        </button>
+              e.currentTarget.style.color = 'rgba(255,255,255,0.85)'
+            }}
+          >
+            <Folder className="w-3.5 h-3.5" />
+            <span className="flex-1 text-left">New Port</span>
+            <Plus className="w-3 h-3" />
+          </button>
+        </div>
 
-        {/* Calendar button */}
-        <button
-          onClick={onOpenCalendar}
-          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-black uppercase tracking-wider border-2 transition-all duration-100 mt-1"
-          style={{
-            borderColor: isCalendar ? 'var(--color-secondary)' : 'rgba(255,255,255,0.2)',
-            background: isCalendar ? 'var(--color-secondary)' : 'rgba(255,255,255,0.06)',
-            color: 'white',
-            boxShadow: isCalendar ? 'var(--shadow-brutal-sm)' : 'none'
-          }}
-          onMouseOver={e => {
-            if (!isCalendar) {
-              e.currentTarget.style.background = 'rgba(95,168,211,0.25)'
-              e.currentTarget.style.borderColor = 'var(--color-secondary)'
-            }
-          }}
-          onMouseOut={e => {
-            if (!isCalendar) {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
-            }
-          }}
-        >
-          <Calendar className="w-4 h-4" />
-          <span className="flex-1 text-left">Voyage Calendar</span>
-        </button>
-      </div>
+        {/* Tree */}
+        <div className="flex-1 overflow-auto px-3 pb-6 space-y-2">
+          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            <div className="space-y-2">
+              {renderFolderTree(null, 0)}
 
-      {/* New Board button */}
-      <div className="p-3 border-b-2" style={{ borderColor: 'rgba(255,255,255,0.12)' }}>
-        <button
-          onClick={() => {
-            setTargetParentId(null)
-            setShowCreateDock(true)
-          }}
-          className="btn-primary w-full text-xs uppercase tracking-wider"
-        >
-          <Plus className="w-4 h-4 stroke-[3px]" />
-          New Dock
-        </button>
-      </div>
-
-
-      {/* New Folder button */}
-      <div className="px-3 pt-3 pb-1">
-        <button
-          onClick={() => {
-            setTargetParentId(null)
-            setShowCreateFolder(true)
-          }}
-          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs font-black uppercase tracking-wider border-2 transition-all duration-100"
-          style={{
-            borderColor: 'rgba(255,255,255,0.2)',
-            color: 'rgba(255,255,255,0.7)',
-            boxShadow: '2px 2px 0 rgba(0,0,0,0.3)'
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.background = 'rgba(45,130,183,0.25)'
-            e.currentTarget.style.borderColor = 'var(--color-primary)'
-            e.currentTarget.style.color = 'white'
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.background = 'transparent'
-            e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
-            e.currentTarget.style.color = 'rgba(255,255,255,0.7)'
-          }}
-        >
-          <Folder className="w-3.5 h-3.5" />
-          <span className="flex-1 text-left">New Port</span>
-          <Plus className="w-3 h-3" />
-        </button>
-      </div>
-
-      {/* Tree */}
-      <div className="flex-1 overflow-auto px-2 pb-6 space-y-1">
-        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-          <div className="space-y-1">
-            {renderFolderTree(null, 0)}
-
-            <DroppableUncategorized
-              docks={uncategorizedDocksFiltered}
-              onContextMenu={(e) => openContextMenu(e, 'uncategorized', null)}
-            >
-              {uncategorizedDocksFiltered.map((dock: any) => (
-                <SidebarDockItem
-                  key={dock.id}
-                  dock={dock}
-                  depth={0}
-                  isSelected={selectedDockId === dock.id}
-                  onContextMenu={(e) => openContextMenu(e, 'dock', dock.id)}
-                  onSelect={onSelectDock}
-                  onSelectBoard={onSelectBoard}
-                  selectedBoardId={selectedBoardId}
-                />
-              ))}
-            </DroppableUncategorized>
-          </div>
-        </DndContext>
+              <DroppableUncategorized
+                docks={uncategorizedDocksFiltered}
+                onContextMenu={(e) => openContextMenu(e, 'uncategorized', null)}
+              >
+                {uncategorizedDocksFiltered.map((dock: any) => (
+                  <SidebarDockItem
+                    key={dock.id}
+                    dock={dock}
+                    depth={0}
+                    isSelected={selectedDockId === dock.id}
+                    onContextMenu={(e) => openContextMenu(e, 'dock', dock.id)}
+                    onSelect={onSelectDock}
+                    onSelectBoard={onSelectBoard}
+                    selectedBoardId={selectedBoardId}
+                  />
+                ))}
+              </DroppableUncategorized>
+            </div>
+          </DndContext>
+        </div>
       </div>
 
       {/* Context Menu */}
@@ -566,8 +543,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           {/* Header */}
           <div
-            className="px-4 py-2 text-xs font-black uppercase tracking-widest text-white border-b-2"
-            style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
+            className="px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white border-b"
+            style={{ background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))', borderColor: 'var(--color-border-strong)' }}
           >
             {contextMenu.type} Options
           </div>
@@ -576,7 +553,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {(contextMenu.type === 'folder' || contextMenu.type === 'uncategorized') && (
             <>
               <button
-                className="context-menu-item border-b-2"
+                className="context-menu-item border-b"
                 style={{ borderColor: 'var(--color-border)' }}
                 onClick={() => {
                   setTargetParentId(contextMenu.targetId)
@@ -590,7 +567,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               {contextMenu.type === 'folder' && (
                 <>
                   <button
-                    className="context-menu-item border-b-2"
+                    className="context-menu-item border-b"
                     style={{ borderColor: 'var(--color-border)' }}
                     onClick={() => {
                       setTargetParentId(contextMenu.targetId)
@@ -602,7 +579,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     New Port Inside
                   </button>
                   <button
-                    className="context-menu-item danger border-b-2"
+                    className="context-menu-item danger border-b"
                     style={{ borderColor: 'var(--color-border)' }}
                     onClick={() => contextMenu.targetId && handleDeleteFolder(contextMenu.targetId)}
                   >
@@ -618,7 +595,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {contextMenu.type === 'dock' && (
             <>
               <button
-                className="context-menu-item border-b-2"
+                className="context-menu-item border-b"
                 style={{ borderColor: 'var(--color-border)' }}
                 onClick={() => {
                   const dock = docks.find(d => d.id === contextMenu.targetId)
@@ -630,7 +607,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 Edit Dock
               </button>
               <button
-                className="context-menu-item danger border-b-2"
+                className="context-menu-item danger border-b"
                 style={{ borderColor: 'var(--color-border)' }}
                 onClick={() => contextMenu.targetId && handleDeleteDock(contextMenu.targetId)}
               >
@@ -748,15 +725,17 @@ const DroppableFolder: React.FC<{
   })
 
   return (
-    <div
-      ref={setNodeRef}
-      className={`transition-all duration-100 ${isOver ? 'ring-2 ring-primary ring-offset-1' : ''}`}
-    >
+    <div ref={setNodeRef}>
       <button
         onClick={onToggle}
         onContextMenu={onContextMenu}
-        style={{ paddingLeft: `${depth * 0.75 + 0.75}rem` }}
-        className={`nav-item w-full ${isOver ? 'bg-blue-100 dark:bg-blue-900/30' : ''}`}
+        style={{
+          paddingLeft: `${depth * 0.75 + 0.75}rem`,
+          background: isOver ? 'rgba(95,182,255,0.15)' : undefined,
+          borderColor: isOver ? 'var(--color-border-strong)' : undefined,
+          boxShadow: isOver ? 'var(--shadow-brutal-sm)' : undefined
+        }}
+        className="nav-item w-full"
       >
         <div className="w-4 h-4 flex items-center justify-center shrink-0">
           {isExpanded ? (
@@ -787,12 +766,12 @@ const DroppableUncategorized: React.FC<{
   return (
     <div
       ref={setNodeRef}
-      className={`mt-3 transition-all ${isOver ? 'ring-2 ring-primary' : ''}`}
+      className={`mt-4 transition-all ${isOver ? 'ring-2 ring-primary ring-offset-2 ring-offset-[var(--color-sidebar)] rounded-md' : ''}`}
       onContextMenu={onContextMenu}
     >
       <div
-        className="px-3 py-1 text-[10px] font-black uppercase tracking-widest border-b-2 mb-1"
-        style={{ color: 'rgba(255,255,255,0.4)', borderColor: 'rgba(255,255,255,0.1)' }}
+        className="px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] border-b-2 mb-2"
+        style={{ color: 'rgba(255,255,255,0.8)', borderColor: 'rgba(255,255,255,0.18)' }}
       >
         Uncharted Waters
       </div>
@@ -884,24 +863,23 @@ const SidebarDockItem: React.FC<SidebarDockItemProps> = ({
             <button
               key={board.id}
               onClick={() => onSelectBoard(board.id)}
-              className={`w-full text-left px-3 py-1.5 text-[10px] font-black uppercase tracking-wider border-l-4 transition-all duration-100 ${
-                selectedBoardId === board.id
-                  ? 'border-[#2D82B7]'
-                  : 'border-transparent'
-              }`}
+              className="w-full text-left px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide border-l-2 transition-all duration-150"
               style={{
-                color: selectedBoardId === board.id ? '#5FA8D3' : 'rgba(255,255,255,0.55)',
-                background: selectedBoardId === board.id ? 'rgba(45,130,183,0.2)' : 'transparent'
+                borderColor: selectedBoardId === board.id ? 'var(--color-secondary)' : 'rgba(255,255,255,0.2)',
+                color: selectedBoardId === board.id ? 'white' : 'rgba(255,255,255,0.75)',
+                background: selectedBoardId === board.id
+                  ? 'rgba(95,182,255,0.2)'
+                  : 'transparent'
               }}
               onMouseOver={e => {
                 if (selectedBoardId !== board.id) {
                   e.currentTarget.style.color = 'white'
-                  e.currentTarget.style.background = 'rgba(45,130,183,0.15)'
+                  e.currentTarget.style.background = 'rgba(95,182,255,0.12)'
                 }
               }}
               onMouseOut={e => {
                 if (selectedBoardId !== board.id) {
-                  e.currentTarget.style.color = 'rgba(255,255,255,0.55)'
+                  e.currentTarget.style.color = 'rgba(255,255,255,0.75)'
                   e.currentTarget.style.background = 'transparent'
                 }
               }}

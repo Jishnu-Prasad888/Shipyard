@@ -194,190 +194,196 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header
-      className="h-14 flex items-center justify-between px-5 z-40 border-b-4"
+      className="h-16 flex items-center justify-between px-6 z-40 border-b-4"
       style={{
         background: 'var(--color-header)',
-        borderColor: 'var(--color-border-strong)'
+        borderColor: 'var(--color-border-strong)',
+        boxShadow: 'var(--shadow-brutal)'
       }}
     >
-      {/* Logo */}
-      <div className="flex items-center gap-3 shrink-0">
-        <div
-          className="w-8 h-8 flex items-center justify-center border-2 border-white"
-          style={{ background: 'var(--color-border-strong)', boxShadow: '2px 2px 0 white' }}
-        >
-          <Anchor className="w-4 h-4 text-white stroke-[3px]" />
+      <div className="flex items-center justify-between w-full gap-6">
+        {/* Logo */}
+        <div className="flex items-center gap-3 shrink-0">
+          <div
+            className="w-10 h-10 flex items-center justify-center border-2 border-white"
+            style={{ background: 'var(--color-border-strong)', boxShadow: 'var(--shadow-brutal-sm)' }}
+          >
+            <Anchor className="w-5 h-5 text-white" strokeWidth={2.5} />
+          </div>
+          <div className="leading-tight text-white">
+            <span className="block text-xs font-black uppercase tracking-[0.2em] opacity-80">Shipyard</span>
+            <span className="block text-lg font-black uppercase tracking-tight">Fleet Workspace</span>
+          </div>
         </div>
-        <span className="font-black text-xl tracking-tight text-white uppercase" style={{ letterSpacing: '0.08em' }}>
-          SHIPYARD
-        </span>
-      </div>
 
-      {/* Search with dropdown */}
-      <div className="flex-1 max-w-lg mx-8 relative">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/70 pointer-events-none" />
-          <input
-            ref={inputRef}
-            type="text"
-            value={query}
-            placeholder="SEARCH SHIPS, DOCKS, PORTS..."
-            className="w-full pl-9 pr-8 py-1.5 text-xs font-bold uppercase tracking-wider border-2 border-white bg-transparent text-white placeholder:text-white/50 focus:outline-none focus:bg-white/10 transition-all"
-            style={{ boxShadow: '3px 3px 0 rgba(0,0,0,0.3)' }}
-            onChange={(e) => setQuery(e.target.value)}
-            onFocus={() => query && results.length > 0 && setIsOpen(true)}
-            onKeyDown={handleKeyDown}
-          />
-          {query && (
-            <button
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors"
-              onClick={() => { setQuery(''); setIsOpen(false); onSearch('') }}
+        {/* Search with dropdown */}
+        <div className="flex-1 max-w-2xl relative">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/70 pointer-events-none" />
+            <input
+              ref={inputRef}
+              type="text"
+              value={query}
+              placeholder="Search ships, docks, ports…"
+              className="w-full pl-10 pr-10 py-2 text-sm font-bold uppercase tracking-wide border-2 bg-white/5 text-white placeholder:text-white/60 focus:outline-none transition-all"
+              style={{
+                borderColor: 'white',
+                boxShadow: 'var(--shadow-brutal-sm)'
+              }}
+              onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => query && results.length > 0 && setIsOpen(true)}
+              onKeyDown={handleKeyDown}
+            />
+            {query && (
+              <button
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                onClick={() => { setQuery(''); setIsOpen(false); onSearch('') }}
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Dropdown */}
+          {isOpen && (
+            <div
+              ref={dropdownRef}
+              className="absolute top-full left-0 right-0 mt-3 z-50 overflow-hidden animate-brutal-in"
+              style={{
+                background: 'var(--color-surface)',
+                border: '3px solid var(--color-border-strong)',
+                boxShadow: 'var(--shadow-brutal)',
+                maxHeight: '420px',
+                overflowY: 'auto',
+                borderRadius: '12px'
+              }}
             >
-              <X className="w-3.5 h-3.5" />
-            </button>
+              {isLoading ? (
+                <div className="px-4 py-3 text-xs font-black uppercase tracking-wider" style={{ color: 'var(--color-muted)' }}>
+                  Searching...
+                </div>
+              ) : results.length === 0 ? (
+                <div className="px-4 py-3 text-xs font-black uppercase tracking-wider" style={{ color: 'var(--color-muted)' }}>
+                  No results for "{query}"
+                </div>
+              ) : (
+                <>
+                  {typeOrder.map((type) => {
+                    const group = grouped[type]
+                    if (!group || group.length === 0) return null
+                    return (
+                      <div key={type}>
+                        {/* Group header */}
+                      <div
+                          className="px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] border-b-2 flex items-center gap-2"
+                          style={{
+                            background: 'var(--color-surface-3)',
+                            borderColor: 'var(--color-border-strong)',
+                            color: type === 'folder' ? '#1b4f82' : type === 'dock' ? '#0b6c90' : '#1f7acb'
+                          }}
+                        >
+                          {typeIcon(type)}
+                          {typeLabel(type)}S
+                        </div>
+
+                        {/* Results in group */}
+                        {group.map((result) => {
+                          const globalIdx = results.indexOf(result)
+                          const isHot = highlighted === globalIdx
+                          return (
+                          <button
+                            key={result.id}
+                            className="w-full text-left px-4 py-3 flex items-center gap-3 border-b-2 transition-all duration-100 group"
+                            style={{
+                              borderColor: 'var(--color-border)',
+                              background: isHot ? (result.color || 'var(--color-primary)') : 'transparent',
+                              color: isHot ? '#041020' : 'var(--color-text)'
+                            }}
+                              onClick={() => handleSelect(result)}
+                              onMouseEnter={() => setHighlighted(globalIdx)}
+                            >
+                              {/* Color dot / icon */}
+                              <div
+                                className="w-9 h-9 border-2 flex items-center justify-center shrink-0 transition-all"
+                                style={{
+                                  borderColor: isHot ? '#041020' : result.color || 'var(--color-primary)',
+                                  background: isHot ? 'rgba(255,255,255,0.8)' : (result.color || '#2563eb') + '12',
+                                  color: isHot ? '#041020' : result.color || 'var(--color-primary)',
+                                  boxShadow: isHot ? 'var(--shadow-brutal-sm)' : `3px 3px 0 ${(result.color || '#2563eb')}`
+                                }}
+                              >
+                                {typeIcon(result.type)}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-sm truncate">{result.name}</div>
+                                {result.subtitle && (
+                                  <div
+                                    className="text-[11px] font-medium tracking-wide truncate mt-0.5"
+                                    style={{ color: isHot ? 'rgba(3,16,31,0.65)' : 'var(--color-muted)' }}
+                                  >
+                                    {result.subtitle}
+                                  </div>
+                                )}
+                              </div>
+
+                              {result.type !== 'folder' && (
+                                <ArrowRight
+                                  className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                  style={{ color: isHot ? '#041020' : 'var(--color-primary)' }}
+                                />
+                              )}
+
+                              {result.type === 'folder' && (
+                                <span
+                                  className="text-[10px] font-semibold uppercase px-2 py-0.5 border rounded-full shrink-0"
+                                  style={{
+                                    borderColor: isHot ? '#041020' : 'var(--color-border-strong)',
+                                    color: isHot ? '#041020' : 'var(--color-muted)'
+                                  }}
+                                >
+                                  Not navigable
+                                </span>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )
+                  })}
+
+                  {/* Footer hint */}
+                  <div
+                    className="px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] flex items-center gap-3"
+                    style={{ background: 'var(--color-surface-2)', color: 'var(--color-muted)', borderTop: '2px solid var(--color-border-strong)' }}
+                  >
+                    <span>↑↓ Navigate</span>
+                    <span>↵ Select</span>
+                    <span>Esc Close</span>
+                  </div>
+                </>
+              )}
+            </div>
           )}
         </div>
 
-        {/* Dropdown */}
-        {isOpen && (
-          <div
-            ref={dropdownRef}
-            className="absolute top-full left-0 right-0 mt-2 z-50 overflow-hidden animate-brutal-in"
-            style={{
-              background: 'var(--color-surface)',
-              border: '3px solid var(--color-border-strong)',
-              boxShadow: '6px 6px 0 var(--color-border-strong)',
-              maxHeight: '420px',
-              overflowY: 'auto'
-            }}
+        {/* Actions */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={onToggleTheme}
+            className="p-2.5 border-2 border-white text-white font-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5"
+            title={isDarkMode ? 'Light Mode' : 'Dark Mode'}
           >
-            {isLoading ? (
-              <div className="px-4 py-3 text-xs font-black uppercase tracking-wider" style={{ color: 'var(--color-muted)' }}>
-                Searching...
-              </div>
-            ) : results.length === 0 ? (
-              <div className="px-4 py-3 text-xs font-black uppercase tracking-wider" style={{ color: 'var(--color-muted)' }}>
-                No results for "{query}"
-              </div>
-            ) : (
-              <>
-                {typeOrder.map((type) => {
-                  const group = grouped[type]
-                  if (!group || group.length === 0) return null
-                  return (
-                    <div key={type}>
-                      {/* Group header */}
-                      <div
-                        className="px-4 py-1.5 text-[10px] font-black uppercase tracking-widest border-b-2 flex items-center gap-2"
-                        style={{
-                          background: type === 'folder' ? '#eff6ff' : type === 'dock' ? '#ecfeff' : '#f5f3ff',
-                          borderColor: 'var(--color-border)',
-                          color: type === 'folder' ? '#1d4ed8' : type === 'dock' ? '#0e7490' : '#6d28d9'
-                        }}
-                      >
-                        {typeIcon(type)}
-                        {typeLabel(type)}S
-                      </div>
-
-                      {/* Results in group */}
-                      {group.map((result) => {
-                        const globalIdx = results.indexOf(result)
-                        const isHot = highlighted === globalIdx
-                        return (
-                          <button
-                            key={result.id}
-                            className="w-full text-left px-4 py-3 flex items-center gap-3 border-b-2 transition-all duration-75 group"
-                            style={{
-                              borderColor: 'var(--color-border)',
-                              background: isHot ? result.color || 'var(--color-primary)' : 'transparent',
-                              color: isHot ? 'white' : 'var(--color-text)'
-                            }}
-                            onClick={() => handleSelect(result)}
-                            onMouseEnter={() => setHighlighted(globalIdx)}
-                          >
-                            {/* Color dot / icon */}
-                            <div
-                              className="w-8 h-8 border-2 flex items-center justify-center shrink-0 transition-all"
-                              style={{
-                                borderColor: isHot ? 'white' : result.color || 'var(--color-primary)',
-                                background: isHot ? 'rgba(255,255,255,0.2)' : (result.color || '#2563eb') + '15',
-                                color: isHot ? 'white' : result.color || 'var(--color-primary)',
-                                boxShadow: isHot ? '2px 2px 0 rgba(255,255,255,0.3)' : `2px 2px 0 ${result.color || '#2563eb'}`
-                              }}
-                            >
-                              {typeIcon(result.type)}
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              <div className="font-black text-sm truncate">{result.name}</div>
-                              {result.subtitle && (
-                                <div
-                                  className="text-[10px] font-bold uppercase tracking-wider truncate mt-0.5"
-                                  style={{ color: isHot ? 'rgba(255,255,255,0.7)' : 'var(--color-muted)' }}
-                                >
-                                  {result.subtitle}
-                                </div>
-                              )}
-                            </div>
-
-                            {result.type !== 'folder' && (
-                              <ArrowRight
-                                className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                style={{ color: isHot ? 'white' : 'var(--color-primary)' }}
-                              />
-                            )}
-
-                            {result.type === 'folder' && (
-                              <span
-                                className="text-[9px] font-black uppercase px-2 py-0.5 border shrink-0"
-                                style={{
-                                  borderColor: isHot ? 'white' : 'var(--color-border)',
-                                  color: isHot ? 'white' : 'var(--color-muted)'
-                                }}
-                              >
-                                Not navigable
-                              </span>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )
-                })}
-
-                {/* Footer hint */}
-                <div
-                  className="px-4 py-2 text-[10px] font-black uppercase tracking-widest flex items-center gap-3"
-                  style={{ background: 'var(--color-background)', color: 'var(--color-muted)', borderTop: '2px solid var(--color-border)' }}
-                >
-                  <span>↑↓ Navigate</span>
-                  <span>↵ Select</span>
-                  <span>Esc Close</span>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 shrink-0">
-        <button
-          onClick={onToggleTheme}
-          className="p-2 border-2 border-white text-white font-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5"
-          style={{ boxShadow: '2px 2px 0 rgba(0,0,0,0.3)' }}
-          title={isDarkMode ? 'Light Mode' : 'Dark Mode'}
-        >
-          {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-        </button>
-        <button
-          onClick={onOpenSettings}
-          className="p-2 border-2 border-white text-white font-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5"
-          style={{ boxShadow: '2px 2px 0 rgba(0,0,0,0.3)' }}
-          title="Settings"
-        >
-          <Settings className="w-4 h-4" />
-        </button>
+            {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+          </button>
+          <button
+            onClick={onOpenSettings}
+            className="p-2.5 border-2 border-white text-white font-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5"
+            title="Settings"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </header>
   )

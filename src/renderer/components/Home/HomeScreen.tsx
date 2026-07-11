@@ -71,24 +71,28 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectDock, onSelectBo
       {/* ── TOP BAR ── */}
       <div
         className="flex items-center justify-between px-6 py-4 border-b-4 shrink-0"
-        style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-surface)' }}
+        style={{
+          borderColor: 'var(--color-border-strong)',
+          background: 'var(--color-surface)',
+          boxShadow: 'var(--shadow-brutal)'
+        }}
       >
         <div className="flex items-center gap-3">
           <div
-            className="w-8 h-8 border-3 flex items-center justify-center"
+            className="w-10 h-10 flex items-center justify-center border-3"
             style={{
-              border: '3px solid var(--color-border-strong)',
               background: 'var(--color-primary)',
-              boxShadow: '3px 3px 0 var(--color-border-strong)'
+              borderColor: 'var(--color-border-strong)',
+              boxShadow: 'var(--shadow-brutal-sm)'
             }}
           >
-            <Anchor className="w-4 h-4 text-white" />
+            <Anchor className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-black uppercase tracking-tight leading-none" style={{ color: 'var(--color-text)' }}>
+            <h1 className="text-xl font-black uppercase tracking-tight leading-none" style={{ color: 'var(--color-text)' }}>
               Your Fleet
             </h1>
-            <p className="text-[10px] font-bold uppercase tracking-widest leading-none mt-0.5" style={{ color: 'var(--color-muted)' }}>
+            <p className="text-[11px] font-black uppercase tracking-[0.24em] leading-none mt-1" style={{ color: 'var(--color-muted)' }}>
               {docks.length} docks · {ships.length} ships
             </p>
           </div>
@@ -97,27 +101,27 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectDock, onSelectBo
         <div className="flex items-center gap-3">
           {/* Filter input */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" style={{ color: 'var(--color-muted)' }} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--color-muted)' }} />
             <input
               type="text"
               value={filter}
               onChange={e => setFilter(e.target.value)}
               placeholder="Filter..."
-              className="pl-8 pr-8 py-1.5 border-2 text-xs font-bold focus:outline-none w-44"
+              className="pl-10 pr-10 py-2 border-2 text-sm font-bold uppercase tracking-wide focus:outline-none w-48"
               style={{
                 borderColor: 'var(--color-border-strong)',
-                background: 'var(--color-background)',
+                background: 'var(--color-surface-2)',
                 color: 'var(--color-text)',
-                boxShadow: '2px 2px 0 var(--color-border)'
+                boxShadow: 'var(--shadow-brutal-sm)'
               }}
             />
             {filter && (
               <button
                 onClick={() => setFilter('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2"
+                className="absolute right-3 top-1/2 -translate-y-1/2"
                 style={{ color: 'var(--color-muted)' }}
               >
-                <X className="w-3 h-3" />
+                <X className="w-4 h-4" />
               </button>
             )}
           </div>
@@ -136,77 +140,87 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectDock, onSelectBo
 
         {/* ── LEFT: PORT TABS ── */}
         <div
-          className="w-44 shrink-0 border-r-4 flex flex-col overflow-y-auto"
-          style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-surface)' }}
+          className="w-48 shrink-0 border-r-4 flex flex-col overflow-y-auto"
+          style={{
+            borderColor: 'var(--color-border-strong)',
+            background: 'var(--color-surface)',
+            boxShadow: 'var(--shadow-brutal)'
+          }}
         >
           <div
-            className="px-3 py-2 text-[9px] font-black uppercase tracking-widest border-b-2"
-            style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
+            className="px-4 py-3 text-[10px] font-black uppercase tracking-[0.24em] border-b-4"
+            style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-muted)' }}
           >
             Ports
           </div>
 
-          {/* All */}
-          <button
-            onClick={() => setActivePort('all')}
-            className="flex items-center gap-2 px-3 py-2.5 text-left border-b-2 transition-all duration-100"
-            style={{
-              borderColor: 'var(--color-border)',
-              background: activePort === 'all' ? 'var(--color-primary)' : 'transparent',
-              color: activePort === 'all' ? 'white' : 'var(--color-text)'
-            }}
-          >
-            <Compass className="w-3.5 h-3.5 shrink-0" />
-            <span className="text-xs font-black uppercase tracking-wide flex-1">All</span>
-            <span className="text-[9px] font-black opacity-60">{docks.length}</span>
-          </button>
+          <div className="space-y-2 px-2 py-3">
+            {/* All */}
+            <button
+              onClick={() => setActivePort('all')}
+              className="flex items-center gap-2 px-3 py-2.5 text-left transition-all duration-100"
+              style={{
+                border: '2px solid',
+                borderColor: activePort === 'all' ? 'var(--color-primary)' : 'transparent',
+                background: activePort === 'all' ? 'var(--color-primary-soft)' : 'transparent',
+                color: 'var(--color-text)',
+                boxShadow: activePort === 'all' ? 'var(--shadow-brutal-sm)' : 'none'
+              }}
+            >
+              <Compass className="w-4 h-4 shrink-0" />
+              <span className="text-xs font-black uppercase tracking-wide flex-1">All</span>
+              <span className="text-[10px] font-black opacity-70">{docks.length}</span>
+            </button>
 
-          {/* Port tabs */}
-          {ports.map(port => {
-            const portDockCount = docks.filter(d => d.folderId === port.id).length
-            const isActive = activePort === port.id
-            return (
-              <button
-                key={port.id}
-                onClick={() => setActivePort(port.id)}
-                className="flex items-center gap-2 px-3 py-2.5 text-left border-b-2 transition-all duration-100"
+            {/* Port tabs */}
+            {ports.map(port => {
+              const portDockCount = docks.filter(d => d.folderId === port.id).length
+              const isActive = activePort === port.id
+              return (
+                <button
+                  key={port.id}
+                  onClick={() => setActivePort(port.id)}
+                className="flex items-center gap-2 px-3 py-2.5 text-left transition-all duration-100"
                 style={{
-                  borderColor: 'var(--color-border)',
-                  background: isActive ? (port.color || '#2563eb') : 'transparent',
-                  color: isActive ? 'white' : 'var(--color-text)',
-                  borderLeftWidth: isActive ? '3px' : '0',
-                  borderLeftColor: port.color || '#2563eb'
+                  border: '2px solid',
+                  borderColor: isActive ? (port.color || '#2563eb') : 'transparent',
+                  background: isActive ? (port.color || '#2563eb') + '1a' : 'transparent',
+                  color: 'var(--color-text)',
+                  boxShadow: isActive ? 'var(--shadow-brutal-sm)' : 'none'
                 }}
               >
                 <div
-                  className="w-2.5 h-2.5 border shrink-0"
+                  className="w-2.5 h-2.5 border-2 shrink-0"
                   style={{
                     background: port.color || '#2563eb',
-                    borderColor: isActive ? 'white' : 'var(--color-border-strong)'
+                    borderColor: 'var(--color-border-strong)'
                   }}
                 />
                 <span className="text-xs font-black uppercase tracking-wide flex-1 truncate">{port.name}</span>
-                <span className="text-[9px] font-black opacity-60">{portDockCount}</span>
+                <span className="text-[10px] font-black opacity-70">{portDockCount}</span>
               </button>
             )
           })}
 
-          {/* Uncategorized */}
-          {uncategorizedCount > 0 && (
-            <button
-              onClick={() => setActivePort('uncategorized')}
-              className="flex items-center gap-2 px-3 py-2.5 text-left border-b-2 transition-all duration-100"
-              style={{
-                borderColor: 'var(--color-border)',
-                background: activePort === 'uncategorized' ? 'var(--color-muted)' : 'transparent',
-                color: activePort === 'uncategorized' ? 'white' : 'var(--color-muted)'
-              }}
-            >
-              <Anchor className="w-3.5 h-3.5 shrink-0 opacity-60" />
-              <span className="text-xs font-black uppercase tracking-wide flex-1">Uncharted</span>
-              <span className="text-[9px] font-black opacity-60">{uncategorizedCount}</span>
-            </button>
-          )}
+            {/* Uncategorized */}
+            {uncategorizedCount > 0 && (
+              <button
+                onClick={() => setActivePort('uncategorized')}
+                className="flex items-center gap-2 px-3 py-2.5 text-left transition-all duration-100"
+                style={{
+                  border: '2px solid',
+                  borderColor: activePort === 'uncategorized' ? 'var(--color-muted)' : 'transparent',
+                  background: activePort === 'uncategorized' ? 'rgba(54,80,107,0.16)' : 'transparent',
+                  color: activePort === 'uncategorized' ? 'var(--color-text)' : 'var(--color-muted)',
+                  boxShadow: activePort === 'uncategorized' ? 'var(--shadow-brutal-sm)' : 'none'
+                }}
+              >
+                <Anchor className="w-4 h-4 shrink-0 opacity-70" />
+                <span className="text-xs font-black uppercase tracking-wide flex-1">Uncharted</span>
+                <span className="text-[10px] font-black opacity-70">{uncategorizedCount}</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* ── RIGHT: MAIN CONTENT ── */}
@@ -232,16 +246,16 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectDock, onSelectBo
                       className="group text-left p-3 border-2 transition-all duration-100"
                       style={{
                         borderColor: c,
-                        background: c + '08',
-                        boxShadow: `2px 2px 0 ${c}`
+                        background: c + '10',
+                        boxShadow: `var(--shadow-brutal-sm)`
                       }}
                       onMouseOver={e => {
-                        e.currentTarget.style.transform = 'translate(-1px,-1px)'
-                        e.currentTarget.style.boxShadow = `3px 3px 0 ${c}`
+                        e.currentTarget.style.transform = 'translate(-2px,-2px)'
+                        e.currentTarget.style.boxShadow = `var(--shadow-brutal)`
                       }}
                       onMouseOut={e => {
                         e.currentTarget.style.transform = ''
-                        e.currentTarget.style.boxShadow = `2px 2px 0 ${c}`
+                        e.currentTarget.style.boxShadow = `var(--shadow-brutal-sm)`
                       }}
                     >
                       <Ship className="w-5 h-5 mb-2" style={{ color: c }} />
@@ -291,17 +305,24 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectDock, onSelectBo
                 return (
                   <section key={dock.id}>
                     {/* Dock header row */}
-                    <div className="flex items-center gap-3 mb-3">
+                    <div
+                      className="flex items-center gap-3 mb-3 px-3 py-2 rounded-xl"
+                      style={{
+                        background: 'var(--color-surface-2)',
+                        border: '1px solid var(--color-border)',
+                        boxShadow: 'var(--shadow-brutal-sm)'
+                      }}
+                    >
                       <div
-                        className="w-3 h-3 border-2 shrink-0"
-                        style={{ background: dockColor, borderColor: 'var(--color-border-strong)' }}
+                        className="w-2.5 h-8 rounded-full shrink-0"
+                        style={{ background: dockColor, boxShadow: `0 12px 28px ${dockColor}33` }}
                       />
-                      <h2 className="font-black text-sm uppercase tracking-wide" style={{ color: 'var(--color-text)' }}>
+                      <h2 className="font-semibold text-sm uppercase tracking-wide" style={{ color: 'var(--color-text)' }}>
                         {dock.name}
                       </h2>
                       {port && (
                         <span
-                          className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 border"
+                          className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 border rounded-full"
                           style={{ borderColor: port.color || dockColor, color: port.color || dockColor }}
                         >
                           {port.name}
@@ -310,8 +331,12 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectDock, onSelectBo
                       <div className="h-px flex-1" style={{ background: dockColor + '30' }} />
                       <button
                         onClick={() => onSelectDock(dock.id)}
-                        className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider hover:opacity-70 transition-opacity"
-                        style={{ color: dockColor }}
+                        className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide px-3 py-1.5 rounded-full transition-all duration-150"
+                        style={{
+                          color: dockColor,
+                          background: 'rgba(255,255,255,0.04)',
+                          border: '1px solid var(--color-border)'
+                        }}
                       >
                         View Dock
                         <ChevronRight className="w-3 h-3" />
@@ -321,8 +346,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectDock, onSelectBo
                     {/* Ships grid */}
                     {dockShips.length === 0 ? (
                       <div
-                        className="px-4 py-3 border-2 border-dashed text-[10px] font-black uppercase tracking-wider"
-                        style={{ borderColor: dockColor + '40', color: 'var(--color-muted)' }}
+                        className="px-4 py-3 border-4 border-dashed text-[10px] font-black uppercase tracking-wider"
+                        style={{ borderColor: dockColor + '70', color: 'var(--color-muted)' }}
                       >
                         No ships docked — open dock to add one
                       </div>
@@ -336,22 +361,22 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({ onSelectDock, onSelectBo
                             style={{
                               borderColor: 'var(--color-border)',
                               background: 'var(--color-surface)',
-                              boxShadow: '2px 2px 0 var(--color-border)'
+                              boxShadow: 'var(--shadow-brutal-sm)'
                             }}
                             onMouseOver={e => {
                               e.currentTarget.style.borderColor = dockColor
-                              e.currentTarget.style.transform = 'translate(-1px,-1px)'
-                              e.currentTarget.style.boxShadow = `3px 3px 0 ${dockColor}`
+                              e.currentTarget.style.transform = 'translate(-2px,-2px)'
+                              e.currentTarget.style.boxShadow = `var(--shadow-brutal)`
                             }}
                             onMouseOut={e => {
                               e.currentTarget.style.borderColor = 'var(--color-border)'
                               e.currentTarget.style.transform = ''
-                              e.currentTarget.style.boxShadow = '2px 2px 0 var(--color-border)'
+                              e.currentTarget.style.boxShadow = 'var(--shadow-brutal-sm)'
                             }}
                           >
                             {/* Top accent */}
                             <div
-                              className="absolute top-0 left-0 right-0 h-0.5"
+                              className="absolute top-0 left-0 right-0 h-1"
                               style={{ background: dockColor }}
                             />
                             <Ship className="w-4 h-4 mb-2" style={{ color: dockColor }} />
