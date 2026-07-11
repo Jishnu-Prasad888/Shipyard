@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -37,6 +37,110 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('')
   const [saving, setSaving] = useState(false)
+  const dragStateRef = useRef<{ previousLists: any[]; changedListIds: string[] } | null>(null)
+
+  const normalizeListOrders = (list: any) => ({
+    ...list,
+    cards: (list.cards || []).map((card: any, index: number) =>
+      card.order === index && card.listId === list.id
+        ? card
+        : { ...card, order: index, listId: list.id }
+    )
+  })
+
+  const reorderCards = (activeId: string, overId: string, currentLists: any[]) => {
+    if (activeId === overId) return { lists: currentLists, changedListIds: [], moved: false }
+
+    const listsCopy = currentLists.map(list => ({ ...list, cards: [...(list.cards || [])] }))
+
+    let sourceListIndex = -1
+    let targetListIndex = -1
+    let activeCardIndex = -1
+    let overCardIndex = -1
+
+    for (let i = 0; i < listsCopy.length; i++) {
+      const cards = listsCopy[i].cards || []
+      if (activeCardIndex === -1) {
+        const idx = cards.findIndex((c: any) => c.id === activeId)
+        if (idx !== -1) {
+          sourceListIndex = i
+          activeCardIndex = idx
+        }
+      }
+      if (overCardIndex === -1) {
+        const idx = cards.findIndex((c: any) => c.id === overId)
+        if (idx !== -1) {
+          targetListIndex = i
+          overCardIndex = idx
+        }
+      }
+      if (activeCardIndex !== -1 && overCardIndex !== -1) break
+    }
+
+    if (sourceListIndex === -1 || targetListIndex === -1 || activeCardIndex === -1 || overCardIndex === -1)
+      return { lists: currentLists, changedListIds: [], moved: false }
+
+    if (sourceListIndex === targetListIndex && activeCardIndex === overCardIndex)
+      return { lists: currentLists, changedListIds: [], moved: false }
+
+    if (sourceListIndex === targetListIndex) {
+      const updatedCards = arrayMove(listsCopy[sourceListIndex].cards, activeCardIndex, overCardIndex)
+      listsCopy[sourceListIndex] = normalizeListOrders({ ...listsCopy[sourceListIndex], cards: updatedCards })
+      return { lists: listsCopy, changedListIds: [listsCopy[sourceListIndex].id], moved: true }
+    }
+
+    const sourceList = listsCopy[sourceListIndex]
+    const targetList = listsCopy[targetListIndex]
+    const [movingCard] = sourceList.cards.splice(activeCardIndex, 1)
+    if (!movingCard) return { lists: currentLists, changedListIds: [], moved: false }
+
+    const targetCards = [...targetList.cards]
+    targetCards.splice(overCardIndex, 0, { ...movingCard, listId: targetList.id })
+
+    listsCopy[sourceListIndex] = normalizeListOrders({ ...sourceList })
+    listsCopy[targetListIndex] = normalizeListOrders({ ...targetList, cards: targetCards })
+
+    return { lists: listsCopy, changedListIds: [sourceList.id, targetList.id], moved: true }
+  }
+
+  const persistCardOrder = async (
+    nextLists: any[],
+    changedListIds: string[],
+    prevLists: any[]
+  ) => {
+    const uniqueListIds = Array.from(new Set(changedListIds)).filter(Boolean)
+    if (uniqueListIds.length === 0) return
+
+    const previousMap = new Map<string, Map<string, { order: number; listId: string }>>()
+    for (const listId of uniqueListIds) {
+      const prevList = prevLists.find(l => l.id === listId)
+      if (!prevList) continue
+      const cardMap = new Map<string, { order: number; listId: string }>()
+      ;(prevList.cards || []).forEach((card: any, index: number) => {
+        cardMap.set(card.id, { order: card.order ?? index, listId: prevList.id })
+      })
+      previousMap.set(listId, cardMap)
+    }
+
+    const updates: Promise<any>[] = []
+
+    for (const listId of uniqueListIds) {
+      const nextList = nextLists.find(l => l.id === listId)
+      if (!nextList) continue
+      const prevCards = previousMap.get(listId)
+
+      ;(nextList.cards || []).forEach((card: any, index: number) => {
+        const prev = prevCards?.get(card.id)
+        if (!prev || prev.order !== index || prev.listId !== listId) {
+          updates.push(window.electron.db.update('cards', card.id, { listId, order: index }))
+        }
+      })
+    }
+
+    if (updates.length > 0) {
+      await Promise.all(updates)
+    }
+  }
 
   const filteredLists = searchQuery
     ? lists.map((list) => ({
@@ -94,68 +198,73 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
     if (!over) return
     const isActiveCard = active.data.current?.type === 'card'
     const isOverCard = over.data.current?.type === 'card'
-    if (isActiveCard && isOverCard) handleCardReorder(active.id as string, over.id as string)
+    if (isActiveCard && isOverCard) {
+      setLists(prev => {
+        const result = reorderCards(active.id as string, over.id as string, prev)
+        if (result.moved) {
+          dragStateRef.current = { previousLists: prev, changedListIds: result.changedListIds }
+        }
+        return result.moved ? result.lists : prev
+      })
+    }
   }
 
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveId(null)
     const { active, over } = event
-    if (!over) return
-    if (active.data.current?.type === 'list' && over.data.current?.type === 'list')
-      handleListReorder(active.id as string, over.id as string)
-  }
-
-  const handleCardReorder = async (activeId: string, overId: string) => {
-    let activeCard: any = null, activeList: any = null
-    let overCard: any = null, overList: any = null
-    for (const list of lists) {
-      const card = list.cards?.find((c: any) => c.id === activeId)
-      if (card) { activeCard = card; activeList = list }
-      const overCardFound = list.cards?.find((c: any) => c.id === overId)
-      if (overCardFound) { overCard = overCardFound; overList = list }
+    if (!over) {
+      if (dragStateRef.current?.previousLists) {
+        setLists(dragStateRef.current.previousLists)
+      }
+      dragStateRef.current = null
+      return
     }
-    if (!activeCard || !overCard) return
 
-    if (activeList.id === overList.id) {
-      const oldIndex = activeList.cards.findIndex((c: any) => c.id === activeId)
-      const newIndex = activeList.cards.findIndex((c: any) => c.id === overId)
-      const reorderedCards = arrayMove<any>(activeList.cards, oldIndex, newIndex)
-      for (let i = 0; i < reorderedCards.length; i++) {
-        if (reorderedCards[i].order !== i) {
-          reorderedCards[i].order = i
-          await window.electron.db.update('cards', reorderedCards[i].id, { order: i })
+    if (active.data.current?.type === 'card' && over.data.current?.type === 'card') {
+      const dragState = dragStateRef.current
+      dragStateRef.current = null
+
+      if (dragState?.changedListIds?.length) {
+        void persistCardOrder(lists, dragState.changedListIds, dragState.previousLists)
+      } else {
+        const { lists: nextLists, changedListIds, moved } = reorderCards(
+          active.id as string,
+          over.id as string,
+          lists
+        )
+
+        if (moved) {
+          setLists(nextLists)
+          void persistCardOrder(nextLists, changedListIds, lists)
         }
       }
-      setLists(prev => prev.map(l => l.id === activeList.id ? { ...l, cards: reorderedCards } : l))
-    } else {
-      const newActiveCards = activeList.cards.filter((c: any) => c.id !== activeId)
-      const newOverCards = [...overList.cards]
-      const overIndex = newOverCards.findIndex((c: any) => c.id === overId)
-      newOverCards.splice(overIndex, 0, activeCard)
-      await window.electron.db.update('cards', activeId, { listId: overList.id, order: overIndex })
-      for (let i = 0; i < newActiveCards.length; i++)
-        await window.electron.db.update('cards', newActiveCards[i].id, { order: i })
-      for (let i = 0; i < newOverCards.length; i++)
-        await window.electron.db.update('cards', newOverCards[i].id, { order: i })
-      setLists(prev => prev.map(l => {
-        if (l.id === activeList.id) return { ...l, cards: newActiveCards }
-        if (l.id === overList.id) return { ...l, cards: newOverCards }
-        return l
-      }))
+      return
     }
+
+    if (active.data.current?.type === 'list' && over.data.current?.type === 'list')
+      handleListReorder(active.id as string, over.id as string)
   }
 
   const handleListReorder = async (activeId: string, overId: string) => {
     const oldIndex = lists.findIndex((l: any) => l.id === activeId)
     const newIndex = lists.findIndex((l: any) => l.id === overId)
-    const newLists = arrayMove(lists, oldIndex, newIndex)
-    for (let i = 0; i < newLists.length; i++) {
-      if (newLists[i].order !== i) {
-        newLists[i].order = i
-        await window.electron.db.update('lists', newLists[i].id, { order: i })
-      }
+    if (oldIndex === -1 || newIndex === -1) return
+
+    const previousOrder = new Map(lists.map((l: any) => [l.id, l.order]))
+    const reorderedLists = arrayMove(lists, oldIndex, newIndex)
+    const normalized = reorderedLists.map((list: any, index: number) =>
+      list.order === index ? list : { ...list, order: index }
+    )
+
+    setLists(normalized)
+
+    const updates = normalized
+      .filter((list: any) => previousOrder.get(list.id) !== list.order)
+      .map((list: any) => window.electron.db.update('lists', list.id, { order: list.order }))
+
+    if (updates.length > 0) {
+      await Promise.all(updates)
     }
-    setLists(newLists)
   }
 
   const handleCreateList = async (listData: any) => {
