@@ -6,11 +6,10 @@ import { CardDetailsModal } from './CardDetailsModal'
 
 interface CardProps {
   card: any
-  listId: string
   onUpdate: () => void
 }
 
-export const Card: React.FC<CardProps> = ({ card, listId, onUpdate }) => {
+export const Card: React.FC<CardProps> = ({ card, onUpdate }) => {
   const [showDetails, setShowDetails] = useState(false)
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -166,7 +165,6 @@ export const Card: React.FC<CardProps> = ({ card, listId, onUpdate }) => {
       {showDetails && (
         <CardDetailsModal
           card={card}
-          listId={listId}
           onClose={() => setShowDetails(false)}
           onUpdate={onUpdate}
         />

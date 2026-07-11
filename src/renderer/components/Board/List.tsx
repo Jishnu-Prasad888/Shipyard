@@ -417,7 +417,7 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
         {/* Cards — scrollable */}
         <div className="flex-1 space-y-2 min-h-[40px] overflow-y-auto">
           {visibleCards.map((card: any) => (
-            <Card key={card.id} card={card} listId={list.id} onUpdate={onCardsChange} />
+            <Card key={card.id} card={card} onUpdate={onCardsChange} />
           ))}
         </div>
 
