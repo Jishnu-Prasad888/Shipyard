@@ -5,7 +5,9 @@ const initialState: Settings = {
   theme: 'light',
   firebaseEnabled: false,
   syncEnabled: false,
-  minimizeToTray: true
+  minimizeToTray: true,
+  serverUrl: '',
+  serverSyncEnabled: false
 }
 
 const settingsSlice = createSlice({

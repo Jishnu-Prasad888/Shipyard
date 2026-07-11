@@ -14,13 +14,22 @@ import {
   Wifi,
   WifiOff,
   Package,
-  Type
+  Type,
+  Server,
+  Activity
 } from 'lucide-react'
 import { FirebaseConfig } from './FirebaseConfig'
 import { ExportModal } from './ExportModal'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '../../store'
 import { setSettings } from '../../store/settingsSlice'
+import {
+  getServerHealth,
+  getServerSyncStatus,
+  pushSyncOperations,
+  ServerHealth,
+  ServerSyncStatus
+} from '../../services/api.service'
 
 interface SettingsModalProps {
   onClose: () => void
@@ -36,6 +45,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const [firebaseEnabled, setFirebaseEnabled] = useState(settings.firebaseEnabled || false)
   const [syncEnabled, setSyncEnabled] = useState(settings.syncEnabled || false)
   const [firebaseConfig, setFirebaseConfig] = useState<any>(settings.firebaseConfig || {})
+
+  const [serverUrl, setServerUrl] = useState(settings.serverUrl || '')
+  const [serverSyncEnabled, setServerSyncEnabled] = useState(settings.serverSyncEnabled ?? false)
+  const [lastServerSyncAt, setLastServerSyncAt] = useState<number | undefined>(
+    settings.lastServerSyncAt ?? undefined
+  )
+  const [serverHealth, setServerHealth] = useState<ServerHealth | null>(null)
+  const [serverStatus, setServerStatus] = useState<ServerSyncStatus | null>(null)
+  const [serverOp, setServerOp] = useState<'idle' | 'health' | 'syncing'>('idle')
 
   const [op, setOp] = useState<SyncOp>('idle')
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null)
@@ -56,6 +74,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     loadStatus()
     detectFonts()
   }, [])
+
+  useEffect(() => {
+    const url = serverUrl.trim()
+    if (url && /^https?:\/\//.test(url)) {
+      loadStatus()
+    }
+  }, [serverUrl])
 
   // ── System font detection via canvas ──
   const CANDIDATE_FONTS = [
@@ -223,6 +248,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
       const status = await window.electron.sync.status()
       setSyncStatus(status)
     } catch {}
+
+    const url = serverUrl.trim()
+    if (url) {
+      try {
+        const status = await getServerSyncStatus(url)
+        setServerStatus(status)
+      } catch (err) {
+        console.error('Server sync status failed', err)
+        setServerStatus(null)
+      }
+    } else {
+      setServerStatus(null)
+    }
   }
 
   const showFeedback = (ok: boolean, msg: string) => {
@@ -239,7 +277,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         syncEnabled,
         firebaseConfig,
         fontFamily: fontFamily || undefined,
-        minimizeToTray
+        minimizeToTray,
+        serverUrl: serverUrl || undefined,
+        serverSyncEnabled,
+        lastServerSyncAt
       }
       const result = await window.electron.settings.save(updatedSettings)
       dispatch(
@@ -249,7 +290,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
           syncEnabled,
           firebaseConfig,
           fontFamily: fontFamily || undefined,
-          minimizeToTray
+          minimizeToTray,
+          serverUrl: serverUrl || undefined,
+          serverSyncEnabled,
+          lastServerSyncAt
         })
       )
 
@@ -337,7 +381,97 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     }
   }
 
+  const parsePayload = (value: any) => {
+    if (value === null || value === undefined) return null
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value)
+      } catch {
+        return value
+      }
+    }
+    return value
+  }
+
+  const isUnsynced = (value: any) =>
+    value === 0 || value === '0' || value === false || value === null || value === undefined
+
+  const handleCheckServer = async () => {
+    const url = serverUrl.trim()
+    if (!url) {
+      showFeedback(false, 'Enter a server URL to check health')
+      return
+    }
+    setServerOp('health')
+    try {
+      const health = await getServerHealth(url)
+      setServerHealth(health)
+      const status = await getServerSyncStatus(url)
+      setServerStatus(status)
+      showFeedback(health.status !== 'degraded', `Server ${health.status || 'ok'}`)
+    } catch (err: any) {
+      setServerHealth(null)
+      setServerStatus(null)
+      showFeedback(false, err?.message || 'Health check failed')
+    } finally {
+      setServerOp('idle')
+    }
+  }
+
+  const handleServerSync = async () => {
+    const url = serverUrl.trim()
+    if (!url) {
+      showFeedback(false, 'Enter a server URL before syncing')
+      return
+    }
+    setServerOp('syncing')
+    setFeedback(null)
+    try {
+      const queue = await window.electron.db.findAll('sync_queue')
+      const pending = (queue || []).filter((item: any) => isUnsynced(item.synced))
+
+      if (!pending.length) {
+        showFeedback(true, 'No pending changes to sync')
+        return
+      }
+
+      const operations = pending.map((item: any) => ({
+        id: item.id,
+        operation: item.operation,
+        table: item.table,
+        recordId: item.recordId,
+        data: parsePayload(item.data),
+        timestamp:
+          typeof item.timestamp === 'number'
+            ? item.timestamp
+            : Number(item.timestamp) || undefined
+      }))
+
+      const result = await pushSyncOperations(url, operations, 'shipyard-tauri')
+      if (result.syncedIds?.length) {
+        await window.electron.sync.markSynced(result.syncedIds)
+      }
+
+      setLastServerSyncAt(Date.now())
+
+      const status = await getServerSyncStatus(url)
+      setServerStatus(status)
+
+      showFeedback(
+        result.success !== false,
+        result.message || `Synced ${result.syncedIds?.length ?? operations.length} changes`
+      )
+
+      await loadStatus()
+    } catch (err: any) {
+      showFeedback(false, err?.message || 'Sync failed')
+    } finally {
+      setServerOp('idle')
+    }
+  }
+
   const isLoading = op !== 'idle'
+  const isServerBusy = serverOp !== 'idle'
 
   // ── Filtered font list (must be at top level — no hooks inside JSX) ──
   const filteredFonts = useMemo(
@@ -804,6 +938,162 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                   Last sync: {new Date(syncStatus.lastSyncTime).toLocaleTimeString()}
                   {syncStatus.lastSyncResult && ` — ${syncStatus.lastSyncResult.message}`}
                 </p>
+              )}
+            </div>
+          </div>
+
+          {/* ── SERVER SYNC ── */}
+          <div
+            className="border-2"
+            style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}
+          >
+            <div
+              className="flex items-center justify-between px-4 py-3 border-b-2"
+              style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)' }}
+            >
+              <h3
+                className="font-black text-[10px] uppercase tracking-widest flex items-center gap-2"
+                style={{ color: 'var(--color-muted)' }}
+              >
+                <Server className="w-3.5 h-3.5" />
+                Server Sync
+              </h3>
+
+              <div className="flex items-center gap-2">
+                {serverHealth && (
+                  <span
+                    className="text-[9px] font-black uppercase tracking-wider px-2 py-1 border"
+                    style={{
+                      borderColor: serverHealth.status === 'ok' ? 'var(--color-primary)' : '#dc2626',
+                      color: serverHealth.status === 'ok' ? 'var(--color-primary)' : '#dc2626',
+                      background: serverHealth.status === 'ok' ? 'var(--color-primary)10' : '#dc262610'
+                    }}
+                  >
+                    {serverHealth.status || 'unknown'}
+                  </span>
+                )}
+                {syncStatus?.unsyncedCount > 0 && (
+                  <span
+                    className="text-[9px] font-black px-1.5 py-0.5 border"
+                    style={{ borderColor: '#d97706', color: '#d97706', background: '#d9770615' }}
+                  >
+                    {syncStatus.unsyncedCount} pending
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <div className="space-y-1">
+                <label
+                  className="text-[10px] font-black uppercase tracking-widest"
+                  style={{ color: 'var(--color-muted)' }}
+                >
+                  Server URL
+                </label>
+                <input
+                  value={serverUrl}
+                  onChange={(e) => setServerUrl(e.target.value)}
+                  placeholder="https://api.my-shipyard.com"
+                  className="w-full px-3 py-2 border-2 text-xs font-bold outline-none"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    background: 'var(--color-background)',
+                    color: 'var(--color-text)'
+                  }}
+                />
+              </div>
+
+              <label className="flex items-center gap-3 cursor-pointer">
+                <Toggle
+                  value={serverSyncEnabled}
+                  onChange={() => setServerSyncEnabled(!serverSyncEnabled)}
+                />
+                <div>
+                  <span className="font-black text-xs uppercase tracking-wider">Enable server sync</span>
+                  <p
+                    className="text-[10px] font-bold mt-0.5"
+                    style={{ color: 'var(--color-muted)' }}
+                  >
+                    Use your HTTP server (Postgres + Redis) instead of Firebase
+                  </p>
+                </div>
+              </label>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={handleCheckServer}
+                  disabled={isServerBusy || !serverUrl}
+                  className="flex items-center justify-center gap-2 px-3 py-3 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100 disabled:opacity-40"
+                  style={{
+                    borderColor: 'var(--color-cyan)',
+                    color: 'var(--color-cyan)',
+                    background: 'var(--color-cyan)10',
+                    boxShadow: '2px 2px 0 var(--color-cyan)'
+                  }}
+                  onMouseOver={(e) => {
+                    if (!isServerBusy) e.currentTarget.style.transform = 'translate(-1px,-1px)'
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = ''
+                  }}
+                >
+                  {serverOp === 'health' ? (
+                    <Loader className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Activity className="w-4 h-4" />
+                  )}
+                  Check health
+                </button>
+
+                <button
+                  onClick={handleServerSync}
+                  disabled={isServerBusy || !serverUrl || !serverSyncEnabled}
+                  className="flex items-center justify-center gap-2 px-3 py-3 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100 disabled:opacity-40"
+                  style={{
+                    borderColor: 'var(--color-primary)',
+                    color: 'var(--color-primary)',
+                    background: 'var(--color-primary)10',
+                    boxShadow: '2px 2px 0 var(--color-primary)'
+                  }}
+                  onMouseOver={(e) => {
+                    if (!isServerBusy) e.currentTarget.style.transform = 'translate(-1px,-1px)'
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = ''
+                  }}
+                >
+                  {serverOp === 'syncing' ? (
+                    <Loader className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                  Sync now
+                </button>
+              </div>
+
+              <div
+                className="grid grid-cols-2 gap-2 text-[10px] font-bold"
+                style={{ color: 'var(--color-muted)' }}
+              >
+                <div>Local pending: {syncStatus?.unsyncedCount ?? 0}</div>
+                <div>
+                  Last push: {lastServerSyncAt ? new Date(lastServerSyncAt).toLocaleString() : '—'}
+                </div>
+                <div>
+                  Server last sync:{' '}
+                  {serverStatus?.lastSyncAt
+                    ? new Date(serverStatus.lastSyncAt).toLocaleString()
+                    : '—'}
+                </div>
+                <div>Total events on server: {serverStatus?.totalEvents ?? 0}</div>
+              </div>
+
+              {serverHealth && (
+                <div className="text-[10px] font-bold" style={{ color: 'var(--color-muted)' }}>
+                  <p>DB: {serverHealth.db || 'unknown'}</p>
+                  <p>Redis: {serverHealth.redis || 'unknown'}</p>
+                </div>
               )}
             </div>
           </div>
