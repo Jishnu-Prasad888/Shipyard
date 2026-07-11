@@ -12,6 +12,7 @@ import { SortableContext, horizontalListSortingStrategy, arrayMove } from '@dnd-
 import { Plus, LayoutList, Hash, Pencil, Check, X, ChevronLeft, Trash2 } from 'lucide-react'
 import { List } from './List'
 import { CreateListModal } from './CreateListModal'
+import { getBoardWithDetails } from '../../lib/data'
 
 const SHIP_COLORS = [
   '#2D82B7', '#0B2545', '#1F5F8B', '#3FA796', '#5FA8D3',
@@ -160,7 +161,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
   useEffect(() => { loadBoard() }, [boardId])
 
   const loadBoard = async () => {
-    const boardData = await window.electron.db.getBoardWithDetails(boardId)
+    const boardData = await getBoardWithDetails(boardId)
     if (boardData) {
       setBoard(boardData)
       setLists(boardData.lists || [])
