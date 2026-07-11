@@ -32,7 +32,7 @@ export interface PushSyncResult {
 const requireUrl = (url: string): string => {
   const trimmed = url.trim()
   if (!trimmed) throw new Error('Server URL is required')
-  return trimmed.replace(/\/+$, '')
+  return trimmed.replace(/\/+$/, '')
 }
 
 const getJson = async <T>(url: string, init?: RequestInit): Promise<T> => {
