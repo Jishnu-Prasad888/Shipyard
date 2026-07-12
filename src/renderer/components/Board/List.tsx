@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Plus, Edit2, Trash2, Eye, EyeOff, Download } from 'lucide-react'
+import { Plus, Edit2, Trash2, Eye, EyeOff, Download, MoveHorizontal } from 'lucide-react'
 import { Card } from './Card'
 import { CreateCardModal } from './CreateCardModal'
 
@@ -29,6 +29,19 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
   const [boardStatuses, setBoardStatuses] = useState<any[]>([])
   const hidePanelRef = useRef<HTMLDivElement | null>(null)
 
+  // Resizable width (per-list, persisted)
+  const MIN_WIDTH = 260
+  const MAX_WIDTH = 520
+  const DEFAULT_WIDTH = 320
+  const [width, setWidth] = useState(() => {
+    if (typeof window === 'undefined') return DEFAULT_WIDTH
+    const raw = localStorage.getItem(`shipyard:list-width:${list.id}`)
+    const parsed = raw ? Number(raw) : NaN
+    if (Number.isFinite(parsed)) return Math.min(Math.max(parsed, MIN_WIDTH), MAX_WIDTH)
+    return DEFAULT_WIDTH
+  })
+  const resizeStartRef = useRef<{ x: number; width: number } | null>(null)
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: list.id,
     data: { type: 'list' }
@@ -38,6 +51,38 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
     id: `list-drop-${list.id}`,
     data: { type: 'list-drop', listId: list.id }
   })
+
+  const handleResize = (event: MouseEvent) => {
+    if (!resizeStartRef.current) return
+    const delta = event.clientX - resizeStartRef.current.x
+    const next = Math.min(Math.max(resizeStartRef.current.width + delta, MIN_WIDTH), MAX_WIDTH)
+    setWidth(next)
+  }
+
+  const stopResize = () => {
+    window.removeEventListener('mousemove', handleResize)
+    window.removeEventListener('mouseup', stopResize)
+    resizeStartRef.current = null
+  }
+
+  const handleResizeStart = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    event.preventDefault()
+    resizeStartRef.current = { x: event.clientX, width }
+    window.addEventListener('mousemove', handleResize)
+    window.addEventListener('mouseup', stopResize)
+  }
+
+  const resetWidth = () => setWidth(DEFAULT_WIDTH)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem(`shipyard:list-width:${list.id}`, String(width))
+  }, [list.id, width])
+
+  useEffect(() => {
+    return () => stopResize()
+  }, [])
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -252,7 +297,18 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
 
   return (
     <>
-      <div ref={setNodeRef} style={style} className="column" onContextMenu={openContextMenu}>
+      <div
+        ref={setNodeRef}
+        style={{
+          ...style,
+          width,
+          minWidth: MIN_WIDTH,
+          maxWidth: MAX_WIDTH,
+          flexShrink: 0
+        }}
+        className="column relative"
+        onContextMenu={openContextMenu}
+      >
         {/* List Header */}
         <div
           className="flex items-center justify-between pb-3 border-b-2 shrink-0"
@@ -475,6 +531,22 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
             Add Cargo
           </button>
         </div>
+
+        {/* Resize handle */}
+        <button
+          type="button"
+          onMouseDown={handleResizeStart}
+          onDoubleClick={resetWidth}
+          className="absolute -right-3 top-1/2 -translate-y-1/2 w-7 h-10 rounded-md flex items-center justify-center cursor-ew-resize"
+          style={{
+            border: '2px solid var(--color-border-strong)',
+            background: 'var(--color-background)',
+            boxShadow: '1px 1px 0 var(--color-border-strong)'
+          }}
+          title="Drag to resize · Double-click to reset"
+        >
+          <MoveHorizontal className="w-4 h-4" style={{ color: 'var(--color-muted)' }} />
+        </button>
       </div>
 
       {/* Right-click context menu */}
