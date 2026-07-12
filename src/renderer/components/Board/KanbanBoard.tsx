@@ -104,6 +104,53 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
     return { lists: listsCopy, changedListIds: [sourceList.id, targetList.id], moved: true }
   }
 
+  const moveCardToListEnd = (cardId: string, targetListId: string, currentLists: any[]) => {
+    const listsCopy = currentLists.map(list => ({ ...list, cards: [...(list.cards || [])] }))
+
+    let sourceListIndex = -1
+    let targetListIndex = listsCopy.findIndex((l) => l.id === targetListId)
+    let activeCardIndex = -1
+
+    for (let i = 0; i < listsCopy.length; i++) {
+      const idx = listsCopy[i].cards.findIndex((c: any) => c.id === cardId)
+      if (idx !== -1) {
+        sourceListIndex = i
+        activeCardIndex = idx
+        break
+      }
+    }
+
+    if (sourceListIndex === -1 || targetListIndex === -1 || activeCardIndex === -1)
+      return { lists: currentLists, changedListIds: [], moved: false }
+
+    const sourceList = listsCopy[sourceListIndex]
+    const targetList = listsCopy[targetListIndex]
+
+    const originalLength = sourceList.cards.length
+    const [movingCard] = sourceList.cards.splice(activeCardIndex, 1)
+    if (!movingCard) return { lists: currentLists, changedListIds: [], moved: false }
+
+    if (sourceList.id === targetList.id && activeCardIndex === originalLength - 1) {
+      return { lists: currentLists, changedListIds: [], moved: false }
+    }
+
+    const nextCard = { ...movingCard, listId: targetList.id }
+    targetList.cards.push(nextCard)
+
+    listsCopy[sourceListIndex] = normalizeListOrders({ ...sourceList })
+    listsCopy[targetListIndex] = normalizeListOrders({ ...targetList })
+
+    const changed = sourceList.id === targetList.id
+      ? [sourceList.id]
+      : [sourceList.id, targetList.id]
+
+    return {
+      lists: listsCopy,
+      changedListIds: changed,
+      moved: true
+    }
+  }
+
   const persistCardOrder = async (
     nextLists: any[],
     changedListIds: string[],
@@ -199,9 +246,23 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
     if (!over) return
     const isActiveCard = active.data.current?.type === 'card'
     const isOverCard = over.data.current?.type === 'card'
+    const isOverList = over.data.current?.type === 'list-drop'
+
     if (isActiveCard && isOverCard) {
       setLists(prev => {
         const result = reorderCards(active.id as string, over.id as string, prev)
+        if (result.moved) {
+          dragStateRef.current = { previousLists: prev, changedListIds: result.changedListIds }
+        }
+        return result.moved ? result.lists : prev
+      })
+      return
+    }
+
+    if (isActiveCard && isOverList) {
+      const targetListId = over.data.current?.listId as string
+      setLists(prev => {
+        const result = moveCardToListEnd(active.id as string, targetListId, prev)
         if (result.moved) {
           dragStateRef.current = { previousLists: prev, changedListIds: result.changedListIds }
         }
@@ -221,6 +282,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
       return
     }
 
+    const isOverList = over.data.current?.type === 'list-drop'
+
     if (active.data.current?.type === 'card' && over.data.current?.type === 'card') {
       const dragState = dragStateRef.current
       dragStateRef.current = null
@@ -238,6 +301,29 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
           setLists(nextLists)
           void persistCardOrder(nextLists, changedListIds, lists)
         }
+      }
+      return
+    }
+
+    if (active.data.current?.type === 'card' && isOverList) {
+      const dragState = dragStateRef.current
+      dragStateRef.current = null
+
+      const targetListId = over.data.current?.listId as string
+      if (dragState?.changedListIds?.length) {
+        void persistCardOrder(lists, dragState.changedListIds, dragState.previousLists)
+        return
+      }
+
+      const { lists: nextLists, changedListIds, moved } = moveCardToListEnd(
+        active.id as string,
+        targetListId,
+        lists
+      )
+
+      if (moved) {
+        setLists(nextLists)
+        void persistCardOrder(nextLists, changedListIds, lists)
       }
       return
     }

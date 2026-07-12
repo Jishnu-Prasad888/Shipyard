@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useDroppable } from '@dnd-kit/core'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Plus, Edit2, Trash2, Eye, EyeOff, Download } from 'lucide-react'
@@ -31,6 +32,11 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: list.id,
     data: { type: 'list' }
+  })
+
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
+    id: `list-drop-${list.id}`,
+    data: { type: 'list-drop', listId: list.id }
   })
 
   const style = {
@@ -415,10 +421,34 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
         )}
 
         {/* Cards — scrollable */}
-        <div className="flex-1 space-y-2 min-h-[40px] overflow-y-auto">
+        <div
+          ref={setDropRef}
+          className="flex-1 space-y-2 min-h-[40px] overflow-y-auto"
+          style={
+            isOver
+              ? {
+                  background: 'var(--color-primary-soft)',
+                  borderRadius: '12px',
+                  padding: '6px'
+                }
+              : undefined
+          }
+        >
           {visibleCards.map((card: any) => (
             <Card key={card.id} card={card} onUpdate={onCardsChange} />
           ))}
+          {visibleCards.length === 0 && (
+            <div
+              className="text-xs font-bold text-center border-2 border-dashed rounded-lg py-4"
+              style={{
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-muted)',
+                background: 'var(--color-background)'
+              }}
+            >
+              Drag cargo here
+            </div>
+          )}
         </div>
 
         {/* Add Card — sticky at the bottom, always visible */}
