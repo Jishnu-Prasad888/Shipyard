@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 import { X, Plus, Tag } from 'lucide-react'
+import { useResizableDialog } from '../../hooks/useResizableDialog'
+import { ResizeHandle } from '../common/ResizeHandle'
 
 interface CreateDockModalProps {
   onClose: () => void
@@ -27,6 +29,14 @@ export const CreateDockModal: React.FC<CreateDockModalProps> = ({
   initialData,
   title = 'Create Board'
 }) => {
+  const { modalStyle, handleResizeStart, resetSize, shouldIgnoreOverlayClick } = useResizableDialog({
+    storageKey: 'shipyard:modal:create-dock',
+    defaultWidth: 560,
+    defaultHeight: 540,
+    minWidth: 460,
+    minHeight: 420
+  })
+
   const [name, setName] = useState(initialData?.name || '')
   const [description, setDescription] = useState(initialData?.description || '')
   const [color, setColor] = useState(initialData?.color || COLORS[0])
@@ -68,11 +78,18 @@ export const CreateDockModal: React.FC<CreateDockModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
+    <div
+      className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+      onClick={() => {
+        if (shouldIgnoreOverlayClick()) return
+        onClose()
+      }}
+    >
       <div
-        className="w-full max-w-md overflow-hidden flex flex-col max-h-[90vh] animate-brutal-in"
+        className="relative w-full overflow-hidden flex flex-col animate-brutal-in"
         onClick={(e) => e.stopPropagation()}
         style={{
+          ...modalStyle,
           background: 'var(--color-surface)',
           border: '4px solid var(--color-border-strong)',
           boxShadow: 'var(--shadow-brutal-lg)'
@@ -215,6 +232,8 @@ export const CreateDockModal: React.FC<CreateDockModalProps> = ({
             </button>
           </div>
         </form>
+
+        <ResizeHandle onMouseDown={handleResizeStart} onDoubleClick={resetSize} />
       </div>
     </div>
   )

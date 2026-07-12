@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Calendar, Tag, CheckSquare, Link2, Plus, Trash2, Search, RotateCcw } from 'lucide-react'
 import { MarkdownEditor } from './MarkdownEditor'
 import { SubCard } from './SubCard'
+import { useResizableDialog } from '../../hooks/useResizableDialog'
+import { ResizeHandle } from '../common/ResizeHandle'
 
 interface CardDetailsModalProps {
   card: any
@@ -33,6 +35,14 @@ interface StatusModalProps {
 }
 
 const StatusModal: React.FC<StatusModalProps> = ({ onClose, onCreate }) => {
+  const { modalStyle, handleResizeStart, resetSize, shouldIgnoreOverlayClick } = useResizableDialog({
+    storageKey: 'shipyard:modal:status',
+    defaultWidth: 380,
+    defaultHeight: 320,
+    minWidth: 320,
+    minHeight: 260
+  })
+
   const [name, setName] = useState('')
   const [color, setColor] = useState(PRESET_COLORS[0])
 
@@ -47,12 +57,16 @@ const StatusModal: React.FC<StatusModalProps> = ({ onClose, onCreate }) => {
     <div
       className="fixed inset-0 flex items-center justify-center z-[60]"
       style={{ background: 'rgba(0,0,0,0.6)' }}
-      onClick={onClose}
+      onClick={() => {
+        if (shouldIgnoreOverlayClick()) return
+        onClose()
+      }}
     >
       <div
-        className="w-80 animate-brutal-in"
+        className="relative w-full animate-brutal-in overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         style={{
+          ...modalStyle,
           background: 'var(--color-surface)',
           border: '3px solid var(--color-border-strong)',
           boxShadow: 'var(--shadow-brutal)'
@@ -121,12 +135,22 @@ const StatusModal: React.FC<StatusModalProps> = ({ onClose, onCreate }) => {
             </button>
           </div>
         </div>
+
+        <ResizeHandle onMouseDown={handleResizeStart} onDoubleClick={resetSize} />
       </div>
     </div>
   )
 }
 
 export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClose, onUpdate }) => {
+  const { modalStyle, handleResizeStart, resetSize, shouldIgnoreOverlayClick } = useResizableDialog({
+    storageKey: 'shipyard:modal:card-details',
+    defaultWidth: 1120,
+    defaultHeight: 780,
+    minWidth: 900,
+    minHeight: 620
+  })
+
   const [title, setTitle] = useState(card.title)
   const [description, setDescription] = useState(card.description || '')
   const [deadlineStr, setDeadlineStr] = useState(
@@ -694,15 +718,19 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
     (s) => s.id === (status?.id || '') || s.name === status?.name
   )
 
-  return (
-    <>
-      <div
-        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-        onClick={onClose}
-      >
+    return (
+      <>
         <div
-          className="w-full max-w-4xl max-h-[90vh] surface rounded-xl flex flex-col"
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => {
+            if (shouldIgnoreOverlayClick()) return
+            onClose()
+          }}
+        >
+        <div
+          className="relative w-full surface rounded-xl flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
+          style={modalStyle}
         >
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border">
@@ -1126,6 +1154,8 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
               </button>
             </div>
           </div>
+
+          <ResizeHandle onMouseDown={handleResizeStart} onDoubleClick={resetSize} />
         </div>
       </div>
 

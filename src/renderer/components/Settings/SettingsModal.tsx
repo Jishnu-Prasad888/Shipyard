@@ -23,6 +23,8 @@ import { ExportModal } from './ExportModal'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '../../store'
 import { setSettings } from '../../store/settingsSlice'
+import { useResizableDialog } from '../../hooks/useResizableDialog'
+import { ResizeHandle } from '../common/ResizeHandle'
 import {
   getServerHealth,
   getServerSyncStatus,
@@ -40,6 +42,14 @@ type SyncOp = 'idle' | 'saving' | 'testing' | 'pushing' | 'pulling'
 export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const dispatch = useDispatch()
   const settings = useSelector((state: RootState) => state.settings)
+
+  const { modalStyle, handleResizeStart, resetSize, shouldIgnoreOverlayClick } = useResizableDialog({
+    storageKey: 'shipyard:modal:settings',
+    defaultWidth: 980,
+    defaultHeight: 760,
+    minWidth: 780,
+    minHeight: 560
+  })
 
   const [theme, setTheme] = useState(settings.theme)
   const [firebaseEnabled, setFirebaseEnabled] = useState(settings.firebaseEnabled || false)
@@ -506,12 +516,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   return (
     <div
       className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
-      onClick={onClose}
+      onClick={() => {
+        if (shouldIgnoreOverlayClick()) return
+        onClose()
+      }}
     >
       <div
-        className="w-full max-w-xl max-h-[90vh] flex flex-col animate-brutal-in"
+        className="relative w-full flex flex-col animate-brutal-in overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         style={{
+          ...modalStyle,
           background: 'var(--color-surface)',
           border: '4px solid var(--color-border-strong)',
           boxShadow: 'var(--shadow-brutal-lg)'
@@ -1190,6 +1204,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
             Save Settings
           </button>
         </div>
+
+        <ResizeHandle onMouseDown={handleResizeStart} onDoubleClick={resetSize} />
       </div>
 
       {showExportModal && <ExportModal onClose={() => setShowExportModal(false)} />}

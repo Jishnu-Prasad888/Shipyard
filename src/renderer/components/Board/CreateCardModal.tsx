@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 import { X, Plus } from 'lucide-react'
+import { useResizableDialog } from '../../hooks/useResizableDialog'
+import { ResizeHandle } from '../common/ResizeHandle'
 
 interface CreateCardModalProps {
   onClose: () => void
@@ -19,6 +21,14 @@ const PRESET_COLORS = [
 ]
 
 export const CreateCardModal: React.FC<CreateCardModalProps> = ({ onClose, onCreate, boardId }) => {
+  const { modalStyle, handleResizeStart, resetSize, shouldIgnoreOverlayClick } = useResizableDialog({
+    storageKey: 'shipyard:modal:create-card',
+    defaultWidth: 640,
+    defaultHeight: 620,
+    minWidth: 520,
+    minHeight: 460
+  })
+
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [color, setColor] = useState('')
@@ -65,11 +75,18 @@ export const CreateCardModal: React.FC<CreateCardModalProps> = ({ onClose, onCre
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
+    <div
+      className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+      onClick={() => {
+        if (shouldIgnoreOverlayClick()) return
+        onClose()
+      }}
+    >
       <div
-        className="w-full max-w-lg animate-brutal-in"
+        className="relative w-full animate-brutal-in overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         style={{
+          ...modalStyle,
           background: 'var(--color-surface)',
           border: '4px solid var(--color-border-strong)',
           boxShadow: 'var(--shadow-brutal-lg)'
@@ -217,6 +234,8 @@ export const CreateCardModal: React.FC<CreateCardModalProps> = ({ onClose, onCre
             </button>
           </div>
         </form>
+
+        <ResizeHandle onMouseDown={handleResizeStart} onDoubleClick={resetSize} />
       </div>
     </div>
   )

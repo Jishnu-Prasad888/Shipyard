@@ -4,6 +4,8 @@ import {
   CheckCircle, XCircle, FileJson, FileText, FileCode,
   Anchor, Package, Ship, LayoutGrid, Layers
 } from 'lucide-react'
+import { useResizableDialog } from '../../hooks/useResizableDialog'
+import { ResizeHandle } from '../common/ResizeHandle'
 
 interface ExportModalProps {
   onClose: () => void
@@ -120,6 +122,14 @@ const TriCheck: React.FC<{
 // Main ExportModal
 // ────────────────────────────────────────────
 export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
+  const { modalStyle, handleResizeStart, resetSize, shouldIgnoreOverlayClick } = useResizableDialog({
+    storageKey: 'shipyard:modal:export',
+    defaultWidth: 1100,
+    defaultHeight: 760,
+    minWidth: 900,
+    minHeight: 600
+  })
+
   // Raw data
   const [ports,  setPorts]  = useState<Port[]>([])
   const [docks,  setDocks]  = useState<Dock[]>([])
@@ -417,12 +427,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
   return (
     <div
       className="fixed inset-0 bg-black/70 flex items-center justify-center z-[55]"
-      onClick={onClose}
+      onClick={() => {
+        if (shouldIgnoreOverlayClick()) return
+        onClose()
+      }}
     >
       <div
-        className="w-full max-w-2xl max-h-[90vh] flex flex-col animate-brutal-in"
+        className="relative w-full flex flex-col animate-brutal-in overflow-hidden"
         onClick={e => e.stopPropagation()}
         style={{
+          ...modalStyle,
           background: 'var(--color-surface)',
           border: '4px solid var(--color-border-strong)',
           boxShadow: 'var(--shadow-brutal-lg)'
@@ -664,6 +678,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
             )}
           </div>
         </div>
+
+        <ResizeHandle onMouseDown={handleResizeStart} onDoubleClick={resetSize} />
       </div>
     </div>
   )

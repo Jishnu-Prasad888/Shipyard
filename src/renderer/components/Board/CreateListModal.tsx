@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 import { X } from 'lucide-react'
+import { useResizableDialog } from '../../hooks/useResizableDialog'
+import { ResizeHandle } from '../common/ResizeHandle'
 
 interface CreateListModalProps {
   onClose: () => void
@@ -18,6 +20,14 @@ const PRESET_COLORS = [
 ]
 
 export const CreateListModal: React.FC<CreateListModalProps> = ({ onClose, onCreate }) => {
+  const { modalStyle, handleResizeStart, resetSize, shouldIgnoreOverlayClick } = useResizableDialog({
+    storageKey: 'shipyard:modal:create-list',
+    defaultWidth: 520,
+    defaultHeight: 420,
+    minWidth: 420,
+    minHeight: 340
+  })
+
   const [name, setName] = useState('')
   const [color, setColor] = useState('#2563eb')
 
@@ -32,11 +42,18 @@ export const CreateListModal: React.FC<CreateListModalProps> = ({ onClose, onCre
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
+    <div
+      className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+      onClick={() => {
+        if (shouldIgnoreOverlayClick()) return
+        onClose()
+      }}
+    >
       <div
-        className="w-full max-w-md animate-brutal-in"
+        className="relative w-full animate-brutal-in overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         style={{
+          ...modalStyle,
           background: 'var(--color-surface)',
           border: '4px solid var(--color-border-strong)',
           boxShadow: 'var(--shadow-brutal-lg)'
@@ -111,6 +128,8 @@ export const CreateListModal: React.FC<CreateListModalProps> = ({ onClose, onCre
             </button>
           </div>
         </form>
+
+        <ResizeHandle onMouseDown={handleResizeStart} onDoubleClick={resetSize} />
       </div>
     </div>
   )
