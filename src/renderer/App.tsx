@@ -20,6 +20,7 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [dataVersion, setDataVersion] = useState(0)
   const [toast, setToast] = useState<{ message: string; onUndo?: () => void } | null>(null)
+  const [pendingOpenCardId, setPendingOpenCardId] = useState<string | null>(null)
   const dispatch = useDispatch()
   const settings = useSelector((state: RootState) => state.settings)
 
@@ -31,6 +32,20 @@ function App() {
     }
     window.addEventListener('show-toast', handleShowToast)
     return () => window.removeEventListener('show-toast', handleShowToast)
+  }, [])
+
+  useEffect(() => {
+    const handleNavigateToCard = (e: any) => {
+      const { dockId, boardId, cardId } = e.detail || {}
+      if (!boardId || !cardId) return
+      setSelectedDockId(dockId || null)
+      setSelectedBoardId(boardId)
+      setShowCalendar(false)
+      setPendingOpenCardId(cardId)
+    }
+
+    window.addEventListener('navigate-to-card', handleNavigateToCard)
+    return () => window.removeEventListener('navigate-to-card', handleNavigateToCard)
   }, [])
 
   useEffect(() => {
@@ -153,7 +168,13 @@ function App() {
             <CalendarView dataVersion={dataVersion} />
           ) : selectedBoardId ? (
             <div className="p-6 h-full">
-              <KanbanBoard boardId={selectedBoardId} searchQuery={searchQuery} onGoBack={() => setSelectedBoardId(null)} />
+              <KanbanBoard
+                boardId={selectedBoardId}
+                searchQuery={searchQuery}
+                onGoBack={() => setSelectedBoardId(null)}
+                openCardId={pendingOpenCardId}
+                onCardOpenComplete={() => setPendingOpenCardId(null)}
+              />
             </div>
           ) : selectedDockId ? (
             <div className="p-6">

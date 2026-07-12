@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Calendar, CheckSquare, Link2, FileText } from 'lucide-react'
@@ -7,10 +7,13 @@ import { CardDetailsModal } from './CardDetailsModal'
 interface CardProps {
   card: any
   onUpdate: () => void
+  autoOpenId?: string | null
+  onAutoOpenComplete?: () => void
 }
 
-export const Card: React.FC<CardProps> = ({ card, onUpdate }) => {
+export const Card: React.FC<CardProps> = ({ card, onUpdate, autoOpenId, onAutoOpenComplete }) => {
   const [showDetails, setShowDetails] = useState(false)
+  const autoOpenedRef = useRef(false)
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: card.id,
@@ -37,6 +40,15 @@ export const Card: React.FC<CardProps> = ({ card, onUpdate }) => {
 
   const isOverdue = card.deadline && card.deadline < Date.now()
   const cardColor = card.color || '#2563eb'
+
+  useEffect(() => {
+    if (!autoOpenId || autoOpenedRef.current) return
+    if (autoOpenId === card.id) {
+      autoOpenedRef.current = true
+      setShowDetails(true)
+      onAutoOpenComplete?.()
+    }
+  }, [autoOpenId, card.id, onAutoOpenComplete])
 
   return (
     <>

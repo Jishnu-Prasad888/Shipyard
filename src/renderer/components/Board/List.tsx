@@ -10,6 +10,8 @@ interface ListProps {
   list: any
   boardId: string
   onCardsChange: () => void
+  openCardId?: string | null
+  onCardOpenComplete?: () => void
 }
 
 // Default statuses matching CardDetailsModal
@@ -19,7 +21,7 @@ const DEFAULT_STATUSES = [
   { id: '__completed__', name: 'Completed', color: '#ef4444' }
 ]
 
-export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
+export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange, openCardId, onCardOpenComplete }) => {
   const [showCreateCard, setShowCreateCard] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editedName, setEditedName] = useState(list.name)
@@ -491,7 +493,13 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
           }
         >
           {visibleCards.map((card: any) => (
-            <Card key={card.id} card={card} onUpdate={onCardsChange} />
+            <Card
+              key={card.id}
+              card={card}
+              onUpdate={onCardsChange}
+              autoOpenId={openCardId}
+              onAutoOpenComplete={onCardOpenComplete}
+            />
           ))}
           {visibleCards.length === 0 && (
             <div

@@ -25,9 +25,17 @@ interface KanbanBoardProps {
   boardId: string
   searchQuery?: string
   onGoBack?: () => void
+  openCardId?: string | null
+  onCardOpenComplete?: () => void
 }
 
-export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery = '', onGoBack }) => {
+export const KanbanBoard: React.FC<KanbanBoardProps> = ({
+  boardId,
+  searchQuery = '',
+  onGoBack,
+  openCardId,
+  onCardOpenComplete
+}) => {
   const [board, setBoard] = useState<any>(null)
   const [lists, setLists] = useState<any[]>([])
   const [showCreateList, setShowCreateList] = useState(false)
@@ -572,7 +580,14 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
           <div className="flex gap-5 h-full pb-6">
             <SortableContext items={lists.map(l => l.id)} strategy={horizontalListSortingStrategy}>
               {filteredLists.map(list => (
-                <List key={list.id} list={list} boardId={boardId} onCardsChange={loadBoard} />
+                <List
+                  key={list.id}
+                  list={list}
+                  boardId={boardId}
+                  onCardsChange={loadBoard}
+                  openCardId={openCardId}
+                  onCardOpenComplete={onCardOpenComplete}
+                />
               ))}
             </SortableContext>
 

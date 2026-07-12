@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import {
   ChevronLeft, ChevronRight, Calendar,
-  AlertCircle, Clock, CheckCircle2, Ship, LayoutGrid
+  AlertCircle, Clock, CheckCircle2, Ship, LayoutGrid, Navigation
 } from 'lucide-react'
 
 // ── Helpers ─────────────────────────────────────────────────────────
@@ -82,9 +82,12 @@ const CardChip = ({
   }
 
   return (
-    <button
+    <div
+      role="button"
+      tabIndex={0}
       onClick={() => onClick(card)}
-      className="w-full flex items-center gap-1.5 px-2 py-1 text-left text-[10px] font-bold border-l-2 transition-all duration-100 hover:translate-x-px group"
+      onKeyDown={(e) => { if (e.key === 'Enter') onClick(card) }}
+      className="w-full flex items-center gap-1.5 px-2 py-1 text-[10px] font-bold border-l-2 transition-all duration-100 hover:translate-x-px group cursor-pointer"
       style={{
         borderColor: chipColor,
         background: chipColor + '14',
@@ -97,7 +100,7 @@ const CardChip = ({
       <span className="text-[8px] shrink-0 opacity-60 group-hover:opacity-100">
         {card._boardName}
       </span>
-    </button>
+    </div>
   )
 }
 
@@ -218,7 +221,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
               _boardName: board?.name || '',
               _listName: list?.name || '',
               _dockName: dock?.name || '',
-              _boardColor: board?.color || '#2D82B7'
+              _boardColor: board?.color || '#2D82B7',
+              _dockId: dock?.id || null
             }
           })
           .sort((a: any, b: any) => a.deadline - b.deadline)
@@ -275,11 +279,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
     for (let i = 0; i < firstDay; i++) {
       const d = prevMonthDays - firstDay + 1 + i
       cells.push(
-        <div
-          key={`prev-${i}`}
-          className="min-h-[100px] p-1.5 border-r-2 border-b-2"
-          style={{ borderColor: 'var(--color-border-strong)' + '30', background: 'var(--color-surface-3)' + '40', opacity: 0.4 }}
-        >
+          <div
+            key={`prev-${i}`}
+            className="min-h-[100px] p-1.5 border-r-2 border-b-2"
+            style={{ borderColor: 'var(--color-border-strong)' + '30', background: 'var(--color-surface-3)' + '40', opacity: 0.4 }}
+          >
           <span className="text-xs font-bold" style={{ color: 'var(--color-muted)' }}>{d}</span>
         </div>
       )
@@ -351,7 +355,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
               <div className="p-1.5 space-y-1 min-h-[200px]">
                 {cards.length === 0
                   ? <p className="text-center text-[9px] py-4" style={{ color: 'var(--color-muted)', opacity: 0.4 }}>—</p>
-                  : cards.map(c => <CardChip key={c.id} card={c} onClick={handleCardClick} />)
+                  : cards.map(c => (
+                    <CardChip
+                      key={c.id}
+                      card={c}
+                      onClick={handleCardClick}
+                    />
+                  ))
                 }
               </div>
             </div>
@@ -423,10 +433,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
               {/* Cards */}
               <div className="ml-13 space-y-1.5" style={{ marginLeft: '3.5rem' }}>
                 {cards.map(c => (
-                  <button
+                  <div
                     key={c.id}
+                    role="button"
+                    tabIndex={0}
                     onClick={() => handleCardClick(c)}
-                    className="w-full flex items-center gap-3 px-3 py-2 border-2 text-left transition-all duration-100 hover:translate-y-px group"
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleCardClick(c) }}
+                    className="w-full flex items-center gap-3 px-3 py-2 border-2 text-left transition-all duration-100 hover:translate-y-px group cursor-pointer"
                     style={{
                       background: 'var(--color-surface)',
                       borderColor: c.color || 'var(--color-border)',
@@ -444,11 +457,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
                         {c._listName && <> · {c._listName}</>}
                       </p>
                     </div>
-                    <StatusPill card={c} />
-                    {isOverdue(c.deadline) && <AlertCircle className="w-3.5 h-3.5 text-orange-500 shrink-0" />}
-                    {isDueSoon(c.deadline) && !isOverdue(c.deadline) && <Clock className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--color-warning)' }} />}
-                    {c._parsedStatus?.name === 'Shipped' || c._parsedStatus?.name === 'Done' && <CheckCircle2 className="w-3.5 h-3.5 text-teal-500 shrink-0" />}
-                  </button>
+                    <div className="flex items-center gap-2">
+                      <StatusPill card={c} />
+                      {isOverdue(c.deadline) && <AlertCircle className="w-3.5 h-3.5 text-orange-500 shrink-0" />}
+                      {isDueSoon(c.deadline) && !isOverdue(c.deadline) && <Clock className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--color-warning)' }} />}
+                      {c._parsedStatus?.name === 'Shipped' || c._parsedStatus?.name === 'Done' && <CheckCircle2 className="w-3.5 h-3.5 text-teal-500 shrink-0" />}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -462,6 +477,20 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
   const CardDetail = ({ card }: { card: any }) => {
     const over = isOverdue(card.deadline)
     const soon = isDueSoon(card.deadline)
+
+    const handleJumpToCargo = () => {
+      window.dispatchEvent(
+        new CustomEvent('navigate-to-card', {
+          detail: {
+            dockId: card._dockId || null,
+            boardId: card.boardId,
+            cardId: card.id
+          }
+        })
+      )
+      setSelectedCard(null)
+    }
+
     return (
       <div
         className="fixed inset-0 bg-black/40 flex items-center justify-center z-50"
@@ -518,6 +547,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
             )}
           </div>
           <div className="px-4 pb-4 flex justify-end">
+            <button
+              className="btn-primary text-xs uppercase tracking-wider flex items-center gap-2 mr-2"
+              onClick={handleJumpToCargo}
+              title="Open in dock"
+            >
+              <Navigation className="w-4 h-4" />
+              Open Cargo
+            </button>
             <button
               className="btn-secondary text-xs uppercase tracking-wider"
               onClick={() => setSelectedCard(null)}
