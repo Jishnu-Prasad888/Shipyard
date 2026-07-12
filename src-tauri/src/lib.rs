@@ -32,6 +32,17 @@ pub fn run() {
                 .expect("Failed to initialize database");
             database.initialize().expect("Failed to run schema migrations");
 
+            // Seed a demo database when running `npm run tauri dev`
+            if is_dev {
+                let force_seed = std::env::var("SHIPYARD_FORCE_DEMO_SEED")
+                    .map(|v| matches!(v.to_lowercase().as_str(), "1" | "true" | "yes" | "on"))
+                    .unwrap_or(false);
+
+                database
+                    .seed_demo_data(force_seed)
+                    .expect("Failed to seed demo database");
+            }
+
             app.manage(database);
 
             // ── System Tray ──

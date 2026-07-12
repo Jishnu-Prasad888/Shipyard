@@ -3,6 +3,8 @@ use serde_json::{Value, json};
 use std::sync::Mutex;
 use uuid::Uuid;
 
+mod dev_seed;
+
 pub struct Database {
     conn: Mutex<Connection>,
 }
@@ -92,6 +94,10 @@ impl Database {
         Ok(())
     }
 
+    pub fn seed_demo_data(&self, force_reset: bool) -> Result<()> {
+        dev_seed::seed_demo_data(self, force_reset)
+    }
+
     // ── Generic CRUD ──
 
     pub fn find_all(&self, table: &str) -> Result<Vec<Value>> {
@@ -146,7 +152,8 @@ impl Database {
         let mut record: serde_json::Map<String, Value> = serde_json::Map::new();
         record.insert("id".into(), json!(id));
 
-        let no_updated_at = matches!(table, "folders" | "subcards" | "tags");
+        let no_created_at = matches!(table, "connections" | "sync_queue" | "settings");
+        let no_updated_at = matches!(table, "folders" | "subcards" | "tags" | "connections" | "sync_queue" | "settings");
 
         for (key, value) in &obj {
             if key == "id" {
@@ -155,7 +162,7 @@ impl Database {
             record.insert(key.clone(), serialize_value(value));
         }
 
-        if !record.contains_key("createdAt") {
+        if !no_created_at && !record.contains_key("createdAt") {
             record.insert("createdAt".into(), json!(now));
         }
         if !no_updated_at && !record.contains_key("updatedAt") {
@@ -195,7 +202,7 @@ impl Database {
         let conn = self.conn.lock().unwrap();
         let obj = data.as_object().cloned().unwrap_or_default();
         let now = now_ms();
-        let no_updated_at = matches!(table, "folders" | "subcards" | "tags");
+        let no_updated_at = matches!(table, "folders" | "subcards" | "tags" | "connections" | "sync_queue" | "settings");
 
         let mut updates: serde_json::Map<String, Value> = serde_json::Map::new();
         for (key, value) in &obj {
