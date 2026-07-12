@@ -5,8 +5,6 @@ import { SubCard } from './SubCard'
 
 interface CardDetailsModalProps {
   card: any
-  listId: string
-  boardId?: string
   onClose: () => void
   onUpdate: () => void
 }

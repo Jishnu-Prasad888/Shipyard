@@ -101,4 +101,7 @@ export interface Settings {
   syncEnabled: boolean
   fontFamily?: string
   minimizeToTray: boolean
+  serverUrl?: string
+  serverSyncEnabled?: boolean
+  lastServerSyncAt?: number
 }

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { Plus, Edit2, Tag, LayoutGrid, Trash2 } from 'lucide-react'
 import { DockCard } from './DockCard'
 import { CreateDockModal } from './CreateDockModel'
+import { Board, Dock } from '@shared/types'
+import { getBoardsByDockId, getDockById } from '../../lib/data'
 
 interface DocksListProps {
   dockId: string
@@ -10,9 +12,9 @@ interface DocksListProps {
 }
 
 export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, searchQuery }) => {
-  const [dock, setDock] = useState<any>(null)
-  const [boards, setBoards] = useState<any[]>([])
-  const [filteredBoards, setFilteredBoards] = useState<any[]>([])
+  const [dock, setDock] = useState<Dock | null>(null)
+  const [boards, setBoards] = useState<Board[]>([])
+  const [filteredBoards, setFilteredBoards] = useState<Board[]>([])
   const [showCreateBoard, setShowCreateBoard] = useState(false)
   const [showEditDock, setShowEditDock] = useState(false)
   const [editingBoard, setEditingBoard] = useState<any>(null)
@@ -46,12 +48,11 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
   }, [boards, searchQuery])
 
   const loadData = async () => {
-    const dockData = await window.electron.db.findById('docks', dockId)
+    const dockData = await getDockById(dockId)
     setDock(dockData)
 
     if (dockData) {
-      const allBoards = await window.electron.db.findAll('boards')
-      const dockBoards = allBoards.filter((b: any) => b.dockId === dockId)
+      const dockBoards = await getBoardsByDockId(dockId)
       setBoards(dockBoards)
     }
   }
@@ -78,20 +79,11 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
       const created = await window.electron.db.create('boards', newBoard)
 
       if (dock && created && created.id) {
-        const boardIds = (() => {
-          if (!dock.boardIds) return []
-          if (Array.isArray(dock.boardIds)) return dock.boardIds
-          try {
-            return JSON.parse(dock.boardIds)
-          } catch {
-            return []
-          }
-        })()
-
-        boardIds.push(created.id)
-        await window.electron.db.update('docks', dockId, {
-          boardIds: JSON.stringify(boardIds),
-          updatedAt: Date.now()
+       const boardIds = Array.isArray(dock.boardIds) ? [...dock.boardIds] : []
+       boardIds.push(created.id)
+       await window.electron.db.update('docks', dockId, {
+         boardIds: JSON.stringify(boardIds),
+         updatedAt: Date.now()
         })
       }
 
@@ -141,9 +133,7 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
 
     // Also remove from dock.boardIds
     if (dock) {
-      const boardIds = (() => {
-        try { return JSON.parse(dock.boardIds || '[]') } catch { return [] }
-      })()
+      const boardIds = Array.isArray(dock.boardIds) ? dock.boardIds : []
       const newBoardIds = boardIds.filter((id: string) => id !== boardIdToDelete)
       await window.electron.db.update('docks', dock.id, { boardIds: JSON.stringify(newBoardIds) })
     }
@@ -160,7 +150,7 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
             for (const card of boardCards) await window.electron.db.create('cards', card)
             for (const sc of boardSubCards) await window.electron.db.create('subcards', sc)
             if (dock) {
-              const bIds = (() => { try { return JSON.parse(dock.boardIds || '[]') } catch { return [] } })()
+              const bIds = Array.isArray(dock.boardIds) ? [...dock.boardIds] : []
               bIds.push(boardIdToDelete)
               await window.electron.db.update('docks', dock.id, { boardIds: JSON.stringify(bIds) })
             }
@@ -175,15 +165,7 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
 
   const dockColor = dock.color || '#2563eb'
 
-  const tags = (() => {
-    if (!dock.tags) return []
-    if (Array.isArray(dock.tags)) return dock.tags
-    try {
-      return JSON.parse(dock.tags)
-    } catch {
-      return []
-    }
-  })()
+  const tags = dock?.tags || []
 
   return (
     <div className="space-y-6">

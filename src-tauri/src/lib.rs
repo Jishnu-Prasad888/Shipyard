@@ -107,6 +107,7 @@ pub fn run() {
             commands::sync_push,
             commands::sync_pull,
             commands::sync_test,
+            commands::sync_mark_synced,
             commands::export_save_file,
             commands::export_save_folder,
             commands::export_open_item,

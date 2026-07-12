@@ -114,6 +114,14 @@ pub fn sync_test() -> Value {
     json!({ "success": false, "message": "Firebase sync moved to renderer" })
 }
 
+// ── sync:markSynced ──
+#[tauri::command]
+pub fn sync_mark_synced(db: State<Database>, ids: Vec<String>) -> Result<Value, String> {
+    db.mark_as_synced(&ids)
+        .map(|_| json!({ "success": true, "count": ids.len() }))
+        .map_err(|e| e.to_string())
+}
+
 // ── dark-mode:toggle (CSS injection not needed in Tauri; theme is class-based) ──
 #[tauri::command]
 pub fn dark_mode_toggle(_enabled: bool) -> Value {

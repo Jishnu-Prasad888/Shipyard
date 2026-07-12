@@ -100,18 +100,27 @@ The UI utilizes a striking, modern aesthetic defined by glassmorphism effects, r
 
    ---
 
-   ## ☁️ Setting up Firebase Sync (Optional)
+## ☁️ Setting up Firebase Sync (Optional)
 
    1. Go to the [Firebase Console](https://console.firebase.google.com/).
    2. Create a new project and add a "Web App".
    3. Initialize a **Firestore Database** in Test Mode (or set up proper security rules).
    4. Copy your Firebase SDK configuration.
    5. Open **Shipyard > Settings > Firebase Sync**.
-   6. Paste your credentials, save, and click "Test" to verify the connection.
+6. Paste your credentials, save, and click "Test" to verify the connection.
 
-   ---
+---
 
-   ## 🤝 Contributing
+## 🛰️ Go Sync Server (Postgres + Redis)
+
+- Run locally: `cd server && go run .` (requires Go 1.22+, Postgres, and Redis). Configure `DATABASE_URL`, `REDIS_ADDR`, `REDIS_PASSWORD`, `REDIS_DB`, and `PORT` as needed.
+- Docker: `docker build -t shipyard-sync ./server` then `docker run -p 8080:8080 --env DATABASE_URL=... --env REDIS_ADDR=redis:6379 shipyard-sync`.
+- Endpoints: `GET /health`, `GET /sync/status`, `POST /sync` (accepts the local `sync_queue` payload).
+- Point the Tauri app to your server URL in **Settings → Server Sync**, check health, and use **Sync now** to push pending changes.
+
+---
+
+## 🤝 Contributing
 
    Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/Jishnu-Prasad888/Shipyard/issues).
 

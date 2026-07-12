@@ -52,6 +52,7 @@ declare global {
         pull: () => Promise<any>
         test: () => Promise<any>
         status: () => Promise<any>
+        markSynced: (ids: string[]) => Promise<any>
       }
       darkMode: {
         toggle: (enabled: boolean) => Promise<any>

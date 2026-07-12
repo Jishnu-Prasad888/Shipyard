@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
+import { Settings } from '@shared/types'
 import { Sidebar } from './components/Layout/Sidebar'
 import { Header } from './components/Layout/Header'
 import { DocksList } from './components/Docks/DocksList'
@@ -33,17 +34,39 @@ function App() {
   }, [])
 
   useEffect(() => {
-    window.electron.settings.get().then((loadedSettings) => {
-      dispatch(setSettings(loadedSettings))
-      if (loadedSettings.theme === 'dark') {
+    const defaults: Settings = {
+      theme: 'light',
+      firebaseEnabled: false,
+      syncEnabled: false,
+      minimizeToTray: true,
+      serverUrl: '',
+      serverSyncEnabled: false
+    }
+
+    window.electron.settings.get().then((loadedSettings: Partial<Settings>) => {
+      const theme: 'light' | 'dark' = loadedSettings?.theme === 'dark' ? 'dark' : 'light'
+
+      const merged: Settings = {
+        ...defaults,
+        ...loadedSettings,
+        theme,
+        firebaseEnabled: !!loadedSettings?.firebaseEnabled,
+        syncEnabled: !!loadedSettings?.syncEnabled,
+        minimizeToTray: loadedSettings?.minimizeToTray ?? defaults.minimizeToTray,
+        serverSyncEnabled: loadedSettings?.serverSyncEnabled ?? defaults.serverSyncEnabled
+      }
+
+      dispatch(setSettings(merged))
+
+      if (theme === 'dark') {
         document.documentElement.classList.add('dark')
         window.electron.darkMode.toggle(true)
       }
-      if (loadedSettings.fontFamily) {
-        document.documentElement.style.setProperty('--font-ui', `'${loadedSettings.fontFamily}', system-ui, sans-serif`)
+      if (merged.fontFamily) {
+        document.documentElement.style.setProperty('--font-ui', `'${merged.fontFamily}', system-ui, sans-serif`)
       }
     })
-  }, [])
+  }, [dispatch])
 
   const handleSelectDock = (dockId: string) => {
     setSelectedDockId(dockId)

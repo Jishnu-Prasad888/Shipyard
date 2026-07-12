@@ -78,12 +78,7 @@ impl Database {
             )
             .unwrap_or(0);
         if settings_count == 0 {
-            let default_settings = json!({
-                "theme": "light",
-                "firebaseEnabled": false,
-                "syncEnabled": false,
-                "minimizeToTray": true
-            });
+            let default_settings = default_settings();
             conn.execute(
                 "INSERT INTO settings (key, value, updatedAt) VALUES (?1, ?2, ?3)",
                 params![
@@ -494,7 +489,10 @@ fn default_settings() -> Value {
         "theme": "light",
         "firebaseEnabled": false,
         "syncEnabled": false,
-        "minimizeToTray": true
+        "minimizeToTray": true,
+        "serverUrl": null,
+        "serverSyncEnabled": false,
+        "lastServerSyncAt": null
     })
 }
 
