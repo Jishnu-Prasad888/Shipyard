@@ -475,7 +475,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         boxShadow: 'var(--shadow-brutal)'
       }}
     >
-      <div className="relative z-10 flex flex-col h-full">
+      <div
+        className="relative z-10 flex flex-col h-full"
+        style={{ paddingRight: '10px' }}
+      >
         {/* Accent bar */}
         <div className="brutal-accent" />
 
@@ -761,14 +764,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <button
         type="button"
         onMouseDown={handleResizeStart}
-        className="absolute top-0 right-0 h-full w-5 cursor-ew-resize flex items-center justify-center z-30"
+        className="absolute top-0 right-[-4px] h-full w-6 cursor-ew-resize flex items-center justify-center z-30"
         style={{ borderLeft: '2px solid var(--color-border-strong)', background: 'transparent' }}
         aria-label="Resize sidebar"
       >
-        <div
-          className="w-1 h-12 rounded"
-          style={{ background: 'var(--color-border-strong)', opacity: 0.6 }}
-        />
+        <div className="flex flex-col gap-0.5 items-center">
+          <div
+            className="w-0.5 h-10 rounded"
+            style={{ background: 'var(--color-border-strong)', opacity: 0.55 }}
+          />
+          <div
+            className="w-0.5 h-10 rounded"
+            style={{ background: 'var(--color-border-strong)', opacity: 0.35 }}
+          />
+        </div>
       </button>
     </aside>
   )
