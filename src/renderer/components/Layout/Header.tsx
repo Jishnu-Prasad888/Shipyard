@@ -1,5 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, Settings, Moon, Sun, Anchor, Folder, Grid, Ship, X, ArrowRight } from 'lucide-react'
+import {
+  Search,
+  Settings,
+  Moon,
+  Sun,
+  Anchor,
+  Folder,
+  Grid,
+  Ship,
+  X,
+  ArrowRight,
+  Cloud,
+  CloudOff,
+  RefreshCw,
+  AlertTriangle
+} from 'lucide-react'
 
 interface SearchResult {
   id: string
@@ -33,9 +48,12 @@ export const Header: React.FC<HeaderProps> = ({
   const [isOpen, setIsOpen] = useState(false)
   const [highlighted, setHighlighted] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
+  const [syncStatus, setSyncStatus] = useState<any>(null)
+  const [syncLoading, setSyncLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const runSearch = useCallback(async (q: string) => {
     if (!q.trim()) {
@@ -132,6 +150,28 @@ export const Header: React.FC<HeaderProps> = ({
     window.addEventListener('mousedown', handleClick)
     return () => window.removeEventListener('mousedown', handleClick)
   }, [])
+
+  const loadSyncStatus = useCallback(async () => {
+    setSyncLoading(true)
+    try {
+      const status = await window.electron.sync.status()
+      setSyncStatus(status)
+    } catch (err) {
+      console.error('Sync status error', err)
+      setSyncStatus(null)
+    } finally {
+      setSyncLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadSyncStatus()
+    if (syncIntervalRef.current) clearInterval(syncIntervalRef.current)
+    syncIntervalRef.current = setInterval(loadSyncStatus, 30000)
+    return () => {
+      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current)
+    }
+  }, [loadSyncStatus])
 
   const handleSelect = (result: SearchResult) => {
     setIsOpen(false)
@@ -369,6 +409,50 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={loadSyncStatus}
+            className="flex items-center gap-1 px-3 py-1.5 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100"
+            style={{
+              borderColor:
+                syncStatus?.syncEnabled
+                  ? (syncStatus?.unsyncedCount || 0) > 0
+                    ? '#d97706'
+                    : '#10b981'
+                  : 'rgba(255,255,255,0.4)',
+              color:
+                syncStatus?.syncEnabled
+                  ? (syncStatus?.unsyncedCount || 0) > 0
+                    ? '#d97706'
+                    : '#10b981'
+                  : 'rgba(255,255,255,0.7)',
+              background:
+                syncStatus?.syncEnabled
+                  ? (syncStatus?.unsyncedCount || 0) > 0
+                    ? 'rgba(217,119,6,0.15)'
+                    : 'rgba(16,185,129,0.15)'
+                  : 'rgba(255,255,255,0.05)'
+            }}
+            title="Server sync status"
+          >
+            {syncLoading ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : syncStatus?.syncEnabled ? (
+              (syncStatus?.unsyncedCount || 0) > 0 ? (
+                <AlertTriangle className="w-4 h-4" />
+              ) : (
+                <Cloud className="w-4 h-4" />
+              )
+            ) : (
+              <CloudOff className="w-4 h-4" />
+            )}
+            <span>
+              {syncStatus?.syncEnabled
+                ? (syncStatus?.unsyncedCount || 0) > 0
+                  ? `${syncStatus.unsyncedCount} Pending`
+                  : 'Synced'
+                : 'Sync Off'}
+            </span>
+          </button>
           <button
             onClick={onToggleTheme}
             className="p-2.5 border-2 border-white text-white font-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5"
