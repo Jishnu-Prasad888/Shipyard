@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Folder, Grid, Plus, ChevronDown, ChevronRight, Palette, Trash2, Edit2, Home, Calendar } from 'lucide-react'
 import { CreateDockModal } from '../Docks/CreateDockModel'
 import {
@@ -47,6 +47,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
   searchQuery = '',
   onDataChange
 }) => {
+  const MIN_WIDTH = 220
+  const MAX_WIDTH = 420
+  const DEFAULT_WIDTH = 280
+  const [width, setWidth] = useState(() => {
+    if (typeof window === 'undefined') return DEFAULT_WIDTH
+    const raw = localStorage.getItem('shipyard:sidebar-width')
+    const parsed = raw ? Number(raw) : NaN
+    if (Number.isFinite(parsed)) return Math.min(Math.max(parsed, MIN_WIDTH), MAX_WIDTH)
+    return DEFAULT_WIDTH
+  })
+  const resizeStartRef = useRef<{ x: number; width: number } | null>(null)
+
   const [docks, setDocks] = useState<any[]>([])
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
   const [folders, setFolders] = useState<any[]>([])
@@ -75,6 +87,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     loadDocks()
     loadFolders()
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem('shipyard:sidebar-width', String(width))
+  }, [width])
 
   useEffect(() => {
     const handleClick = () => {
@@ -150,6 +167,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
     setExpandedFolders(newExpanded)
   }
+
+  const handleResize = (event: MouseEvent) => {
+    if (!resizeStartRef.current) return
+    const delta = event.clientX - resizeStartRef.current.x
+    const next = Math.min(Math.max(resizeStartRef.current.width + delta, MIN_WIDTH), MAX_WIDTH)
+    document.body.style.cursor = 'ew-resize'
+    setWidth(next)
+  }
+
+  const stopResize = () => {
+    window.removeEventListener('mousemove', handleResize)
+    window.removeEventListener('mouseup', stopResize)
+    resizeStartRef.current = null
+    document.body.style.cursor = 'auto'
+  }
+
+  const handleResizeStart = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    event.preventDefault()
+    resizeStartRef.current = { x: event.clientX, width }
+    window.addEventListener('mousemove', handleResize)
+    window.addEventListener('mouseup', stopResize)
+    document.body.style.cursor = 'ew-resize'
+  }
+
+  useEffect(() => {
+    return () => stopResize()
+  }, [])
 
   const handleCreateNewDock = async (dockData: any) => {
     try {
@@ -420,8 +465,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      className="w-64 flex flex-col relative h-full z-10 overflow-hidden border-r-4"
+      className="flex flex-col relative h-full z-10 overflow-visible border-r-4"
       style={{
+        width,
+        minWidth: MIN_WIDTH,
+        maxWidth: MAX_WIDTH,
         background: 'var(--color-sidebar)',
         borderColor: 'var(--color-border-strong)',
         boxShadow: 'var(--shadow-brutal)'
@@ -708,6 +756,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
       )}
+
+      {/* Resize handle */}
+      <button
+        type="button"
+        onMouseDown={handleResizeStart}
+        className="absolute top-0 right-0 h-full w-5 cursor-ew-resize flex items-center justify-center z-30"
+        style={{ borderLeft: '2px solid var(--color-border-strong)', background: 'transparent' }}
+        aria-label="Resize sidebar"
+      >
+        <div
+          className="w-1 h-12 rounded"
+          style={{ background: 'var(--color-border-strong)', opacity: 0.6 }}
+        />
+      </button>
     </aside>
   )
 }
