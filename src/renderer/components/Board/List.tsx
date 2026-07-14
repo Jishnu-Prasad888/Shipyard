@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useDroppable } from '@dnd-kit/core'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Plus, Edit2, Trash2, Eye, EyeOff, Download, MoveHorizontal } from 'lucide-react'
+import { Plus, Edit2, Trash2, Eye, EyeOff, Download, MoveHorizontal, MoveVertical } from 'lucide-react'
 import { Card } from './Card'
 import { CreateCardModal } from './CreateCardModal'
 
@@ -12,6 +12,7 @@ interface ListProps {
   onCardsChange: () => void
   openCardId?: string | null
   onCardOpenComplete?: () => void
+  orientation: 'horizontal' | 'vertical'
 }
 
 // Default statuses matching CardDetailsModal
@@ -21,7 +22,7 @@ const DEFAULT_STATUSES = [
   { id: '__completed__', name: 'Completed', color: '#ef4444' }
 ]
 
-export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange, openCardId, onCardOpenComplete }) => {
+export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange, openCardId, onCardOpenComplete, orientation }) => {
   const [showCreateCard, setShowCreateCard] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editedName, setEditedName] = useState(list.name)
@@ -44,6 +45,19 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange, openCa
   })
   const resizeStartRef = useRef<{ x: number; width: number } | null>(null)
 
+  // Resizable height (per-list, persisted)
+  const MIN_HEIGHT = 320
+  const MAX_HEIGHT = 1400
+  const DEFAULT_HEIGHT = 680
+  const [height, setHeight] = useState(() => {
+    if (typeof window === 'undefined') return DEFAULT_HEIGHT
+    const raw = localStorage.getItem(`shipyard:list-height:${list.id}`)
+    const parsed = raw ? Number(raw) : NaN
+    if (Number.isFinite(parsed)) return Math.min(Math.max(parsed, MIN_HEIGHT), MAX_HEIGHT)
+    return DEFAULT_HEIGHT
+  })
+  const resizeYStartRef = useRef<{ y: number; height: number } | null>(null)
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: list.id,
     data: { type: 'list' }
@@ -61,10 +75,23 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange, openCa
     setWidth(next)
   }
 
+  const handleHeightResize = (event: MouseEvent) => {
+    if (!resizeYStartRef.current) return
+    const delta = event.clientY - resizeYStartRef.current.y
+    const next = Math.min(Math.max(resizeYStartRef.current.height + delta, MIN_HEIGHT), MAX_HEIGHT)
+    setHeight(next)
+  }
+
   const stopResize = () => {
     window.removeEventListener('mousemove', handleResize)
     window.removeEventListener('mouseup', stopResize)
     resizeStartRef.current = null
+  }
+
+  const stopHeightResize = () => {
+    window.removeEventListener('mousemove', handleHeightResize)
+    window.removeEventListener('mouseup', stopHeightResize)
+    resizeYStartRef.current = null
   }
 
   const handleResizeStart = (event: React.MouseEvent) => {
@@ -77,13 +104,31 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange, openCa
 
   const resetWidth = () => setWidth(DEFAULT_WIDTH)
 
+  const handleHeightResizeStart = (event: React.MouseEvent) => {
+    event.stopPropagation()
+    event.preventDefault()
+    resizeYStartRef.current = { y: event.clientY, height }
+    window.addEventListener('mousemove', handleHeightResize)
+    window.addEventListener('mouseup', stopHeightResize)
+  }
+
+  const resetHeight = () => setHeight(DEFAULT_HEIGHT)
+
   useEffect(() => {
     if (typeof window === 'undefined') return
     localStorage.setItem(`shipyard:list-width:${list.id}`, String(width))
   }, [list.id, width])
 
   useEffect(() => {
-    return () => stopResize()
+    if (typeof window === 'undefined') return
+    localStorage.setItem(`shipyard:list-height:${list.id}`, String(height))
+  }, [list.id, height])
+
+  useEffect(() => {
+    return () => {
+      stopResize()
+      stopHeightResize()
+    }
   }, [])
 
   const style = {
@@ -303,10 +348,14 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange, openCa
         ref={setNodeRef}
         style={{
           ...style,
-          width,
-          minWidth: MIN_WIDTH,
-          maxWidth: MAX_WIDTH,
-          flexShrink: 0
+          width: orientation === 'vertical' ? '100%' : width,
+          minWidth: orientation === 'vertical' ? MIN_WIDTH : MIN_WIDTH,
+          maxWidth: orientation === 'vertical' ? '100%' : MAX_WIDTH,
+          flexShrink: orientation === 'vertical' ? 1 : 0,
+          height,
+          maxHeight: height,
+          minHeight: MIN_HEIGHT,
+          overflow: 'visible'
         }}
         className="column relative"
         onContextMenu={openContextMenu}
@@ -541,19 +590,37 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange, openCa
         </div>
 
         {/* Resize handle */}
+        {orientation === 'horizontal' && (
+          <button
+            type="button"
+            onMouseDown={handleResizeStart}
+            onDoubleClick={resetWidth}
+            className="absolute -right-3 top-1/2 -translate-y-1/2 w-7 h-10 rounded-md flex items-center justify-center cursor-ew-resize"
+            style={{
+              border: '2px solid var(--color-border-strong)',
+              background: 'var(--color-background)',
+              boxShadow: '1px 1px 0 var(--color-border-strong)'
+            }}
+            title="Drag to resize · Double-click to reset"
+          >
+            <MoveHorizontal className="w-4 h-4" style={{ color: 'var(--color-muted)' }} />
+          </button>
+        )}
+
+        {/* Vertical resize handle */}
         <button
           type="button"
-          onMouseDown={handleResizeStart}
-          onDoubleClick={resetWidth}
-          className="absolute -right-3 top-1/2 -translate-y-1/2 w-7 h-10 rounded-md flex items-center justify-center cursor-ew-resize"
+          onMouseDown={handleHeightResizeStart}
+          onDoubleClick={resetHeight}
+          className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-16 h-7 rounded-md flex items-center justify-center cursor-ns-resize"
           style={{
             border: '2px solid var(--color-border-strong)',
             background: 'var(--color-background)',
             boxShadow: '1px 1px 0 var(--color-border-strong)'
           }}
-          title="Drag to resize · Double-click to reset"
+          title="Drag to change height · Double-click to reset"
         >
-          <MoveHorizontal className="w-4 h-4" style={{ color: 'var(--color-muted)' }} />
+          <MoveVertical className="w-4 h-4" style={{ color: 'var(--color-muted)' }} />
         </button>
       </div>
 

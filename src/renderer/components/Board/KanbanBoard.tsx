@@ -8,8 +8,8 @@ import {
   useSensor,
   useSensors
 } from '@dnd-kit/core'
-import { SortableContext, horizontalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
-import { Plus, LayoutList, Hash, Pencil, Check, X, ChevronLeft, Trash2 } from 'lucide-react'
+import { SortableContext, horizontalListSortingStrategy, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
+import { Plus, LayoutList, Hash, Pencil, Check, X, ChevronLeft, Trash2, MoveHorizontal, MoveVertical } from 'lucide-react'
 import { List } from './List'
 import { CreateListModal } from './CreateListModal'
 import { getBoardWithDetails } from '../../lib/data'
@@ -40,6 +40,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   const [lists, setLists] = useState<any[]>([])
   const [showCreateList, setShowCreateList] = useState(false)
   const [, setActiveId] = useState<string | null>(null)
+  const [listOrientation, setListOrientation] = useState<'horizontal' | 'vertical'>(() => {
+    if (typeof window === 'undefined') return 'horizontal'
+    const saved = localStorage.getItem(`shipyard:list-orientation:${boardId}`)
+    return saved === 'vertical' ? 'vertical' : 'horizontal'
+  })
 
   // Edit ship state
   const [editing, setEditing] = useState(false)
@@ -214,6 +219,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   )
 
   useEffect(() => { loadBoard() }, [boardId])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const saved = localStorage.getItem(`shipyard:list-orientation:${boardId}`)
+    setListOrientation(saved === 'vertical' ? 'vertical' : 'horizontal')
+  }, [boardId])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem(`shipyard:list-orientation:${boardId}`, listOrientation)
+  }, [boardId, listOrientation])
 
   const loadBoard = async () => {
     const boardData = await getBoardWithDetails(boardId)
@@ -409,6 +425,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   const totalCards = lists.reduce((acc, l) => acc + (l.cards?.length || 0), 0)
   const shipColor = board.color || 'var(--color-primary)'
+  const isVerticalLayout = listOrientation === 'vertical'
+  const listSortingStrategy = isVerticalLayout ? verticalListSortingStrategy : horizontalListSortingStrategy
 
   return (
     <div className="h-full flex flex-col">
@@ -459,6 +477,40 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     <Hash className="w-3 h-3" />
                     {totalCards} Cargo
                   </span>
+                </div>
+
+                <div className="flex items-center gap-2 mt-3 flex-wrap">
+                  <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: 'var(--color-muted)' }}>
+                    Arrange Manifests
+                  </span>
+                  <div
+                    className="flex rounded-lg overflow-hidden border-2"
+                    style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-surface-2)' }}
+                  >
+                    <button
+                      className="flex items-center gap-1 px-3 py-1 text-[11px] font-black uppercase tracking-wide transition-all"
+                      style={{
+                        background: !isVerticalLayout ? 'var(--color-primary-soft)' : 'transparent',
+                        color: !isVerticalLayout ? 'var(--color-text)' : 'var(--color-muted)',
+                        borderRight: '2px solid var(--color-border-strong)'
+                      }}
+                      onClick={() => setListOrientation('horizontal')}
+                    >
+                      <MoveHorizontal className="w-3.5 h-3.5" />
+                      Horizontal
+                    </button>
+                    <button
+                      className="flex items-center gap-1 px-3 py-1 text-[11px] font-black uppercase tracking-wide transition-all"
+                      style={{
+                        background: isVerticalLayout ? 'var(--color-primary-soft)' : 'transparent',
+                        color: isVerticalLayout ? 'var(--color-text)' : 'var(--color-muted)'
+                      }}
+                      onClick={() => setListOrientation('vertical')}
+                    >
+                      <MoveVertical className="w-3.5 h-3.5" />
+                      Vertical
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -576,9 +628,20 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
       {/* Kanban board area */}
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
-        <div className="flex-1 overflow-x-auto">
-          <div className="flex gap-5 h-full pb-6">
-            <SortableContext items={lists.map(l => l.id)} strategy={horizontalListSortingStrategy}>
+        <div className={isVerticalLayout ? 'flex-1 overflow-y-auto' : 'flex-1 overflow-x-auto'}>
+          <div
+            className={
+              isVerticalLayout
+                ? 'grid gap-5 pb-6'
+                : 'flex flex-nowrap gap-5 pb-6 h-full'
+            }
+            style={
+              isVerticalLayout
+                ? { gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', width: '100%' }
+                : { minWidth: 'max-content' }
+            }
+          >
+            <SortableContext items={lists.map(l => l.id)} strategy={listSortingStrategy}>
               {filteredLists.map(list => (
                 <List
                   key={list.id}
@@ -587,6 +650,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                   onCardsChange={loadBoard}
                   openCardId={openCardId}
                   onCardOpenComplete={onCardOpenComplete}
+                  orientation={listOrientation}
                 />
               ))}
             </SortableContext>
