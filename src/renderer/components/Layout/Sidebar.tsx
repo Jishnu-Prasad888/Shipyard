@@ -483,14 +483,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <div className="brutal-accent" />
 
         {/* Home + calendar */}
-        <div className="p-4 pb-3 border-b-4" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
+        <div className="p-4 pb-3 border-b-4" style={{ borderColor: 'var(--color-sidebar-divider)' }}>
           <button
             onClick={onGoHome}
             className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-black uppercase tracking-wider border-2 transition-all duration-100"
             style={{
-              borderColor: isHome ? 'var(--color-primary)' : 'rgba(255,255,255,0.18)',
-              background: isHome ? 'var(--color-primary)' : 'rgba(255,255,255,0.06)',
-              color: 'white',
+              borderColor: isHome ? 'var(--color-sidebar-active-border)' : 'var(--color-sidebar-divider)',
+              background: isHome ? 'var(--color-sidebar-active-bg)' : 'var(--color-sidebar-tile)',
+              color: isHome ? 'var(--color-sidebar-active-text)' : 'var(--color-sidebar-foreground)',
               boxShadow: isHome ? 'var(--shadow-brutal-sm)' : 'none'
             }}
           >
@@ -502,9 +502,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
             onClick={onOpenCalendar}
             className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-black uppercase tracking-wider border-2 transition-all duration-100 mt-2"
             style={{
-              borderColor: isCalendar ? 'var(--color-secondary)' : 'rgba(255,255,255,0.18)',
-              background: isCalendar ? 'var(--color-secondary)' : 'rgba(255,255,255,0.06)',
-              color: 'white',
+              borderColor: isCalendar ? 'var(--color-sidebar-active-border)' : 'var(--color-sidebar-divider)',
+              background: isCalendar ? 'var(--color-sidebar-active-bg)' : 'var(--color-sidebar-tile)',
+              color: isCalendar ? 'var(--color-sidebar-active-text)' : 'var(--color-sidebar-foreground)',
               boxShadow: isCalendar ? 'var(--shadow-brutal-sm)' : 'none'
             }}
           >
@@ -514,7 +514,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* New Dock */}
-        <div className="p-4 border-b-4" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
+        <div className="p-4 border-b-4" style={{ borderColor: 'var(--color-sidebar-divider)' }}>
           <button
             onClick={() => {
               setTargetParentId(null)
@@ -536,19 +536,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
             }}
             className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-black uppercase tracking-wider border-2 transition-all duration-100"
             style={{
-              borderColor: 'rgba(255,255,255,0.2)',
-              color: 'rgba(255,255,255,0.85)',
-              background: 'rgba(255,255,255,0.06)'
+              borderColor: 'var(--color-sidebar-divider)',
+              color: 'var(--color-sidebar-foreground)',
+              background: 'var(--color-sidebar-tile)'
             }}
             onMouseOver={(e) => {
-              e.currentTarget.style.background = 'rgba(95,182,255,0.18)'
-              e.currentTarget.style.borderColor = 'var(--color-primary)'
-              e.currentTarget.style.color = 'white'
+              e.currentTarget.style.background = 'var(--color-sidebar-hover-bg)'
+              e.currentTarget.style.borderColor = 'var(--color-sidebar-hover-border)'
+              e.currentTarget.style.color = 'var(--color-sidebar-hover-text)'
             }}
             onMouseOut={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
-              e.currentTarget.style.color = 'rgba(255,255,255,0.85)'
+              e.currentTarget.style.background = 'var(--color-sidebar-tile)'
+              e.currentTarget.style.borderColor = 'var(--color-sidebar-divider)'
+              e.currentTarget.style.color = 'var(--color-sidebar-foreground)'
             }}
           >
             <Folder className="w-3.5 h-3.5" />
@@ -594,8 +594,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         >
           {/* Header */}
           <div
-            className="px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white border-b"
-            style={{ background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))', borderColor: 'var(--color-border-strong)' }}
+            className="px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] border-b"
+            style={{
+              background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+              borderColor: 'var(--color-border-strong)',
+              color: 'var(--color-sidebar-active-text)'
+            }}
           >
             {contextMenu.type} Options
           </div>
@@ -712,10 +716,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className="flex items-center justify-between px-5 py-3 border-b-3"
               style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-primary)' }}
             >
-              <h2 className="text-base font-black text-white uppercase tracking-wider">Establish New Port</h2>
+              <h2 className="text-base font-black uppercase tracking-wider" style={{ color: 'var(--color-sidebar-active-text)' }}>
+                Establish New Port
+              </h2>
               <button
                 onClick={() => setShowCreateFolder(false)}
-                className="w-6 h-6 flex items-center justify-center border-2 border-white text-white font-black hover:bg-white/20 transition"
+                className="w-6 h-6 flex items-center justify-center border-2 font-black transition"
+                style={{
+                  borderColor: 'var(--color-sidebar-active-border)',
+                  color: 'var(--color-sidebar-active-text)',
+                  background: 'transparent'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--color-sidebar-hover-bg)'
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent'
+                }}
               >
                 ✕
               </button>
@@ -802,8 +819,8 @@ const DroppableFolder: React.FC<{
         onContextMenu={onContextMenu}
         style={{
           paddingLeft: `${depth * 0.75 + 0.75}rem`,
-          background: isOver ? 'rgba(95,182,255,0.15)' : undefined,
-          borderColor: isOver ? 'var(--color-border-strong)' : undefined,
+          background: isOver ? 'var(--color-sidebar-hover-bg)' : undefined,
+          borderColor: isOver ? 'var(--color-sidebar-hover-border)' : undefined,
           boxShadow: isOver ? 'var(--shadow-brutal-sm)' : undefined
         }}
         className="nav-item w-full"
@@ -842,7 +859,7 @@ const DroppableUncategorized: React.FC<{
     >
       <div
         className="px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] border-b-2 mb-2"
-        style={{ color: 'rgba(255,255,255,0.8)', borderColor: 'rgba(255,255,255,0.18)' }}
+        style={{ color: 'var(--color-sidebar-section)', borderColor: 'var(--color-sidebar-divider)' }}
       >
         Uncharted Waters
       </div>
@@ -930,36 +947,38 @@ const SidebarDockItem: React.FC<SidebarDockItemProps> = ({
 
       {expanded && (
         <div className="mt-0.5 space-y-0.5" style={{ paddingLeft: `${depth * 0.75 + 2}rem` }}>
-          {boards.map((board) => (
-            <button
-              key={board.id}
-              onClick={() => onSelectBoard(board.id)}
-              className="w-full text-left px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide border-l-2 transition-all duration-150"
-              style={{
-                borderColor: selectedBoardId === board.id ? 'var(--color-secondary)' : 'rgba(255,255,255,0.2)',
-                color: selectedBoardId === board.id ? 'white' : 'rgba(255,255,255,0.75)',
-                background: selectedBoardId === board.id
-                  ? 'rgba(95,182,255,0.2)'
-                  : 'transparent'
-              }}
-              onMouseOver={e => {
-                if (selectedBoardId !== board.id) {
-                  e.currentTarget.style.color = 'white'
-                  e.currentTarget.style.background = 'rgba(95,182,255,0.12)'
-                }
-              }}
-              onMouseOut={e => {
-                if (selectedBoardId !== board.id) {
-                  e.currentTarget.style.color = 'rgba(255,255,255,0.75)'
-                  e.currentTarget.style.background = 'transparent'
-                }
-              }}
-            >
-              ▸ {board.name}
-            </button>
-          ))}
+          {boards.map((board) => {
+            const isBoardSelected = selectedBoardId === board.id
+
+            return (
+              <button
+                key={board.id}
+                onClick={() => onSelectBoard(board.id)}
+                className="w-full text-left px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide border-l-2 transition-all duration-150"
+                style={{
+                  borderColor: isBoardSelected ? 'var(--color-sidebar-active-border)' : 'var(--color-sidebar-divider)',
+                  color: isBoardSelected ? 'var(--color-sidebar-active-text)' : 'var(--color-sidebar-foreground-muted)',
+                  background: isBoardSelected ? 'var(--color-sidebar-active-bg)' : 'transparent'
+                }}
+                onMouseOver={e => {
+                  if (!isBoardSelected) {
+                    e.currentTarget.style.color = 'var(--color-sidebar-hover-text)'
+                    e.currentTarget.style.background = 'var(--color-sidebar-hover-bg)'
+                  }
+                }}
+                onMouseOut={e => {
+                  if (!isBoardSelected) {
+                    e.currentTarget.style.color = 'var(--color-sidebar-foreground-muted)'
+                    e.currentTarget.style.background = 'transparent'
+                  }
+                }}
+              >
+                ▸ {board.name}
+              </button>
+            )
+          })}
           {boards.length === 0 && (
-            <p className="text-[10px] font-bold px-3 py-1 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.35)' }}>No ships docked</p>
+            <p className="text-[10px] font-bold px-3 py-1 uppercase tracking-wider" style={{ color: 'var(--color-sidebar-foreground-muted)' }}>No ships docked</p>
           )}
         </div>
       )}

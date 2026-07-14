@@ -95,7 +95,10 @@ export interface FirebaseConfig {
 }
 
 export interface Settings {
-  theme: 'light' | 'dark'
+  /** @deprecated use colorMode + themeStyle */
+  theme?: 'light' | 'dark'
+  colorMode?: 'light' | 'dark'
+  themeStyle?: 'brutalist' | 'clay'
   firebaseEnabled: boolean
   firebaseConfig?: FirebaseConfig
   syncEnabled: boolean

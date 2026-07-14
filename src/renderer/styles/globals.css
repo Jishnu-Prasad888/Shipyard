@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /* ======================
-   NEO-BRUTALIST SHIPYARD
+   NEO-BRUTALIST SHIPYARD (default)
    Bold Blue Color System
  ====================== */
 
@@ -17,6 +17,25 @@
   /* Shells */
   --color-sidebar: #0b2545;
   --color-header: #123b66;
+
+  /* Sidebar foregrounds */
+  --color-sidebar-foreground: rgba(255, 255, 255, 0.92);
+  --color-sidebar-foreground-muted: rgba(255, 255, 255, 0.7);
+  --color-sidebar-section: rgba(255, 255, 255, 0.82);
+  --color-sidebar-divider: rgba(255, 255, 255, 0.18);
+  --color-sidebar-tile: rgba(255, 255, 255, 0.08);
+  --color-sidebar-hover-bg: rgba(95, 182, 255, 0.2);
+  --color-sidebar-hover-border: var(--color-border-strong);
+  --color-sidebar-hover-text: #ffffff;
+  --color-sidebar-active-bg: var(--color-primary);
+  --color-sidebar-active-border: var(--color-secondary);
+  --color-sidebar-active-text: #041020;
+
+  /* Header foregrounds */
+  --color-header-foreground: #f2f7ff;
+  --color-header-muted: rgba(242, 247, 255, 0.75);
+  --color-header-button-bg: rgba(255, 255, 255, 0.1);
+  --color-header-button-border: rgba(255, 255, 255, 0.85);
 
   /* Lines */
   --color-border: #1f4f7a;
@@ -72,6 +91,23 @@
   --color-sidebar: #041223;
   --color-header: #0a2039;
 
+  --color-sidebar-foreground: rgba(229, 242, 255, 0.92);
+  --color-sidebar-foreground-muted: rgba(143, 181, 214, 0.86);
+  --color-sidebar-section: rgba(229, 242, 255, 0.82);
+  --color-sidebar-divider: rgba(255, 255, 255, 0.16);
+  --color-sidebar-tile: rgba(255, 255, 255, 0.08);
+  --color-sidebar-hover-bg: rgba(75, 183, 255, 0.22);
+  --color-sidebar-hover-border: var(--color-border-strong);
+  --color-sidebar-hover-text: #f8fbff;
+  --color-sidebar-active-bg: var(--color-primary);
+  --color-sidebar-active-border: var(--color-secondary);
+  --color-sidebar-active-text: #0b1624;
+
+  --color-header-foreground: #e5f2ff;
+  --color-header-muted: #8fb5d6;
+  --color-header-button-bg: rgba(75, 183, 255, 0.16);
+  --color-header-button-border: #8bd5ff;
+
   --color-border: #1f4f7a;
   --color-border-strong: #5fb6ff;
 
@@ -102,6 +138,131 @@
   --shadow-brutal-lg: 10px 10px 0 #0b2545;
   --shadow-brutal-blue: 6px 6px 0 #4bb7ff;
   --shadow-brutal-cyan: 6px 6px 0 #60f0e0;
+}
+
+/* ======================
+   CLAYMORPHIC PASTEL THEME (light)
+ ====================== */
+
+.theme-clay {
+  --color-background: #f3f5ff;
+  --color-surface: #ffffff;
+  --color-surface-2: #eef2ff;
+  --color-surface-3: #e2e8ff;
+
+  --color-sidebar: #dfe7ff;
+  --color-header: #d1dcff;
+
+  --color-sidebar-foreground: #1f2438;
+  --color-sidebar-foreground-muted: #4c5470;
+  --color-sidebar-section: #2f3652;
+  --color-sidebar-divider: rgba(31, 36, 56, 0.16);
+  --color-sidebar-tile: rgba(141, 164, 255, 0.16);
+  --color-sidebar-hover-bg: rgba(141, 164, 255, 0.24);
+  --color-sidebar-hover-border: #8b9bd6;
+  --color-sidebar-hover-text: #0f1429;
+  --color-sidebar-active-bg: #8da4ff;
+  --color-sidebar-active-border: #768ef0;
+  --color-sidebar-active-text: #0c1226;
+
+  --color-header-foreground: #0f1426;
+  --color-header-muted: #3f4664;
+  --color-header-button-bg: rgba(141, 164, 255, 0.22);
+  --color-header-button-border: #8b9bd6;
+
+  --color-border: #b8c4ec;
+  --color-border-strong: #8b9bd6;
+
+  --color-text: #1f2438;
+  --color-muted: #4c5470;
+
+  --color-primary: #8da4ff;
+  --color-primary-soft: rgba(141, 164, 255, 0.22);
+  --color-primary-hover: #768ef0;
+
+  --color-secondary: #7bd2ff;
+  --color-accent: #72c7b8;
+
+  --color-status-info: #7bd2ff;
+  --color-status-in-progress: #8da4ff;
+  --color-status-blocked: #f09a83;
+  --color-status-done: #72c7b8;
+
+  --color-warning: #f09a83;
+  --color-alert: #ec7e8e;
+
+  --color-cyan: #7bd2ff;
+  --color-indigo: #8da4ff;
+  --color-violet: #768ef0;
+
+  /* Clay-style soft shadows */
+  --shadow-brutal: 0 10px 30px rgba(0, 0, 0, 0.10);
+  --shadow-brutal-sm: 0 6px 18px rgba(0, 0, 0, 0.10);
+  --shadow-brutal-lg: 0 14px 38px rgba(0, 0, 0, 0.14);
+  --shadow-brutal-blue: 0 10px 30px rgba(141, 164, 255, 0.35);
+  --shadow-brutal-cyan: 0 10px 30px rgba(123, 210, 255, 0.35);
+}
+
+/* ======================
+   CLAYMORPHIC PASTEL THEME (dark)
+ ====================== */
+
+.theme-clay.dark {
+  --color-background: #1d1b2f;
+  --color-surface: #24223b;
+  --color-surface-2: #2c2a45;
+  --color-surface-3: #353455;
+
+  --color-sidebar: #22203a;
+  --color-header: #2a2844;
+
+  --color-sidebar-foreground: #f3efff;
+  --color-sidebar-foreground-muted: #b9b1d6;
+  --color-sidebar-section: #e6e1f8;
+  --color-sidebar-divider: rgba(255, 255, 255, 0.18);
+  --color-sidebar-tile: rgba(255, 255, 255, 0.08);
+  --color-sidebar-hover-bg: rgba(195, 177, 255, 0.22);
+  --color-sidebar-hover-border: #c3b1ff;
+  --color-sidebar-hover-text: #0e1022;
+  --color-sidebar-active-bg: #c3b1ff;
+  --color-sidebar-active-border: #8ad8ff;
+  --color-sidebar-active-text: #0c1226;
+
+  --color-header-foreground: #f3efff;
+  --color-header-muted: #b9b1d6;
+  --color-header-button-bg: rgba(195, 177, 255, 0.2);
+  --color-header-button-border: #c3b1ff;
+
+  --color-border: #4a4676;
+  --color-border-strong: #8ad8ff;
+
+  --color-text: #f3efff;
+  --color-muted: #b9b1d6;
+
+  --color-primary: #c3b1ff;
+  --color-primary-soft: rgba(195, 177, 255, 0.18);
+  --color-primary-hover: #e2d8ff;
+
+  --color-secondary: #8ad8ff;
+  --color-accent: #7cd5c8;
+
+  --color-status-info: #8ad8ff;
+  --color-status-in-progress: #c3b1ff;
+  --color-status-blocked: #f3c0b2;
+  --color-status-done: #7cd5c8;
+
+  --color-warning: #f3c0b2;
+  --color-alert: #f49fb1;
+
+  --color-cyan: #8ad8ff;
+  --color-indigo: #c3b1ff;
+  --color-violet: #a48cff;
+
+  --shadow-brutal: 0 10px 30px rgba(0, 0, 0, 0.22);
+  --shadow-brutal-sm: 0 6px 18px rgba(0, 0, 0, 0.2);
+  --shadow-brutal-lg: 0 16px 42px rgba(0, 0, 0, 0.28);
+  --shadow-brutal-blue: 0 12px 32px rgba(195, 177, 255, 0.35);
+  --shadow-brutal-cyan: 0 12px 32px rgba(138, 216, 255, 0.35);
 }
 
 /* ======================
@@ -149,23 +310,27 @@
   /* ===== Sidebar/Navigation Item ===== */
   .nav-item {
     @apply flex items-center gap-3 px-3 py-2 text-sm font-black uppercase tracking-wide transition-all duration-100 cursor-pointer border-2 border-transparent;
-    color: rgba(255, 255, 255, 0.85);
+    color: var(--color-sidebar-foreground);
     background: transparent;
   }
 
   .nav-item:hover {
-    background: rgba(95, 182, 255, 0.15);
-    border-color: var(--color-border-strong);
-    color: white;
+    background: var(--color-sidebar-hover-bg);
+    border-color: var(--color-sidebar-hover-border);
+    color: var(--color-sidebar-hover-text);
     transform: translate(-1px, -1px);
     box-shadow: var(--shadow-brutal-sm);
   }
 
   .nav-item.active {
-    background: var(--color-primary);
-    border-color: var(--color-secondary);
-    color: #041020;
+    background: var(--color-sidebar-active-bg);
+    border-color: var(--color-sidebar-active-border);
+    color: var(--color-sidebar-active-text);
     box-shadow: var(--shadow-brutal-sm);
+  }
+
+  .header-search input::placeholder {
+    color: var(--color-header-muted);
   }
 
   /* ===== Column / Kanban List ===== */

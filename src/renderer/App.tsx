@@ -50,7 +50,9 @@ function App() {
 
   useEffect(() => {
     const defaults: Settings = {
-      theme: 'light',
+      theme: 'light', // legacy
+      colorMode: 'light',
+      themeStyle: 'brutalist',
       firebaseEnabled: false,
       syncEnabled: false,
       minimizeToTray: true,
@@ -59,12 +61,19 @@ function App() {
     }
 
     window.electron.settings.get().then((loadedSettings: Partial<Settings>) => {
-      const theme: 'light' | 'dark' = loadedSettings?.theme === 'dark' ? 'dark' : 'light'
+      const legacyTheme = loadedSettings?.theme
+      const colorMode: 'light' | 'dark' = loadedSettings?.colorMode
+        ? loadedSettings.colorMode
+        : legacyTheme === 'dark'
+          ? 'dark'
+          : 'light'
+      const themeStyle: 'brutalist' | 'clay' = loadedSettings?.themeStyle === 'clay' ? 'clay' : 'brutalist'
 
       const merged: Settings = {
         ...defaults,
         ...loadedSettings,
-        theme,
+        colorMode,
+        themeStyle,
         firebaseEnabled: !!loadedSettings?.firebaseEnabled,
         syncEnabled: !!loadedSettings?.syncEnabled,
         minimizeToTray: loadedSettings?.minimizeToTray ?? defaults.minimizeToTray,
@@ -73,15 +82,23 @@ function App() {
 
       dispatch(setSettings(merged))
 
-      if (theme === 'dark') {
-        document.documentElement.classList.add('dark')
-        window.electron.darkMode.toggle(true)
-      }
+      document.documentElement.classList.toggle('dark', colorMode === 'dark')
+      document.documentElement.classList.toggle('theme-clay', themeStyle === 'clay')
+      window.electron.darkMode.toggle(colorMode === 'dark')
+
       if (merged.fontFamily) {
         document.documentElement.style.setProperty('--font-ui', `'${merged.fontFamily}', system-ui, sans-serif`)
       }
     })
   }, [dispatch])
+
+  useEffect(() => {
+    const colorMode = settings.colorMode || settings.theme || 'light'
+    const themeStyle = (settings as any).themeStyle || 'brutalist'
+    document.documentElement.classList.toggle('dark', colorMode === 'dark')
+    document.documentElement.classList.toggle('theme-clay', themeStyle === 'clay')
+    window.electron.darkMode.toggle(colorMode === 'dark')
+  }, [settings.colorMode, (settings as any).themeStyle, settings.theme])
 
   const handleSelectDock = (dockId: string) => {
     setSelectedDockId(dockId)
@@ -125,11 +142,11 @@ function App() {
   const isHome = !selectedDockId && !selectedBoardId && !showCalendar
 
   const handleToggleTheme = () => {
-    const newTheme = settings.theme === 'light' ? 'dark' : 'light'
-    const updatedSettings = { ...settings, theme: newTheme as 'light' | 'dark' }
-    if (newTheme === 'dark') document.documentElement.classList.add('dark')
-    else document.documentElement.classList.remove('dark')
-    window.electron.darkMode.toggle(newTheme === 'dark')
+    const current = settings.colorMode || settings.theme || 'light'
+    const newMode = current === 'light' ? 'dark' : 'light'
+    const updatedSettings = { ...settings, colorMode: newMode, theme: newMode }
+    document.documentElement.classList.toggle('dark', newMode === 'dark')
+    window.electron.darkMode.toggle(newMode === 'dark')
     window.electron.settings.save(updatedSettings)
     dispatch(setSettings(updatedSettings))
   }
@@ -140,7 +157,7 @@ function App() {
       <Header
         onOpenSettings={() => setShowSettings(true)}
         onToggleTheme={handleToggleTheme}
-        isDarkMode={settings.theme === 'dark'}
+        isDarkMode={(settings.colorMode || settings.theme) === 'dark'}
         onSearch={setSearchQuery}
         onSelectDock={handleSelectDock}
         onSelectBoard={handleSearchSelectBoard}

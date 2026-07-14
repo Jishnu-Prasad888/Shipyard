@@ -51,7 +51,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     minHeight: 560
   })
 
-  const [theme, setTheme] = useState(settings.theme)
+  const [colorMode, setColorMode] = useState<'light' | 'dark'>(
+    (settings.colorMode as 'light' | 'dark') || settings.theme || 'light'
+  )
+  const [themeStyle, setThemeStyle] = useState<'brutalist' | 'clay'>(
+    (settings as any).themeStyle === 'clay' ? 'clay' : 'brutalist'
+  )
   const [firebaseEnabled, setFirebaseEnabled] = useState(settings.firebaseEnabled || false)
   const [syncEnabled, setSyncEnabled] = useState(settings.syncEnabled || false)
   const [firebaseConfig, setFirebaseConfig] = useState<any>(settings.firebaseConfig || {})
@@ -282,7 +287,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     setOp('saving')
     try {
       const updatedSettings = {
-        theme,
+        theme: colorMode, // legacy
+        colorMode,
+        themeStyle,
         firebaseEnabled,
         syncEnabled,
         firebaseConfig,
@@ -295,7 +302,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
       const result = await window.electron.settings.save(updatedSettings)
       dispatch(
         setSettings({
-          theme,
+          theme: colorMode, // legacy
+          colorMode,
+          themeStyle,
           firebaseEnabled,
           syncEnabled,
           firebaseConfig,
@@ -307,13 +316,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         })
       )
 
-      if (theme === 'dark') {
+      if (colorMode === 'dark') {
         document.documentElement.classList.add('dark')
         window.electron.darkMode.toggle(true)
       } else {
         document.documentElement.classList.remove('dark')
         window.electron.darkMode.toggle(false)
       }
+
+      document.documentElement.classList.toggle('theme-clay', themeStyle === 'clay')
 
       // Apply font immediately
       if (fontFamily) {
@@ -556,29 +567,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
               className="font-black text-[10px] uppercase tracking-widest mb-3 flex items-center gap-2"
               style={{ color: 'var(--color-muted)' }}
             >
-              {theme === 'dark' ? (
+              {colorMode === 'dark' ? (
                 <Moon className="w-3.5 h-3.5" />
               ) : (
                 <Sun className="w-3.5 h-3.5" />
               )}
-              Appearance
+              Appearance & Theme
             </h3>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              {/* Mode */}
               {(['light', 'dark'] as const).map((t) => (
                 <label
                   key={t}
                   className="flex items-center gap-2 px-4 py-2 border-2 cursor-pointer font-black text-xs uppercase tracking-wider transition-all duration-100"
                   style={{
-                    borderColor: theme === t ? 'var(--color-primary)' : 'var(--color-border)',
-                    background: theme === t ? 'var(--color-primary)' : 'transparent',
-                    color: theme === t ? 'white' : 'var(--color-text)',
-                    boxShadow: theme === t ? 'var(--shadow-brutal-sm)' : 'none'
+                    borderColor: colorMode === t ? 'var(--color-primary)' : 'var(--color-border)',
+                    background: colorMode === t ? 'var(--color-primary)' : 'transparent',
+                    color: colorMode === t ? 'white' : 'var(--color-text)',
+                    boxShadow: colorMode === t ? 'var(--shadow-brutal-sm)' : 'none'
                   }}
                 >
                   <input
                     type="radio"
-                    checked={theme === t}
-                    onChange={() => setTheme(t)}
+                    checked={colorMode === t}
+                    onChange={() => setColorMode(t)}
                     className="sr-only"
                   />
                   {t === 'dark' ? (
@@ -588,6 +600,28 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                   )}
                   {t.toUpperCase()}
                 </label>
+              ))}
+
+              {/* Theme style */}
+              {([
+                ['brutalist', 'Brutalist'],
+                ['clay', 'Clay']
+              ] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setThemeStyle(value)}
+                  className="flex items-center gap-2 px-4 py-2 border-2 font-black text-xs uppercase tracking-wider transition-all duration-100"
+                  style={{
+                    borderColor: themeStyle === value ? 'var(--color-secondary)' : 'var(--color-border)',
+                    background: themeStyle === value ? 'var(--color-secondary)' : 'transparent',
+                    color: themeStyle === value ? '#041020' : 'var(--color-text)',
+                    boxShadow: themeStyle === value ? 'var(--shadow-brutal-sm)' : 'none'
+                  }}
+                >
+                  <span className="w-3 h-3 rounded-full" style={{ background: themeStyle === value ? '#041020' : 'var(--color-border)' }} />
+                  {label}
+                </button>
               ))}
             </div>
           </div>

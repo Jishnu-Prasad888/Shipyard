@@ -2,7 +2,9 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 import { Settings } from '@shared/types'
 
 const initialState: Settings = {
-  theme: 'light',
+  theme: 'light', // legacy fallback
+  colorMode: 'light',
+  themeStyle: 'brutalist',
   firebaseEnabled: false,
   syncEnabled: false,
   minimizeToTray: true,
@@ -19,6 +21,14 @@ const settingsSlice = createSlice({
     },
     setTheme: (state, action: PayloadAction<'light' | 'dark'>) => {
       state.theme = action.payload
+      state.colorMode = action.payload
+    },
+    setColorMode: (state, action: PayloadAction<'light' | 'dark'>) => {
+      state.colorMode = action.payload
+      state.theme = action.payload
+    },
+    setThemeStyle: (state, action: PayloadAction<'brutalist' | 'clay'>) => {
+      state.themeStyle = action.payload
     },
     setFirebaseEnabled: (state, action: PayloadAction<boolean>) => {
       state.firebaseEnabled = action.payload
@@ -32,7 +42,14 @@ const settingsSlice = createSlice({
   }
 })
 
-export const { setSettings, setTheme, setFirebaseEnabled, setSyncEnabled, setFirebaseConfig } =
-  settingsSlice.actions
+export const {
+  setSettings,
+  setTheme,
+  setColorMode,
+  setThemeStyle,
+  setFirebaseEnabled,
+  setSyncEnabled,
+  setFirebaseConfig
+} = settingsSlice.actions
 
 export default settingsSlice.reducer

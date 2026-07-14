@@ -245,30 +245,41 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Logo */}
         <div className="flex items-center gap-3 shrink-0">
           <div
-            className="w-10 h-10 flex items-center justify-center border-2 border-white"
-            style={{ background: 'var(--color-border-strong)', boxShadow: 'var(--shadow-brutal-sm)' }}
+            className="w-10 h-10 flex items-center justify-center border-2"
+            style={{
+              background: 'var(--color-border-strong)',
+              borderColor: 'var(--color-header-button-border)',
+              boxShadow: 'var(--shadow-brutal-sm)',
+              color: 'var(--color-header-foreground)'
+            }}
           >
-            <Anchor className="w-5 h-5 text-white" strokeWidth={2.5} />
+            <Anchor className="w-5 h-5" strokeWidth={2.5} />
           </div>
-          <div className="leading-tight text-white">
+          <div className="leading-tight" style={{ color: 'var(--color-header-foreground)' }}>
             <span className="block text-xs font-black uppercase tracking-[0.2em] opacity-80">Shipyard</span>
             <span className="block text-lg font-black uppercase tracking-tight">Fleet Workspace</span>
           </div>
         </div>
 
         {/* Search with dropdown */}
-        <div className="flex-1 max-w-2xl relative">
+        <div className="flex-1 max-w-2xl relative header-search">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/70 pointer-events-none" />
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+              style={{ color: 'var(--color-header-muted)' }}
+            />
             <input
               ref={inputRef}
               type="text"
               value={query}
               placeholder="Search ships, docks, ports…"
-              className="w-full pl-10 pr-10 py-2 text-sm font-bold uppercase tracking-wide border-2 bg-white/5 text-white placeholder:text-white/60 focus:outline-none transition-all"
+              className="w-full pl-10 pr-10 py-2 text-sm font-bold uppercase tracking-wide border-2 focus:outline-none transition-all"
               style={{
-                borderColor: 'white',
-                boxShadow: 'var(--shadow-brutal-sm)'
+                borderColor: 'var(--color-header-button-border)',
+                boxShadow: 'var(--shadow-brutal-sm)',
+                background: 'var(--color-surface)',
+                color: 'var(--color-header-foreground)',
+                caretColor: 'var(--color-primary)'
               }}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => query && results.length > 0 && setIsOpen(true)}
@@ -276,8 +287,11 @@ export const Header: React.FC<HeaderProps> = ({
             />
             {query && (
               <button
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
+                style={{ color: 'var(--color-header-muted)' }}
                 onClick={() => { setQuery(''); setIsOpen(false); onSearch('') }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-header-foreground)')}
+                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-header-muted)')}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -418,19 +432,20 @@ export const Header: React.FC<HeaderProps> = ({
                   ? (syncStatus?.unsyncedCount || 0) > 0
                     ? '#d97706'
                     : '#10b981'
-                  : 'rgba(255,255,255,0.4)',
+                  : 'var(--color-header-button-border)',
               color:
                 syncStatus?.syncEnabled
                   ? (syncStatus?.unsyncedCount || 0) > 0
                     ? '#d97706'
                     : '#10b981'
-                  : 'rgba(255,255,255,0.7)',
+                  : 'var(--color-header-muted)',
               background:
                 syncStatus?.syncEnabled
                   ? (syncStatus?.unsyncedCount || 0) > 0
                     ? 'rgba(217,119,6,0.15)'
                     : 'rgba(16,185,129,0.15)'
-                  : 'rgba(255,255,255,0.05)'
+                  : 'var(--color-header-button-bg)',
+              boxShadow: 'var(--shadow-brutal-sm)'
             }}
             title="Server sync status"
           >
@@ -455,14 +470,26 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
           <button
             onClick={onToggleTheme}
-            className="p-2.5 border-2 border-white text-white font-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5"
+            className="p-2.5 border-2 font-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5"
+            style={{
+              borderColor: 'var(--color-header-button-border)',
+              color: 'var(--color-header-foreground)',
+              background: 'var(--color-header-button-bg)',
+              boxShadow: 'var(--shadow-brutal-sm)'
+            }}
             title={isDarkMode ? 'Light Mode' : 'Dark Mode'}
           >
             {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
           <button
             onClick={onOpenSettings}
-            className="p-2.5 border-2 border-white text-white font-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5"
+            className="p-2.5 border-2 font-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5"
+            style={{
+              borderColor: 'var(--color-header-button-border)',
+              color: 'var(--color-header-foreground)',
+              background: 'var(--color-header-button-bg)',
+              boxShadow: 'var(--shadow-brutal-sm)'
+            }}
             title="Settings"
           >
             <Settings className="w-4 h-4" />
