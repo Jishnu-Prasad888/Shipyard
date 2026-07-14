@@ -13,6 +13,7 @@ interface ListProps {
   openCardId?: string | null
   onCardOpenComplete?: () => void
   orientation: 'horizontal' | 'vertical'
+  rowHeight?: number
 }
 
 // Default statuses matching CardDetailsModal
@@ -22,7 +23,7 @@ const DEFAULT_STATUSES = [
   { id: '__completed__', name: 'Completed', color: '#ef4444' }
 ]
 
-export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange, openCardId, onCardOpenComplete, orientation }) => {
+export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange, openCardId, onCardOpenComplete, orientation, rowHeight }) => {
   const [showCreateCard, setShowCreateCard] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editedName, setEditedName] = useState(list.name)
@@ -120,9 +121,10 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange, openCa
   }, [list.id, width])
 
   useEffect(() => {
+    if (orientation === 'vertical') return
     if (typeof window === 'undefined') return
     localStorage.setItem(`shipyard:list-height:${list.id}`, String(height))
-  }, [list.id, height])
+  }, [list.id, height, orientation])
 
   useEffect(() => {
     return () => {
@@ -136,6 +138,8 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange, openCa
     transition,
     opacity: isDragging ? 0.4 : 1
   }
+
+  const effectiveHeight = orientation === 'vertical' && rowHeight ? rowHeight : height
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -352,8 +356,8 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange, openCa
           minWidth: orientation === 'vertical' ? MIN_WIDTH : MIN_WIDTH,
           maxWidth: orientation === 'vertical' ? '100%' : MAX_WIDTH,
           flexShrink: orientation === 'vertical' ? 1 : 0,
-          height,
-          maxHeight: height,
+          height: effectiveHeight,
+          maxHeight: effectiveHeight,
           minHeight: MIN_HEIGHT,
           overflow: 'visible'
         }}
@@ -589,7 +593,7 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange, openCa
           </button>
         </div>
 
-        {/* Resize handle */}
+        {/* Horizontal resize handle (only in horizontal layout) */}
         {orientation === 'horizontal' && (
           <button
             type="button"
@@ -607,21 +611,23 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange, openCa
           </button>
         )}
 
-        {/* Vertical resize handle */}
-        <button
-          type="button"
-          onMouseDown={handleHeightResizeStart}
-          onDoubleClick={resetHeight}
-          className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-16 h-7 rounded-md flex items-center justify-center cursor-ns-resize"
-          style={{
-            border: '2px solid var(--color-border-strong)',
-            background: 'var(--color-background)',
-            boxShadow: '1px 1px 0 var(--color-border-strong)'
-          }}
-          title="Drag to change height · Double-click to reset"
-        >
-          <MoveVertical className="w-4 h-4" style={{ color: 'var(--color-muted)' }} />
-        </button>
+        {/* Vertical resize handle (per list, only when not controlled by row height) */}
+        {orientation === 'horizontal' && (
+          <button
+            type="button"
+            onMouseDown={handleHeightResizeStart}
+            onDoubleClick={resetHeight}
+            className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-16 h-7 rounded-md flex items-center justify-center cursor-ns-resize"
+            style={{
+              border: '2px solid var(--color-border-strong)',
+              background: 'var(--color-background)',
+              boxShadow: '1px 1px 0 var(--color-border-strong)'
+            }}
+            title="Drag to change height · Double-click to reset"
+          >
+            <MoveVertical className="w-4 h-4" style={{ color: 'var(--color-muted)' }} />
+          </button>
+        )}
       </div>
 
       {/* Right-click context menu */}

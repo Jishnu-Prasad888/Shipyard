@@ -45,6 +45,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     const saved = localStorage.getItem(`shipyard:list-orientation:${boardId}`)
     return saved === 'vertical' ? 'vertical' : 'horizontal'
   })
+  const [columns, setColumns] = useState(1)
+  const [rowHeights, setRowHeights] = useState<Record<number, number>>({})
+  const gridRef = useRef<HTMLDivElement | null>(null)
+  const rowResizeRef = useRef<{ rowIndex: number; y: number; height: number } | null>(null)
 
   // Edit ship state
   const [editing, setEditing] = useState(false)
@@ -214,6 +218,48 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       }))
     : lists
 
+  const totalCards = lists.reduce((acc, l) => acc + (l.cards?.length || 0), 0)
+  const shipColor = board?.color || 'var(--color-primary)'
+  const isVerticalLayout = listOrientation === 'vertical'
+  const listSortingStrategy = isVerticalLayout ? verticalListSortingStrategy : horizontalListSortingStrategy
+  const DEFAULT_ROW_HEIGHT = 680
+  const ROW_MIN_HEIGHT = 320
+  const ROW_MAX_HEIGHT = 1400
+
+  const chunkLists = (items: any[], size: number) => {
+    if (size <= 0) return [items]
+    const result: any[][] = []
+    for (let i = 0; i < items.length; i += size) {
+      result.push(items.slice(i, i + size))
+    }
+    return result
+  }
+
+  const rows = isVerticalLayout ? chunkLists(filteredLists, columns) : [filteredLists]
+
+  const getRowHeight = (rowIndex: number) => rowHeights[rowIndex] ?? DEFAULT_ROW_HEIGHT
+
+  const handleRowResizeMove = (event: MouseEvent) => {
+    if (!rowResizeRef.current) return
+    const delta = event.clientY - rowResizeRef.current.y
+    const next = Math.min(Math.max(rowResizeRef.current.height + delta, ROW_MIN_HEIGHT), ROW_MAX_HEIGHT)
+    setRowHeights((prev) => ({ ...prev, [rowResizeRef.current!.rowIndex]: next }))
+  }
+
+  const stopRowResize = () => {
+    window.removeEventListener('mousemove', handleRowResizeMove)
+    window.removeEventListener('mouseup', stopRowResize)
+    rowResizeRef.current = null
+  }
+
+  const startRowResize = (rowIndex: number, currentHeight: number, event: React.MouseEvent) => {
+    event.preventDefault()
+    event.stopPropagation()
+    rowResizeRef.current = { rowIndex, y: event.clientY, height: currentHeight }
+    window.addEventListener('mousemove', handleRowResizeMove)
+    window.addEventListener('mouseup', stopRowResize)
+  }
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   )
@@ -230,6 +276,45 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     if (typeof window === 'undefined') return
     localStorage.setItem(`shipyard:list-orientation:${boardId}`, listOrientation)
   }, [boardId, listOrientation])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const raw = localStorage.getItem(`shipyard:list-row-heights:${boardId}`)
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed === 'object') setRowHeights(parsed)
+      } catch {}
+    }
+  }, [boardId])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    localStorage.setItem(`shipyard:list-row-heights:${boardId}`, JSON.stringify(rowHeights))
+  }, [boardId, rowHeights])
+
+  useEffect(() => {
+    const computeColumns = () => {
+      if (!isVerticalLayout) {
+        setColumns(filteredLists.length || 1)
+        return
+      }
+
+      const minCardWidth = 340
+      const gap = 20
+      const width = gridRef.current?.clientWidth || window.innerWidth
+      const cols = Math.max(1, Math.floor((width + gap) / (minCardWidth + gap)))
+      setColumns(cols)
+    }
+
+    computeColumns()
+    window.addEventListener('resize', computeColumns)
+    return () => window.removeEventListener('resize', computeColumns)
+  }, [isVerticalLayout, filteredLists.length])
+
+  useEffect(() => {
+    return () => stopRowResize()
+  }, [])
 
   const loadBoard = async () => {
     const boardData = await getBoardWithDetails(boardId)
@@ -422,11 +507,6 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   }
 
   if (!board) return null
-
-  const totalCards = lists.reduce((acc, l) => acc + (l.cards?.length || 0), 0)
-  const shipColor = board.color || 'var(--color-primary)'
-  const isVerticalLayout = listOrientation === 'vertical'
-  const listSortingStrategy = isVerticalLayout ? verticalListSortingStrategy : horizontalListSortingStrategy
 
   return (
     <div className="h-full flex flex-col">
@@ -628,57 +708,119 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
       {/* Kanban board area */}
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
-        <div className={isVerticalLayout ? 'flex-1 overflow-y-auto' : 'flex-1 overflow-x-auto'}>
-          <div
-            className={
-              isVerticalLayout
-                ? 'grid gap-5 pb-6'
-                : 'flex flex-nowrap gap-5 pb-6 h-full'
-            }
-            style={
-              isVerticalLayout
-                ? { gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', width: '100%' }
-                : { minWidth: 'max-content' }
-            }
-          >
-            <SortableContext items={lists.map(l => l.id)} strategy={listSortingStrategy}>
-              {filteredLists.map(list => (
-                <List
-                  key={list.id}
-                  list={list}
-                  boardId={boardId}
-                  onCardsChange={loadBoard}
-                  openCardId={openCardId}
-                  onCardOpenComplete={onCardOpenComplete}
-                  orientation={listOrientation}
-                />
-              ))}
-            </SortableContext>
+        <div ref={gridRef} className={isVerticalLayout ? 'flex-1 overflow-y-auto' : 'flex-1 overflow-x-auto'}>
+          <SortableContext items={filteredLists.map(l => l.id)} strategy={listSortingStrategy}>
+            {isVerticalLayout ? (
+              <div className="pb-6 space-y-6">
+                {rows.map((rowLists, rowIndex) => {
+                  const rowHeight = getRowHeight(rowIndex)
+                  const columnCount = Math.max(1, Math.min(columns, rowLists.length || columns))
 
-            {/* Add manifest placeholder */}
-            <button
-              onClick={() => setShowCreateList(true)}
-              className="w-80 shrink-0 h-fit p-5 border-4 border-dashed transition-all duration-100"
-              style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-muted)', boxShadow: 'var(--shadow-brutal-sm)' }}
-              onMouseOver={e => {
-                e.currentTarget.style.borderColor = 'var(--color-primary)'
-                e.currentTarget.style.background = 'var(--color-primary-soft)'
-                e.currentTarget.style.color = 'var(--color-primary)'
-              }}
-              onMouseOut={e => {
-                e.currentTarget.style.borderColor = 'var(--color-border-strong)'
-                e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.color = 'var(--color-muted)'
-              }}
-            >
-              <div className="flex items-center justify-center gap-3">
-                <div className="w-8 h-8 border-3 flex items-center justify-center font-black" style={{ borderColor: 'currentColor' }}>
-                  <Plus className="w-5 h-5 stroke-[3px]" />
+                  return (
+                    <div key={`row-${rowIndex}`} className="space-y-2">
+                      <div
+                        className="grid gap-5"
+                        style={{ gridTemplateColumns: `repeat(${columnCount}, minmax(320px, 1fr))` }}
+                      >
+                        {rowLists.map((list) => (
+                          <List
+                            key={list.id}
+                            list={list}
+                            boardId={boardId}
+                            onCardsChange={loadBoard}
+                            openCardId={openCardId}
+                            onCardOpenComplete={onCardOpenComplete}
+                            orientation={listOrientation}
+                            rowHeight={rowHeight}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex justify-center">
+                        <button
+                          type="button"
+                          onMouseDown={(e) => startRowResize(rowIndex, rowHeight, e)}
+                          className="px-3 py-1.5 text-[11px] font-black uppercase tracking-wide border-2 rounded-md flex items-center gap-2"
+                          style={{
+                            borderColor: 'var(--color-border-strong)',
+                            background: 'var(--color-surface-2)',
+                            color: 'var(--color-muted)',
+                            boxShadow: 'var(--shadow-brutal-sm)'
+                          }}
+                          title="Drag to resize this row of manifests"
+                        >
+                          <MoveVertical className="w-4 h-4" />
+                          Row height
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+
+                <div className="flex items-center justify-center">
+                  <button
+                    onClick={() => setShowCreateList(true)}
+                    className="w-full max-w-sm h-fit p-5 border-4 border-dashed transition-all duration-100"
+                    style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-muted)', boxShadow: 'var(--shadow-brutal-sm)' }}
+                    onMouseOver={e => {
+                      e.currentTarget.style.borderColor = 'var(--color-primary)'
+                      e.currentTarget.style.background = 'var(--color-primary-soft)'
+                      e.currentTarget.style.color = 'var(--color-primary)'
+                    }}
+                    onMouseOut={e => {
+                      e.currentTarget.style.borderColor = 'var(--color-border-strong)'
+                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.color = 'var(--color-muted)'
+                    }}
+                  >
+                    <div className="flex items-center justify-center gap-3">
+                      <div className="w-8 h-8 border-3 flex items-center justify-center font-black" style={{ borderColor: 'currentColor' }}>
+                        <Plus className="w-5 h-5 stroke-[3px]" />
+                      </div>
+                      <span className="font-black text-sm uppercase tracking-wider">Add Manifest</span>
+                    </div>
+                  </button>
                 </div>
-                <span className="font-black text-sm uppercase tracking-wider">Add Manifest</span>
               </div>
-            </button>
-          </div>
+            ) : (
+              <div className="flex flex-nowrap gap-5 pb-6 h-full" style={{ minWidth: 'max-content' }}>
+                {filteredLists.map(list => (
+                  <List
+                    key={list.id}
+                    list={list}
+                    boardId={boardId}
+                    onCardsChange={loadBoard}
+                    openCardId={openCardId}
+                    onCardOpenComplete={onCardOpenComplete}
+                    orientation={listOrientation}
+                  />
+                ))}
+
+                {/* Add manifest placeholder */}
+                <button
+                  onClick={() => setShowCreateList(true)}
+                  className="w-80 shrink-0 h-fit p-5 border-4 border-dashed transition-all duration-100"
+                  style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-muted)', boxShadow: 'var(--shadow-brutal-sm)' }}
+                  onMouseOver={e => {
+                    e.currentTarget.style.borderColor = 'var(--color-primary)'
+                    e.currentTarget.style.background = 'var(--color-primary-soft)'
+                    e.currentTarget.style.color = 'var(--color-primary)'
+                  }}
+                  onMouseOut={e => {
+                    e.currentTarget.style.borderColor = 'var(--color-border-strong)'
+                    e.currentTarget.style.background = 'transparent'
+                    e.currentTarget.style.color = 'var(--color-muted)'
+                  }}
+                >
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="w-8 h-8 border-3 flex items-center justify-center font-black" style={{ borderColor: 'currentColor' }}>
+                      <Plus className="w-5 h-5 stroke-[3px]" />
+                    </div>
+                    <span className="font-black text-sm uppercase tracking-wider">Add Manifest</span>
+                  </div>
+                </button>
+              </div>
+            )}
+          </SortableContext>
         </div>
       </DndContext>
 
