@@ -99,6 +99,23 @@ export interface FirebaseConfig {
   appId: string
 }
 
+export type KeyboardShortcutAction =
+  | 'quickCreate'
+  | 'createPort'
+  | 'createDock'
+  | 'createShip'
+  | 'createManifest'
+  | 'createCargo'
+  | 'openSettings'
+  | 'goHome'
+  | 'openCalendar'
+  | 'toggleTheme'
+
+export interface KeyboardShortcut {
+  action: KeyboardShortcutAction
+  strokes: string[]
+}
+
 export interface Settings {
   theme: 'light' | 'dark'
   firebaseEnabled: boolean
@@ -109,4 +126,5 @@ export interface Settings {
   serverUrl?: string
   serverSyncEnabled?: boolean
   lastServerSyncAt?: number
+  keyboardShortcuts?: KeyboardShortcut[]
 }

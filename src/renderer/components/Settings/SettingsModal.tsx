@@ -15,13 +15,16 @@ import {
   WifiOff,
   Type,
   Server,
-  Activity
+  Activity,
+  Keyboard
 } from 'lucide-react'
 import { FirebaseConfig } from './FirebaseConfig'
 import { ExportModal } from './ExportModal'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '../../store'
 import { setSettings } from '../../store/settingsSlice'
+import { KeyboardShortcutsModal } from './KeyboardShortcutsModal'
+import { effectiveKeyboardShortcuts } from '../../lib/keyboardShortcuts'
 import {
   getServerHealth,
   getServerSyncStatus,
@@ -60,6 +63,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const [syncStatus, setSyncStatus] = useState<any>(null)
   const [saved, setSaved] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
+  const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false)
+  const [keyboardShortcuts, setKeyboardShortcuts] = useState(() =>
+    effectiveKeyboardShortcuts(settings.keyboardShortcuts)
+  )
 
   // ── Font state ──
   const [fontFamily, setFontFamily] = useState<string>(settings.fontFamily || '')
@@ -280,7 +287,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         minimizeToTray,
         serverUrl: serverUrl || undefined,
         serverSyncEnabled,
-        lastServerSyncAt
+        lastServerSyncAt,
+        keyboardShortcuts
       }
       const result = await window.electron.settings.save(updatedSettings)
       dispatch(
@@ -293,7 +301,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
           minimizeToTray,
           serverUrl: serverUrl || undefined,
           serverSyncEnabled,
-          lastServerSyncAt
+          lastServerSyncAt,
+          keyboardShortcuts
         })
       )
 
@@ -336,7 +345,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     try {
       // Save first so the main process has the latest config
       await window.electron.settings.save({
-        theme,
+        ...settings,
         firebaseEnabled: true,
         syncEnabled,
         firebaseConfig
@@ -586,6 +595,30 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
             />
             Minimize to tray
           </label>
+
+          <div
+            className="aero-panel p-4"
+            style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}
+          >
+            <h3
+              className="font-black text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2"
+              style={{ color: 'var(--color-muted)' }}
+            >
+              <Keyboard className="w-3.5 h-3.5" />
+              Keyboard Shortcuts
+            </h3>
+            <p className="text-xs font-bold mb-3" style={{ color: 'var(--color-muted)' }}>
+              Add, edit, or remove shortcuts for quick create and navigation actions.
+            </p>
+            <button
+              onClick={() => setShowKeyboardShortcuts(true)}
+              className="btn-secondary w-full flex items-center justify-center gap-2 py-2.5 text-xs"
+              style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+            >
+              <Keyboard className="w-4 h-4" />
+              Manage Keyboard Shortcuts
+            </button>
+          </div>
 
           {/* ── TYPOGRAPHY ── */}
           <div
@@ -1196,6 +1229,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
       </div>
 
       {showExportModal && <ExportModal onClose={() => setShowExportModal(false)} />}
+      {showKeyboardShortcuts && (
+        <KeyboardShortcutsModal
+          value={keyboardShortcuts}
+          onChange={setKeyboardShortcuts}
+          onClose={() => setShowKeyboardShortcuts(false)}
+        />
+      )}
     </div>
   )
 }
