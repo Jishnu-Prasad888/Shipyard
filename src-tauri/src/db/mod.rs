@@ -566,6 +566,45 @@ fn migrate_to_v1(tx: &Transaction<'_>) -> Result<()> {
            ELSE type END",
         [],
     )?;
+    migrate_legacy_default_labels(tx)?;
+    Ok(())
+}
+
+fn migrate_legacy_default_labels(tx: &Transaction<'_>) -> Result<()> {
+    tx.execute(
+        "UPDATE columns SET name = 'Done' WHERE id = 'list-release-shipped'",
+        [],
+    )?;
+    tx.execute(
+        "UPDATE statuses SET name = 'Done'
+         WHERE id IN ('status-roadmap-ready', 'status-release-shipped')",
+        [],
+    )?;
+
+    let mut stmt = tx.prepare("SELECT id, status FROM tasks WHERE status IS NOT NULL")?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<Result<Vec<_>>>()?;
+    drop(stmt);
+
+    for (task_id, raw_status) in rows {
+        let Ok(mut status) = serde_json::from_str::<Value>(&raw_status) else {
+            continue;
+        };
+        let status_id = status.get("id").and_then(Value::as_str).unwrap_or_default();
+        if !matches!(status_id, "status-roadmap-ready" | "status-release-shipped") {
+            continue;
+        }
+        if let Some(object) = status.as_object_mut() {
+            object.insert("name".into(), json!("Done"));
+        }
+        tx.execute(
+            "UPDATE tasks SET status = ?1 WHERE id = ?2",
+            params![status.to_string(), task_id],
+        )?;
+    }
     Ok(())
 }
 
@@ -903,9 +942,9 @@ mod tests {
                 INSERT INTO docks VALUES ('unassigned', 'Unassigned', NULL, NULL, NULL, NULL, 103, 203, '[]');
                 INSERT INTO boards VALUES ('board-1', 'Board', 'Board description', 'assigned', '#444444', '["b"]', 104, 204);
                 INSERT INTO lists VALUES ('list-1', 'Todo', 'board-1', 0, '#555555', 105, 205);
-                INSERT INTO cards VALUES ('card-1', 'Task', 'Task description', 'list-1', 'board-1', 0, '#666666', 999, '{"id":"status-1"}', 'Notes', '["tag"]', '["card-2"]', '["list-1"]', '[]', 106, 206);
+                INSERT INTO cards VALUES ('card-1', 'Task', 'Task description', 'list-1', 'board-1', 0, '#666666', 999, '{"id":"status-release-shipped","name":"Shipped"}', 'Notes', '["tag"]', '["card-2"]', '["list-1"]', '[]', 106, 206);
                 INSERT INTO subcards VALUES ('subcard-1', 'Step', 1, 'card-1', 107);
-                INSERT INTO statuses VALUES ('status-1', 'Working', '#777777', 'board-1', 108, 208);
+                INSERT INTO statuses VALUES ('status-release-shipped', 'Shipped', '#777777', 'board-1', 108, 208);
                 INSERT INTO connections VALUES ('connection-1', 'card-1', 'card-2', 'card-to-card', '[]', 'board-1');
                 INSERT INTO sync_queue VALUES ('pending', 'UPDATE', 'cards', 'card-1', '{"listId":"list-1","connectedCardIds":["card-2"],"subCards":[{"cardId":"card-1"}],"type":"card-to-card"}', 109, 0);
                 INSERT INTO sync_queue VALUES ('synced', 'UPDATE', 'cards', 'card-1', '{"listId":"list-1"}', 110, 1);
@@ -965,6 +1004,22 @@ mod tests {
                     |row| row.get::<_, String>(0)
                 )?,
                 "task-to-task"
+            );
+            assert_eq!(
+                conn.query_row(
+                    "SELECT name FROM statuses WHERE id = 'status-release-shipped'",
+                    [],
+                    |row| row.get::<_, String>(0)
+                )?,
+                "Done"
+            );
+            let migrated_status: String =
+                conn.query_row("SELECT status FROM tasks WHERE id = 'card-1'", [], |row| {
+                    row.get(0)
+                })?;
+            assert_eq!(
+                serde_json::from_str::<Value>(&migrated_status).unwrap()["name"],
+                "Done"
             );
             let foreign_key_errors: i64 =
                 conn.query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {

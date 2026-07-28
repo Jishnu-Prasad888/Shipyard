@@ -173,7 +173,7 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
         // Release
         json!({"id": "column-release-queue", "name": "QA Queue", "boardId": "board-release", "order": 0, "color": "#38bdf8", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
         json!({"id": "column-release-hardening", "name": "Hardening", "boardId": "board-release", "order": 1, "color": "#f97316", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
-        json!({"id": "column-release-complete", "name": "Complete", "boardId": "board-release", "order": 2, "color": "#10b981", "createdAt": start + day * 2, "updatedAt": now - day / 3}),
+        json!({"id": "column-release-complete", "name": "Done", "boardId": "board-release", "order": 2, "color": "#10b981", "createdAt": start + day * 2, "updatedAt": now - day / 3}),
         // Lab
         json!({"id": "column-lab-ideas", "name": "Ideas", "boardId": "board-lab", "order": 0, "color": "#a855f7", "createdAt": start + day * 3, "updatedAt": now - day / 2}),
         json!({"id": "column-lab-prototype", "name": "Prototype", "boardId": "board-lab", "order": 1, "color": "#0ea5e9", "createdAt": start + day * 3, "updatedAt": now - day / 2}),
@@ -191,22 +191,22 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
     // ── Statuses ──
     let status_data = vec![
         // Roadmap
-        json!({"id": "status-roadmap-planned", "name": "Planned", "color": "#0ea5e9", "boardId": "board-roadmap", "createdAt": start + day * 2, "updatedAt": now - day}),
+        json!({"id": "status-roadmap-planned", "name": "To Do", "color": "#0ea5e9", "boardId": "board-roadmap", "createdAt": start + day * 2, "updatedAt": now - day}),
         json!({"id": "status-roadmap-building", "name": "In Progress", "color": "#f59e0b", "boardId": "board-roadmap", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
         json!({"id": "status-roadmap-ready", "name": "Ready", "color": "#10b981", "boardId": "board-roadmap", "createdAt": start + day * 2, "updatedAt": now - day / 3}),
         json!({"id": "status-roadmap-blocked", "name": "Blocked", "color": "#ef4444", "boardId": "board-roadmap", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
         // Release
         json!({"id": "status-release-qa", "name": "QA", "color": "#38bdf8", "boardId": "board-release", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
         json!({"id": "status-release-hardening", "name": "Hardening", "color": "#f97316", "boardId": "board-release", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
-        json!({"id": "status-release-complete", "name": "Complete", "color": "#10b981", "boardId": "board-release", "createdAt": start + day * 2, "updatedAt": now - day / 3}),
+        json!({"id": "status-release-complete", "name": "Done", "color": "#10b981", "boardId": "board-release", "createdAt": start + day * 2, "updatedAt": now - day / 3}),
         // Lab
         json!({"id": "status-lab-idea", "name": "Idea", "color": "#a855f7", "boardId": "board-lab", "createdAt": start + day * 3, "updatedAt": now - day / 2}),
         json!({"id": "status-lab-testing", "name": "Exploring", "color": "#0ea5e9", "boardId": "board-lab", "createdAt": start + day * 3, "updatedAt": now - day / 2}),
         json!({"id": "status-lab-demo", "name": "Demo Ready", "color": "#22c55e", "boardId": "board-lab", "createdAt": start + day * 3, "updatedAt": now - day / 3}),
         // Ops
         json!({"id": "status-ops-triage", "name": "Triage", "color": "#ef4444", "boardId": "board-ops", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
-        json!({"id": "status-ops-active", "name": "Working", "color": "#3b82f6", "boardId": "board-ops", "createdAt": start + day * 2, "updatedAt": now - day / 3}),
-        json!({"id": "status-ops-done", "name": "Ready", "color": "#10b981", "boardId": "board-ops", "createdAt": start + day * 2, "updatedAt": now - day / 4}),
+        json!({"id": "status-ops-active", "name": "In Progress", "color": "#3b82f6", "boardId": "board-ops", "createdAt": start + day * 2, "updatedAt": now - day / 3}),
+        json!({"id": "status-ops-done", "name": "Done", "color": "#10b981", "boardId": "board-ops", "createdAt": start + day * 2, "updatedAt": now - day / 4}),
     ];
 
     for status in &status_data {
@@ -226,7 +226,7 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "color": "#0ea5e9",
             "tags": [tag_customer.clone(), tag_ux.clone()],
             "deadline": now + day * 4,
-            "status": {"id": "status-roadmap-planned", "name": "Planned", "color": "#0ea5e9", "boardId": "board-roadmap"},
+            "status": {"id": "status-roadmap-planned", "name": "To Do", "color": "#0ea5e9", "boardId": "board-roadmap"},
             "notes": "Draft flows in Excalidraw so we can react together.",
             "connectedTaskIds": [],
             "connectedColumnIds": ["column-roadmap-build"],
@@ -329,7 +329,7 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "color": "#10b981",
             "tags": [tag_customer.clone()],
             "deadline": now + day * 2,
-            "status": {"id": "status-release-complete", "name": "Complete", "color": "#10b981", "boardId": "board-release"},
+            "status": {"id": "status-release-complete", "name": "Done", "color": "#10b981", "boardId": "board-release"},
             "notes": "Send to early adopters first.",
             "connectedTaskIds": ["task-regression-suite"],
             "connectedColumnIds": [],
@@ -416,7 +416,7 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "color": "#3b82f6",
             "tags": [tag_ops.clone(), tag_performance.clone()],
             "deadline": now + day,
-            "status": {"id": "status-ops-active", "name": "Working", "color": "#3b82f6", "boardId": "board-ops"},
+            "status": {"id": "status-ops-active", "name": "In Progress", "color": "#3b82f6", "boardId": "board-ops"},
             "notes": "Measure alert-to-ticket ratio after changes.",
             "connectedTaskIds": ["task-incident-drill"],
             "connectedColumnIds": ["column-ops-done"],
@@ -433,7 +433,7 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "color": "#10b981",
             "tags": [tag_ops.clone(), tag_reliability.clone()],
             "deadline": now + day * 2,
-            "status": {"id": "status-ops-done", "name": "Ready", "color": "#10b981", "boardId": "board-ops"},
+            "status": {"id": "status-ops-done", "name": "Done", "color": "#10b981", "boardId": "board-ops"},
             "notes": "Share with the wider team and add to the handbook.",
             "connectedTaskIds": ["task-alert-tuning"],
             "connectedColumnIds": [],
