@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { type ReactElement, useEffect, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { Settings } from '@shared/types'
+import { KeyboardShortcutAction, Settings } from '@shared/types'
 import { Sidebar } from './components/Layout/Sidebar'
 import { Header } from './components/Layout/Header'
 import { ProjectView } from './components/Projects/ProjectView'
@@ -11,8 +11,19 @@ import { CalendarView } from './components/Calendar/CalendarView'
 import { Toast } from './components/common/Toast'
 import { RootState } from './store'
 import { setSettings } from './store/settingsSlice'
+import {
+  effectiveKeyboardShortcuts,
+  plainStroke,
+  shortcutStrokeFromEvent,
+  shortcutsMatchingPrefix
+} from './lib/keyboardShortcuts'
+import {
+  QuickCreateModal,
+  QuickCreateResult,
+  QuickCreateType
+} from './components/QuickCreate/QuickCreateModal'
 
-function App() {
+function App(): ReactElement {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
@@ -20,14 +31,18 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [dataVersion, setDataVersion] = useState(0)
   const [toast, setToast] = useState<{ message: string; onUndo?: () => void } | null>(null)
+  const [quickCreateType, setQuickCreateType] = useState<QuickCreateType | null | undefined>(
+    undefined
+  )
   const dispatch = useDispatch()
   const settings = useSelector((state: RootState) => state.settings)
 
-  const handleDataChange = () => setDataVersion((v) => v + 1)
+  const handleDataChange = (): void => setDataVersion((v) => v + 1)
 
   useEffect(() => {
-    const handleShowToast = (e: any) => {
-      setToast({ message: e.detail.message, onUndo: e.detail.onUndo })
+    const handleShowToast = (event: Event): void => {
+      const detail = (event as CustomEvent<{ message: string; onUndo?: () => void }>).detail
+      setToast({ message: detail.message, onUndo: detail.onUndo })
     }
     window.addEventListener('show-toast', handleShowToast)
     return () => window.removeEventListener('show-toast', handleShowToast)
@@ -71,23 +86,26 @@ function App() {
     })
   }, [dispatch])
 
-  const handleSelectProject = (projectId: string) => {
+  const handleSelectProject = (projectId: string): void => {
     setSelectedProjectId(projectId)
     setSelectedBoardId(null)
   }
 
-  const handleSelectBoard = (boardId: string) => {
+  const handleSelectBoard = (boardId: string): void => {
     setSelectedBoardId(boardId)
   }
 
-  const handleSearchSelectBoard = (boardId: string, projectId: string) => {
+  const handleSearchSelectBoard = (boardId: string, projectId: string): void => {
     setSelectedProjectId(projectId)
     setSelectedBoardId(boardId)
   }
 
-  const handleHomeSelectBoard = async (boardId: string) => {
-    const allBoards = await window.electron.db.findAll('boards')
-    const board = allBoards.find((b: any) => b.id === boardId)
+  const handleHomeSelectBoard = async (boardId: string): Promise<void> => {
+    const allBoards = (await window.electron.db.findAll('boards')) as Array<{
+      id: string
+      projectId: string
+    }>
+    const board = allBoards.find((candidate) => candidate.id === boardId)
     if (board) {
       setSelectedProjectId(board.projectId)
       setSelectedBoardId(boardId)
@@ -96,13 +114,13 @@ function App() {
     }
   }
 
-  const handleGoHome = () => {
+  const handleGoHome = (): void => {
     setSelectedProjectId(null)
     setSelectedBoardId(null)
     setShowCalendar(false)
   }
 
-  const handleOpenCalendar = () => {
+  const handleOpenCalendar = (): void => {
     setShowCalendar(true)
     setSelectedProjectId(null)
     setSelectedBoardId(null)
@@ -110,15 +128,141 @@ function App() {
 
   const isHome = !selectedProjectId && !selectedBoardId && !showCalendar
 
-  const handleToggleTheme = () => {
-    const newTheme = settings.theme === 'light' ? 'dark' : 'light'
-    const updatedSettings = { ...settings, theme: newTheme as 'light' | 'dark' }
+  const handleToggleTheme = (): void => {
+    const newTheme: Settings['theme'] = settings.theme === 'light' ? 'dark' : 'light'
+    const updatedSettings = { ...settings, theme: newTheme }
     if (newTheme === 'dark') document.documentElement.classList.add('dark')
     else document.documentElement.classList.remove('dark')
     window.electron.darkMode.toggle(newTheme === 'dark')
     window.electron.settings.save(updatedSettings)
     dispatch(setSettings(updatedSettings))
   }
+
+  const handleQuickCreateResult = (result: QuickCreateResult): void => {
+    setQuickCreateType(undefined)
+    handleDataChange()
+    setSelectedProjectId(result.projectId || null)
+    setSelectedBoardId(result.boardId || null)
+    setShowCalendar(false)
+    setToast({
+      message: `${result.type[0].toUpperCase()}${result.type.slice(1)} "${result.entity.name || result.entity.title}" created`
+    })
+  }
+
+  useEffect(() => {
+    let sequence: string[] = []
+    let resetTimer: number | undefined
+    let pendingAction: KeyboardShortcutAction | undefined
+
+    const runAction = (action: KeyboardShortcutAction): void => {
+      switch (action) {
+        case 'quickCreate':
+          setQuickCreateType(null)
+          break
+        case 'createPort':
+          setQuickCreateType('port')
+          break
+        case 'createDock':
+          setQuickCreateType('dock')
+          break
+        case 'createShip':
+          setQuickCreateType('ship')
+          break
+        case 'createManifest':
+          setQuickCreateType('manifest')
+          break
+        case 'createCargo':
+          setQuickCreateType('cargo')
+          break
+        case 'openSettings':
+          setShowSettings(true)
+          break
+        case 'goHome':
+          handleGoHome()
+          break
+        case 'openCalendar':
+          handleOpenCalendar()
+          break
+        case 'toggleTheme':
+          {
+            const theme = settings.theme === 'light' ? 'dark' : 'light'
+            const updatedSettings = { ...settings, theme } as Settings
+            document.documentElement.classList.toggle('dark', theme === 'dark')
+            void window.electron.darkMode.toggle(theme === 'dark')
+            void window.electron.settings.save(updatedSettings)
+            dispatch(setSettings(updatedSettings))
+          }
+          break
+      }
+    }
+
+    const resetSequenceSoon = (action?: KeyboardShortcutAction): void => {
+      window.clearTimeout(resetTimer)
+      pendingAction = action
+      resetTimer = window.setTimeout(() => {
+        if (pendingAction) runAction(pendingAction)
+        pendingAction = undefined
+        sequence = []
+      }, 1200)
+    }
+
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.repeat) return
+      const target = event.target as HTMLElement | null
+      if (target?.matches('input, textarea, select') || target?.isContentEditable) {
+        return
+      }
+
+      const shortcuts = effectiveKeyboardShortcuts(settings.keyboardShortcuts)
+      const eventStroke = shortcutStrokeFromEvent(event)
+      if (!eventStroke) return
+
+      const matchingSequence = (
+        stroke: string
+      ): { next: string[]; matches: ReturnType<typeof shortcutsMatchingPrefix> } => {
+        const next = [...sequence, stroke]
+        return {
+          next,
+          matches: shortcutsMatchingPrefix(shortcuts, next)
+        }
+      }
+
+      let result = matchingSequence(eventStroke)
+      if (result.matches.length === 0 && sequence.length > 0) {
+        result = matchingSequence(plainStroke(eventStroke))
+      }
+      if (result.matches.length === 0) {
+        window.clearTimeout(resetTimer)
+        if (pendingAction) runAction(pendingAction)
+        pendingAction = undefined
+        sequence = []
+        result = matchingSequence(eventStroke)
+      }
+      if (result.matches.length === 0) return
+
+      event.preventDefault()
+      window.clearTimeout(resetTimer)
+      pendingAction = undefined
+      sequence = result.next
+      const exact = result.matches.find((shortcut) => shortcut.strokes.length === sequence.length)
+      const hasLongerMatch = result.matches.some(
+        (shortcut) => shortcut.strokes.length > sequence.length
+      )
+      if (hasLongerMatch) {
+        if (exact?.action === 'quickCreate') runAction(exact.action)
+        resetSequenceSoon(exact?.action === 'quickCreate' ? undefined : exact?.action)
+      } else {
+        if (exact) runAction(exact.action)
+        sequence = []
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.clearTimeout(resetTimer)
+    }
+  }, [dispatch, settings])
 
   return (
     <div className="win7-theme aero-shell h-screen flex flex-col overflow-hidden">
@@ -152,6 +296,7 @@ function App() {
             <div className="p-6 h-full">
               <KanbanBoard
                 boardId={selectedBoardId}
+                dataVersion={dataVersion}
                 searchQuery={searchQuery}
                 onGoBack={() => setSelectedBoardId(null)}
               />
@@ -176,6 +321,15 @@ function App() {
       </div>
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+
+      {quickCreateType !== undefined && (
+        <QuickCreateModal
+          key={quickCreateType || 'chooser'}
+          initialType={quickCreateType}
+          onClose={() => setQuickCreateType(undefined)}
+          onCreated={handleQuickCreateResult}
+        />
+      )}
 
       {toast && (
         <Toast message={toast.message} onUndo={toast.onUndo} onClose={() => setToast(null)} />

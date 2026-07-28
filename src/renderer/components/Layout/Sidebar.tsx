@@ -109,6 +109,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   useEffect(() => {
     void loadData()
+    const reload = () => void loadData()
+    window.addEventListener('reload-projects', reload)
+    return () => window.removeEventListener('reload-projects', reload)
   }, [])
 
   useEffect(() => {
@@ -702,9 +705,14 @@ const ProjectRow = ({
 
   useEffect(() => {
     if (!expanded) return
-    window.electron.db
-      .findAll('boards')
-      .then((rows) => setBoards(rows.filter((board: any) => board.projectId === project.id)))
+    const loadBoards = () => {
+      window.electron.db
+        .findAll('boards')
+        .then((rows) => setBoards(rows.filter((board: any) => board.projectId === project.id)))
+    }
+    loadBoards()
+    window.addEventListener('reload-projects', loadBoards)
+    return () => window.removeEventListener('reload-projects', loadBoards)
   }, [expanded, project.id])
 
   return (

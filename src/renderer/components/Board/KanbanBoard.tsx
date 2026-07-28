@@ -39,12 +39,14 @@ const BOARD_COLORS = [
 
 interface KanbanBoardProps {
   boardId: string
+  dataVersion?: number
   searchQuery?: string
   onGoBack?: () => void
 }
 
 export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   boardId,
+  dataVersion = 0,
   searchQuery = '',
   onGoBack
 }) => {
@@ -201,7 +203,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
 
   useEffect(() => {
     loadBoard()
-  }, [boardId])
+    const reload = () => void loadBoard()
+    window.addEventListener('reload-projects', reload)
+    return () => window.removeEventListener('reload-projects', reload)
+  }, [boardId, dataVersion])
 
   const loadBoard = async () => {
     const boardData = await getBoardWithDetails(boardId)
