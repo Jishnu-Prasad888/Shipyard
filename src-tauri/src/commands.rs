@@ -60,8 +60,8 @@ pub fn db_query(db: State<Database>, args: DbQueryArgs) -> Result<Value, String>
             .map(|v| v.unwrap_or(Value::Null))
             .map_err(|e| e.to_string()),
 
-        "getDocksWithFolders" => db
-            .get_docks_with_folders()
+        "getProjectsWithWorkspaces" => db
+            .get_projects_with_workspaces()
             .map(|v| json!(v))
             .map_err(|e| e.to_string()),
 
@@ -140,10 +140,7 @@ pub struct SaveFileArgs {
 }
 
 #[tauri::command]
-pub async fn export_save_file(
-    app: AppHandle,
-    args: SaveFileArgs,
-) -> Result<Value, String> {
+pub async fn export_save_file(app: AppHandle, args: SaveFileArgs) -> Result<Value, String> {
     use tauri_plugin_dialog::DialogExt;
 
     let extension = args.ext.clone();
@@ -178,10 +175,7 @@ pub struct FileEntry {
 }
 
 #[tauri::command]
-pub async fn export_save_folder(
-    app: AppHandle,
-    files: Vec<FileEntry>,
-) -> Result<Value, String> {
+pub async fn export_save_folder(app: AppHandle, files: Vec<FileEntry>) -> Result<Value, String> {
     use tauri_plugin_dialog::DialogExt;
 
     let folder_path = app
@@ -197,8 +191,7 @@ pub async fn export_save_folder(
 
             for file in &files {
                 let file_path = folder_path.join(format!("{}.{}", file.name, file.ext));
-                std::fs::write(&file_path, file.content.as_bytes())
-                    .map_err(|e| e.to_string())?;
+                std::fs::write(&file_path, file.content.as_bytes()).map_err(|e| e.to_string())?;
                 count += 1;
             }
 

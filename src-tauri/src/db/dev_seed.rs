@@ -18,22 +18,22 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
                 r#"
                 DELETE FROM sync_queue;
                 DELETE FROM connections;
-                DELETE FROM subcards;
-                DELETE FROM cards;
-                DELETE FROM lists;
+                DELETE FROM subtasks;
+                DELETE FROM tasks;
+                DELETE FROM columns;
                 DELETE FROM statuses;
                 DELETE FROM boards;
-                DELETE FROM docks;
-                DELETE FROM folders;
+                DELETE FROM projects;
+                DELETE FROM workspaces;
                 DELETE FROM tags;
                 "#,
             )?;
         } else {
-            let dock_count: i64 = conn
-                .query_row("SELECT COUNT(*) FROM docks", [], |r| r.get(0))
+            let project_count: i64 = conn
+                .query_row("SELECT COUNT(*) FROM projects", [], |r| r.get(0))
                 .unwrap_or(0);
 
-            should_seed = dock_count == 0;
+            should_seed = project_count == 0;
         }
     }
 
@@ -45,53 +45,55 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
     let day = 86_400_000_i64;
     let start = now - day * 5;
 
-    // ── Shared tag objects (re-used in cards) ──
+    // ── Shared tag objects (re-used in tasks) ──
     let tag_customer = json!({ "id": "tag-customer", "name": "Customer", "color": "#f59e0b" });
-    let tag_reliability = json!({ "id": "tag-reliability", "name": "Reliability", "color": "#10b981" });
+    let tag_reliability =
+        json!({ "id": "tag-reliability", "name": "Reliability", "color": "#10b981" });
     let tag_ai = json!({ "id": "tag-ai", "name": "AI", "color": "#a855f7" });
     let tag_ops = json!({ "id": "tag-ops", "name": "Ops", "color": "#f97316" });
-    let tag_performance = json!({ "id": "tag-performance", "name": "Performance", "color": "#0ea5e9" });
+    let tag_performance =
+        json!({ "id": "tag-performance", "name": "Performance", "color": "#0ea5e9" });
     let tag_ux = json!({ "id": "tag-ux", "name": "UX", "color": "#6366f1" });
 
-    // ── Folders ──
-    let folder_data = vec![
+    // ── Workspaces ──
+    let workspace_data = vec![
         json!({
-            "id": "port-ops",
-            "name": "Operations Fleet",
+            "id": "workspace-operations",
+            "name": "Operations",
             "color": "#2563eb",
             "createdAt": start,
         }),
         json!({
-            "id": "port-innovation",
-            "name": "Innovation Wharf",
+            "id": "workspace-innovation",
+            "name": "Innovation",
             "color": "#a855f7",
-            "parentId": "port-ops",
+            "parentWorkspaceId": "workspace-operations",
             "createdAt": start + day,
         }),
     ];
 
-    for folder in &folder_data {
-        let _ = db.create("folders", folder)?;
+    for workspace in &workspace_data {
+        let _ = db.create("workspaces", workspace)?;
     }
 
-    // ── Docks ──
-    let dock_data = vec![
+    // ── Projects ──
+    let project_data = vec![
         json!({
-            "id": "dock-mission",
-            "name": "Mission Control",
-            "description": "Quarterly planning and launch readiness.",
-            "folderId": "port-ops",
-            "tags": ["planning", "launch"],
+            "id": "project-planning",
+            "name": "Quarterly Planning",
+            "description": "Quarterly planning and delivery readiness.",
+            "workspaceId": "workspace-operations",
+            "tags": ["planning", "delivery"],
             "color": "#0ea5e9",
             "boardIds": ["board-roadmap", "board-release"],
             "createdAt": start + day * 2,
             "updatedAt": now - day,
         }),
         json!({
-            "id": "dock-discovery",
+            "id": "project-research",
             "name": "Discovery Lab",
             "description": "Research spikes and prototype ideas.",
-            "folderId": "port-innovation",
+            "workspaceId": "workspace-innovation",
             "tags": ["experiments", "ml"],
             "color": "#8b5cf6",
             "boardIds": ["board-lab"],
@@ -99,8 +101,8 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "updatedAt": now - day / 2,
         }),
         json!({
-            "id": "dock-ops",
-            "name": "Harbor Ops",
+            "id": "project-operations",
+            "name": "Service Operations",
             "description": "Runbooks, SLOs, and incident practice.",
             "tags": ["runbooks", "oncall"],
             "color": "#f97316",
@@ -110,8 +112,8 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
         }),
     ];
 
-    for dock in &dock_data {
-        let _ = db.create("docks", dock)?;
+    for project in &project_data {
+        let _ = db.create("projects", project)?;
     }
 
     // ── Boards ──
@@ -120,9 +122,9 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "id": "board-roadmap",
             "name": "Q3 Roadmap",
             "description": "Map the core work for the quarter.",
-            "dockId": "dock-mission",
+            "projectId": "project-planning",
             "color": "#0ea5e9",
-            "tags": ["roadmap", "launch"],
+            "tags": ["roadmap", "delivery"],
             "createdAt": start + day * 2,
             "updatedAt": now - day,
         }),
@@ -130,7 +132,7 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "id": "board-release",
             "name": "Release Train",
             "description": "Stability, QA, and rollout readiness.",
-            "dockId": "dock-mission",
+            "projectId": "project-planning",
             "color": "#10b981",
             "tags": ["stability", "qa"],
             "createdAt": start + day * 2,
@@ -140,7 +142,7 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "id": "board-lab",
             "name": "AI Sketches",
             "description": "Research prototypes and spikes.",
-            "dockId": "dock-discovery",
+            "projectId": "project-research",
             "color": "#a855f7",
             "tags": ["experiments", "ml"],
             "createdAt": start + day * 3,
@@ -150,7 +152,7 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "id": "board-ops",
             "name": "Runbook",
             "description": "Keep on-call calm and predictable.",
-            "dockId": "dock-ops",
+            "projectId": "project-operations",
             "color": "#f97316",
             "tags": ["ops", "oncall"],
             "createdAt": start + day * 2,
@@ -162,41 +164,41 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
         let _ = db.create("boards", board)?;
     }
 
-    // ── Lists ──
-    let list_data = vec![
+    // ── Columns ──
+    let column_data = vec![
         // Roadmap
-        json!({"id": "list-roadmap-ideas", "name": "Discovery", "boardId": "board-roadmap", "order": 0, "color": "#0ea5e9", "createdAt": start + day * 2, "updatedAt": now - day}),
-        json!({"id": "list-roadmap-build", "name": "Build", "boardId": "board-roadmap", "order": 1, "color": "#f59e0b", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
-        json!({"id": "list-roadmap-launch", "name": "Launch Ready", "boardId": "board-roadmap", "order": 2, "color": "#10b981", "createdAt": start + day * 2, "updatedAt": now - day / 3}),
+        json!({"id": "column-roadmap-ideas", "name": "Discovery", "boardId": "board-roadmap", "order": 0, "color": "#0ea5e9", "createdAt": start + day * 2, "updatedAt": now - day}),
+        json!({"id": "column-roadmap-build", "name": "Build", "boardId": "board-roadmap", "order": 1, "color": "#f59e0b", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
+        json!({"id": "column-roadmap-ready", "name": "Ready", "boardId": "board-roadmap", "order": 2, "color": "#10b981", "createdAt": start + day * 2, "updatedAt": now - day / 3}),
         // Release
-        json!({"id": "list-release-queue", "name": "QA Queue", "boardId": "board-release", "order": 0, "color": "#38bdf8", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
-        json!({"id": "list-release-hardening", "name": "Hardening", "boardId": "board-release", "order": 1, "color": "#f97316", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
-        json!({"id": "list-release-shipped", "name": "Shipped", "boardId": "board-release", "order": 2, "color": "#10b981", "createdAt": start + day * 2, "updatedAt": now - day / 3}),
+        json!({"id": "column-release-queue", "name": "QA Queue", "boardId": "board-release", "order": 0, "color": "#38bdf8", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
+        json!({"id": "column-release-hardening", "name": "Hardening", "boardId": "board-release", "order": 1, "color": "#f97316", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
+        json!({"id": "column-release-complete", "name": "Complete", "boardId": "board-release", "order": 2, "color": "#10b981", "createdAt": start + day * 2, "updatedAt": now - day / 3}),
         // Lab
-        json!({"id": "list-lab-ideas", "name": "Ideas", "boardId": "board-lab", "order": 0, "color": "#a855f7", "createdAt": start + day * 3, "updatedAt": now - day / 2}),
-        json!({"id": "list-lab-prototype", "name": "Prototype", "boardId": "board-lab", "order": 1, "color": "#0ea5e9", "createdAt": start + day * 3, "updatedAt": now - day / 2}),
-        json!({"id": "list-lab-showcase", "name": "Showcase", "boardId": "board-lab", "order": 2, "color": "#22c55e", "createdAt": start + day * 3, "updatedAt": now - day / 3}),
+        json!({"id": "column-lab-ideas", "name": "Ideas", "boardId": "board-lab", "order": 0, "color": "#a855f7", "createdAt": start + day * 3, "updatedAt": now - day / 2}),
+        json!({"id": "column-lab-prototype", "name": "Prototype", "boardId": "board-lab", "order": 1, "color": "#0ea5e9", "createdAt": start + day * 3, "updatedAt": now - day / 2}),
+        json!({"id": "column-lab-showcase", "name": "Showcase", "boardId": "board-lab", "order": 2, "color": "#22c55e", "createdAt": start + day * 3, "updatedAt": now - day / 3}),
         // Ops
-        json!({"id": "list-ops-triage", "name": "Triage", "boardId": "board-ops", "order": 0, "color": "#ef4444", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
-        json!({"id": "list-ops-active", "name": "Active", "boardId": "board-ops", "order": 1, "color": "#3b82f6", "createdAt": start + day * 2, "updatedAt": now - day / 3}),
-        json!({"id": "list-ops-done", "name": "Resolved", "boardId": "board-ops", "order": 2, "color": "#10b981", "createdAt": start + day * 2, "updatedAt": now - day / 4}),
+        json!({"id": "column-ops-triage", "name": "Triage", "boardId": "board-ops", "order": 0, "color": "#ef4444", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
+        json!({"id": "column-ops-active", "name": "Active", "boardId": "board-ops", "order": 1, "color": "#3b82f6", "createdAt": start + day * 2, "updatedAt": now - day / 3}),
+        json!({"id": "column-ops-done", "name": "Resolved", "boardId": "board-ops", "order": 2, "color": "#10b981", "createdAt": start + day * 2, "updatedAt": now - day / 4}),
     ];
 
-    for list in &list_data {
-        let _ = db.create("lists", list)?;
+    for column in &column_data {
+        let _ = db.create("columns", column)?;
     }
 
     // ── Statuses ──
     let status_data = vec![
         // Roadmap
         json!({"id": "status-roadmap-planned", "name": "Planned", "color": "#0ea5e9", "boardId": "board-roadmap", "createdAt": start + day * 2, "updatedAt": now - day}),
-        json!({"id": "status-roadmap-building", "name": "In Flight", "color": "#f59e0b", "boardId": "board-roadmap", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
-        json!({"id": "status-roadmap-ready", "name": "Ready to Ship", "color": "#10b981", "boardId": "board-roadmap", "createdAt": start + day * 2, "updatedAt": now - day / 3}),
+        json!({"id": "status-roadmap-building", "name": "In Progress", "color": "#f59e0b", "boardId": "board-roadmap", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
+        json!({"id": "status-roadmap-ready", "name": "Ready", "color": "#10b981", "boardId": "board-roadmap", "createdAt": start + day * 2, "updatedAt": now - day / 3}),
         json!({"id": "status-roadmap-blocked", "name": "Blocked", "color": "#ef4444", "boardId": "board-roadmap", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
         // Release
         json!({"id": "status-release-qa", "name": "QA", "color": "#38bdf8", "boardId": "board-release", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
         json!({"id": "status-release-hardening", "name": "Hardening", "color": "#f97316", "boardId": "board-release", "createdAt": start + day * 2, "updatedAt": now - day / 2}),
-        json!({"id": "status-release-shipped", "name": "Shipped", "color": "#10b981", "boardId": "board-release", "createdAt": start + day * 2, "updatedAt": now - day / 3}),
+        json!({"id": "status-release-complete", "name": "Complete", "color": "#10b981", "boardId": "board-release", "createdAt": start + day * 2, "updatedAt": now - day / 3}),
         // Lab
         json!({"id": "status-lab-idea", "name": "Idea", "color": "#a855f7", "boardId": "board-lab", "createdAt": start + day * 3, "updatedAt": now - day / 2}),
         json!({"id": "status-lab-testing", "name": "Exploring", "color": "#0ea5e9", "boardId": "board-lab", "createdAt": start + day * 3, "updatedAt": now - day / 2}),
@@ -211,14 +213,14 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
         let _ = db.create("statuses", status)?;
     }
 
-    // ── Cards ──
-    let card_data = vec![
+    // ── Tasks ──
+    let task_data = vec![
         // Roadmap
         json!({
-            "id": "card-guided-tour",
+            "id": "task-guided-tour",
             "title": "Guided tour storyboard",
-            "description": "Map the first 5 minutes in the app for new captains.",
-            "listId": "list-roadmap-ideas",
+            "description": "Map the first 5 minutes in the app for new users.",
+            "columnId": "column-roadmap-ideas",
             "boardId": "board-roadmap",
             "order": 0,
             "color": "#0ea5e9",
@@ -226,50 +228,50 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "deadline": now + day * 4,
             "status": {"id": "status-roadmap-planned", "name": "Planned", "color": "#0ea5e9", "boardId": "board-roadmap"},
             "notes": "Draft flows in Excalidraw so we can react together.",
-            "connectedCardIds": [],
-            "connectedListIds": ["list-roadmap-build"],
+            "connectedTaskIds": [],
+            "connectedColumnIds": ["column-roadmap-build"],
             "createdAt": start + day * 2,
             "updatedAt": now - day,
         }),
         json!({
-            "id": "card-offline-mode",
+            "id": "task-offline-mode",
             "title": "Offline mode spike",
-            "description": "Cache the main workspace so ships keep moving without signal.",
-            "listId": "list-roadmap-build",
+            "description": "Cache the main workspace so work continues without a connection.",
+            "columnId": "column-roadmap-build",
             "boardId": "board-roadmap",
             "order": 0,
             "color": "#f59e0b",
             "tags": [tag_performance.clone(), tag_reliability.clone()],
             "deadline": now + day * 2,
-            "status": {"id": "status-roadmap-building", "name": "In Flight", "color": "#f59e0b", "boardId": "board-roadmap"},
+            "status": {"id": "status-roadmap-building", "name": "In Progress", "color": "#f59e0b", "boardId": "board-roadmap"},
             "notes": "Prototype storage, sync queue, and conflict handling.",
-            "connectedCardIds": ["card-changelog"],
-            "connectedListIds": ["list-roadmap-launch"],
+            "connectedTaskIds": ["task-changelog"],
+            "connectedColumnIds": ["column-roadmap-ready"],
             "createdAt": start + day * 2,
             "updatedAt": now - day / 2,
         }),
         json!({
-            "id": "card-changelog",
-            "title": "Launch comms kit",
+            "id": "task-changelog",
+            "title": "Release communications kit",
             "description": "Prep release notes, demo script, and screenshots.",
-            "listId": "list-roadmap-launch",
+            "columnId": "column-roadmap-ready",
             "boardId": "board-roadmap",
             "order": 0,
             "color": "#10b981",
             "tags": [tag_customer.clone()],
             "deadline": now + day,
-            "status": {"id": "status-roadmap-ready", "name": "Ready to Ship", "color": "#10b981", "boardId": "board-roadmap"},
+            "status": {"id": "status-roadmap-ready", "name": "Ready", "color": "#10b981", "boardId": "board-roadmap"},
             "notes": "Share across marketing and success teams.",
-            "connectedCardIds": ["card-offline-mode"],
-            "connectedListIds": [],
+            "connectedTaskIds": ["task-offline-mode"],
+            "connectedColumnIds": [],
             "createdAt": start + day * 2,
             "updatedAt": now - day / 3,
         }),
         json!({
-            "id": "card-auth-edge",
+            "id": "task-auth-edge",
             "title": "SSO edge cases",
             "description": "Handle IdP metadata rotation and clock skew.",
-            "listId": "list-roadmap-build",
+            "columnId": "column-roadmap-build",
             "boardId": "board-roadmap",
             "order": 1,
             "color": "#ef4444",
@@ -277,17 +279,17 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "deadline": now + day * 6,
             "status": {"id": "status-roadmap-blocked", "name": "Blocked", "color": "#ef4444", "boardId": "board-roadmap"},
             "notes": "Waiting on new staging IdP metadata.",
-            "connectedCardIds": [],
-            "connectedListIds": [],
+            "connectedTaskIds": [],
+            "connectedColumnIds": [],
             "createdAt": start + day * 2,
             "updatedAt": now - day / 4,
         }),
         // Release
         json!({
-            "id": "card-regression-suite",
+            "id": "task-regression-suite",
             "title": "Regression sweep",
             "description": "Full QA against roadmap features before cutover.",
-            "listId": "list-release-queue",
+            "columnId": "column-release-queue",
             "boardId": "board-release",
             "order": 0,
             "color": "#38bdf8",
@@ -295,16 +297,16 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "deadline": now + day,
             "status": {"id": "status-release-qa", "name": "QA", "color": "#38bdf8", "boardId": "board-release"},
             "notes": "Pair with QA to capture gaps and flaky steps.",
-            "connectedCardIds": ["card-load-test"],
-            "connectedListIds": [],
+            "connectedTaskIds": ["task-load-test"],
+            "connectedColumnIds": [],
             "createdAt": start + day * 2,
             "updatedAt": now - day / 2,
         }),
         json!({
-            "id": "card-load-test",
+            "id": "task-load-test",
             "title": "Load tests for offline sync",
             "description": "Prove sync queue stays under 2s p95 at 10k items.",
-            "listId": "list-release-hardening",
+            "columnId": "column-release-hardening",
             "boardId": "board-release",
             "order": 0,
             "color": "#0ea5e9",
@@ -312,34 +314,34 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "deadline": now + day * 3,
             "status": {"id": "status-release-hardening", "name": "Hardening", "color": "#f97316", "boardId": "board-release"},
             "notes": "Coordinate with infra for staging capacity.",
-            "connectedCardIds": ["card-regression-suite"],
-            "connectedListIds": [],
+            "connectedTaskIds": ["task-regression-suite"],
+            "connectedColumnIds": [],
             "createdAt": start + day * 2,
             "updatedAt": now - day / 2,
         }),
         json!({
-            "id": "card-release-notes",
+            "id": "task-release-notes",
             "title": "Release notes ready",
             "description": "Final QA summary, screenshots, and rollout timeline.",
-            "listId": "list-release-shipped",
+            "columnId": "column-release-complete",
             "boardId": "board-release",
             "order": 0,
             "color": "#10b981",
             "tags": [tag_customer.clone()],
             "deadline": now + day * 2,
-            "status": {"id": "status-release-shipped", "name": "Shipped", "color": "#10b981", "boardId": "board-release"},
-            "notes": "Send to early-adopter crew first.",
-            "connectedCardIds": ["card-regression-suite"],
-            "connectedListIds": [],
+            "status": {"id": "status-release-complete", "name": "Complete", "color": "#10b981", "boardId": "board-release"},
+            "notes": "Send to early adopters first.",
+            "connectedTaskIds": ["task-regression-suite"],
+            "connectedColumnIds": [],
             "createdAt": start + day * 2,
             "updatedAt": now - day / 3,
         }),
         // Lab
         json!({
-            "id": "card-voice-scout",
-            "title": "Voice commands scout",
+            "id": "task-voice-research",
+            "title": "Voice command research",
             "description": "Rough prototype for voice-triggered actions in boards.",
-            "listId": "list-lab-ideas",
+            "columnId": "column-lab-ideas",
             "boardId": "board-lab",
             "order": 0,
             "color": "#a855f7",
@@ -347,16 +349,16 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "deadline": now + day * 7,
             "status": {"id": "status-lab-idea", "name": "Idea", "color": "#a855f7", "boardId": "board-lab"},
             "notes": "Figure out wake words and offline support.",
-            "connectedCardIds": ["card-ai-summary"],
-            "connectedListIds": [],
+            "connectedTaskIds": ["task-ai-summary"],
+            "connectedColumnIds": [],
             "createdAt": start + day * 3,
             "updatedAt": now - day / 2,
         }),
         json!({
-            "id": "card-ai-summary",
+            "id": "task-ai-summary",
             "title": "AI meeting summary",
             "description": "Turn long planning calls into a concise action list.",
-            "listId": "list-lab-prototype",
+            "columnId": "column-lab-prototype",
             "boardId": "board-lab",
             "order": 0,
             "color": "#22c55e",
@@ -364,16 +366,16 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "deadline": now + day * 5,
             "status": {"id": "status-lab-testing", "name": "Exploring", "color": "#0ea5e9", "boardId": "board-lab"},
             "notes": "Prototype summaries in 3 bullet points with next steps.",
-            "connectedCardIds": ["card-voice-scout"],
-            "connectedListIds": ["list-lab-showcase"],
+            "connectedTaskIds": ["task-voice-research"],
+            "connectedColumnIds": ["column-lab-showcase"],
             "createdAt": start + day * 3,
             "updatedAt": now - day / 2,
         }),
         json!({
-            "id": "card-whiteboard-share",
+            "id": "task-whiteboard-share",
             "title": "Whiteboard sync",
-            "description": "Live share drawings from the canvas into cards.",
-            "listId": "list-lab-showcase",
+            "description": "Live share drawings from the canvas into tasks.",
+            "columnId": "column-lab-showcase",
             "boardId": "board-lab",
             "order": 0,
             "color": "#10b981",
@@ -381,17 +383,17 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "deadline": now + day * 4,
             "status": {"id": "status-lab-demo", "name": "Demo Ready", "color": "#22c55e", "boardId": "board-lab"},
             "notes": "Show latency under poor network conditions.",
-            "connectedCardIds": [],
-            "connectedListIds": [],
+            "connectedTaskIds": [],
+            "connectedColumnIds": [],
             "createdAt": start + day * 3,
             "updatedAt": now - day / 3,
         }),
         // Ops
         json!({
-            "id": "card-incident-drill",
+            "id": "task-incident-drill",
             "title": "Incident drill",
             "description": "Dry-run the playbook with last week's outage notes.",
-            "listId": "list-ops-triage",
+            "columnId": "column-ops-triage",
             "boardId": "board-ops",
             "order": 0,
             "color": "#ef4444",
@@ -399,16 +401,16 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "deadline": now - day,
             "status": {"id": "status-ops-triage", "name": "Triage", "color": "#ef4444", "boardId": "board-ops"},
             "notes": "Time the drill and capture gaps in the runbook.",
-            "connectedCardIds": ["card-alert-tuning"],
-            "connectedListIds": ["list-ops-active"],
+            "connectedTaskIds": ["task-alert-tuning"],
+            "connectedColumnIds": ["column-ops-active"],
             "createdAt": start + day * 2,
             "updatedAt": now - day / 2,
         }),
         json!({
-            "id": "card-alert-tuning",
+            "id": "task-alert-tuning",
             "title": "Alert tuning",
             "description": "Reduce noisy alerts and group related signals.",
-            "listId": "list-ops-active",
+            "columnId": "column-ops-active",
             "boardId": "board-ops",
             "order": 0,
             "color": "#3b82f6",
@@ -416,79 +418,79 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
             "deadline": now + day,
             "status": {"id": "status-ops-active", "name": "Working", "color": "#3b82f6", "boardId": "board-ops"},
             "notes": "Measure alert-to-ticket ratio after changes.",
-            "connectedCardIds": ["card-incident-drill"],
-            "connectedListIds": ["list-ops-done"],
+            "connectedTaskIds": ["task-incident-drill"],
+            "connectedColumnIds": ["column-ops-done"],
             "createdAt": start + day * 2,
             "updatedAt": now - day / 3,
         }),
         json!({
-            "id": "card-postmortem",
+            "id": "task-postmortem",
             "title": "Post-incident review",
             "description": "Summarize findings and file follow-ups.",
-            "listId": "list-ops-done",
+            "columnId": "column-ops-done",
             "boardId": "board-ops",
             "order": 0,
             "color": "#10b981",
             "tags": [tag_ops.clone(), tag_reliability.clone()],
             "deadline": now + day * 2,
             "status": {"id": "status-ops-done", "name": "Ready", "color": "#10b981", "boardId": "board-ops"},
-            "notes": "Share with the wider crew and add to the handbook.",
-            "connectedCardIds": ["card-alert-tuning"],
-            "connectedListIds": [],
+            "notes": "Share with the wider team and add to the handbook.",
+            "connectedTaskIds": ["task-alert-tuning"],
+            "connectedColumnIds": [],
             "createdAt": start + day * 2,
             "updatedAt": now - day / 4,
         }),
     ];
 
-    for card in &card_data {
-        let _ = db.create("cards", card)?;
+    for task in &task_data {
+        let _ = db.create("tasks", task)?;
     }
 
-    // ── Subcards / subtasks ──
-    let subcard_data = vec![
-        json!({"id": "sub-offline-cache", "title": "Cache auth'd API responses", "completed": false, "cardId": "card-offline-mode", "createdAt": now - day / 2}),
-        json!({"id": "sub-offline-replay", "title": "Queue mutations for replay", "completed": false, "cardId": "card-offline-mode", "createdAt": now - day / 2}),
-        json!({"id": "sub-loadtest-scripts", "title": "Write locust scenarios", "completed": true, "cardId": "card-load-test", "createdAt": now - day / 2}),
-        json!({"id": "sub-loadtest-metrics", "title": "Capture p95 and error rate", "completed": false, "cardId": "card-load-test", "createdAt": now - day / 2}),
-        json!({"id": "sub-ai-summary", "title": "Tune summarizer prompts", "completed": false, "cardId": "card-ai-summary", "createdAt": now - day / 2}),
-        json!({"id": "sub-incident-drill", "title": "Time the full drill", "completed": false, "cardId": "card-incident-drill", "createdAt": now - day / 2}),
+    // ── Subtasks ──
+    let subtask_data = vec![
+        json!({"id": "subtask-offline-cache", "title": "Cache auth'd API responses", "completed": false, "taskId": "task-offline-mode", "createdAt": now - day / 2}),
+        json!({"id": "subtask-offline-replay", "title": "Queue mutations for replay", "completed": false, "taskId": "task-offline-mode", "createdAt": now - day / 2}),
+        json!({"id": "subtask-loadtest-scripts", "title": "Write locust scenarios", "completed": true, "taskId": "task-load-test", "createdAt": now - day / 2}),
+        json!({"id": "subtask-loadtest-metrics", "title": "Capture p95 and error rate", "completed": false, "taskId": "task-load-test", "createdAt": now - day / 2}),
+        json!({"id": "subtask-ai-summary", "title": "Tune summarizer prompts", "completed": false, "taskId": "task-ai-summary", "createdAt": now - day / 2}),
+        json!({"id": "subtask-incident-drill", "title": "Time the full drill", "completed": false, "taskId": "task-incident-drill", "createdAt": now - day / 2}),
     ];
 
-    for sc in &subcard_data {
-        let _ = db.create("subcards", sc)?;
+    for subtask in &subtask_data {
+        let _ = db.create("subtasks", subtask)?;
     }
 
     // ── Connections (board visuals) ──
     let connections = vec![
         json!({
-            "id": "conn-roadmap-build-to-launch",
-            "fromId": "list-roadmap-build",
-            "toId": "list-roadmap-launch",
-            "type": "list-to-list",
+            "id": "conn-roadmap-build-to-ready",
+            "fromId": "column-roadmap-build",
+            "toId": "column-roadmap-ready",
+            "type": "column-to-column",
             "points": [{"x": 60.0, "y": 80.0}, {"x": 220.0, "y": 80.0}],
             "boardId": "board-roadmap",
         }),
         json!({
             "id": "conn-offline-to-changelog",
-            "fromId": "card-offline-mode",
-            "toId": "card-changelog",
-            "type": "card-to-card",
+            "fromId": "task-offline-mode",
+            "toId": "task-changelog",
+            "type": "task-to-task",
             "points": [{"x": 120.0, "y": 96.0}, {"x": 260.0, "y": 140.0}],
             "boardId": "board-roadmap",
         }),
         json!({
             "id": "conn-loadtest-to-regression",
-            "fromId": "card-load-test",
-            "toId": "card-regression-suite",
-            "type": "card-to-card",
+            "fromId": "task-load-test",
+            "toId": "task-regression-suite",
+            "type": "task-to-task",
             "points": [{"x": 90.0, "y": 90.0}, {"x": 190.0, "y": 120.0}],
             "boardId": "board-release",
         }),
         json!({
             "id": "conn-alerts-to-postmortem",
-            "fromId": "card-alert-tuning",
-            "toId": "card-postmortem",
-            "type": "card-to-card",
+            "fromId": "task-alert-tuning",
+            "toId": "task-postmortem",
+            "type": "task-to-task",
             "points": [{"x": 80.0, "y": 70.0}, {"x": 180.0, "y": 110.0}],
             "boardId": "board-ops",
         }),
