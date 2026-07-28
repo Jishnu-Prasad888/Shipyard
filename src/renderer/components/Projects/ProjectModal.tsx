@@ -18,7 +18,7 @@ const COLORS = [
   '#db2777', // Pink
   '#0f172a', // Dark
   '#3b82f6', // Light blue
-  '#22d3ee'  // Teal
+  '#22d3ee' // Teal
 ]
 
 export const ProjectModal: React.FC<ProjectModalProps> = ({
@@ -64,29 +64,32 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     borderColor: 'var(--color-border-strong)',
     background: 'var(--color-background)',
     color: 'var(--color-text)',
-    boxShadow: 'inset 2px 2px 0 rgba(0,0,0,0.05)'
+    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.16)'
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
+    <div
+      className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
       <div
-        className="w-full max-w-md overflow-hidden flex flex-col max-h-[90vh] animate-brutal-in"
+        className="aero-window w-full max-w-md overflow-hidden flex flex-col max-h-[90vh] animate-brutal-in"
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--color-surface)',
-          border: '4px solid var(--color-border-strong)',
-          boxShadow: 'var(--shadow-brutal-lg)'
+          border: '1px solid var(--color-border-strong)',
+          boxShadow: 'var(--shadow-window)'
         }}
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-5 py-3 border-b-4"
+          className="aero-titlebar flex items-center justify-between px-5 py-3 border-b"
           style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
         >
           <h2 className="text-base font-black text-white uppercase tracking-wider">{title}</h2>
           <button
             onClick={onClose}
-            className="w-7 h-7 border-2 border-white text-white flex items-center justify-center hover:bg-white/20 transition"
+            className="aero-icon-button w-7 h-7 text-white flex items-center justify-center transition"
           >
             <X className="w-4 h-4" />
           </button>
@@ -95,14 +98,12 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
         <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-auto">
           {/* Name */}
           <div>
-            <label className="block text-xs font-black uppercase tracking-wider mb-1">
-              Name *
-            </label>
+            <label className="block text-xs font-black uppercase tracking-wider mb-1">Name *</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full px-3 py-2 border-2 text-sm font-bold focus:outline-none"
+              className="aero-input w-full px-3 py-2 text-sm font-semibold focus:outline-none"
               style={inputStyle}
               placeholder="Project name"
               autoFocus
@@ -117,7 +118,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border-2 text-sm font-bold focus:outline-none resize-none"
+              className="aero-input w-full px-3 py-2 text-sm font-semibold focus:outline-none resize-none"
               style={inputStyle}
               rows={2}
               placeholder="What is this project for?"
@@ -139,8 +140,10 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
                   style={{
                     backgroundColor: c,
                     borderColor: color === c ? 'var(--color-border-strong)' : 'transparent',
-                    boxShadow: color === c ? '3px 3px 0 var(--color-border-strong)' : 'none',
-                    transform: color === c ? 'translate(-1px, -1px)' : 'none'
+                    boxShadow:
+                      color === c
+                        ? '0 0 0 2px var(--color-surface), 0 0 0 3px var(--color-border-strong)'
+                        : 'inset 0 1px 0 rgba(255,255,255,.45)'
                   }}
                 />
               ))}
@@ -152,13 +155,16 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
             <label className="block text-xs font-black uppercase tracking-wider mb-2">Tags</label>
             <div className="flex gap-2 mb-2">
               <div className="relative flex-1">
-                <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: 'var(--color-muted)' }} />
+                <Tag
+                  className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5"
+                  style={{ color: 'var(--color-muted)' }}
+                />
                 <input
                   type="text"
                   value={newTag}
                   onChange={(e) => setNewTag(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
-                  className="w-full pl-8 pr-3 py-2 border-2 text-sm font-bold focus:outline-none"
+                  className="aero-input w-full pl-8 pr-3 py-2 text-sm font-semibold focus:outline-none"
                   style={inputStyle}
                   placeholder="Add tag..."
                 />

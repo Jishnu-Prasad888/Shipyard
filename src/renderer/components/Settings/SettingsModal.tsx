@@ -442,9 +442,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         recordId: item.recordId,
         data: parsePayload(item.data),
         timestamp:
-          typeof item.timestamp === 'number'
-            ? item.timestamp
-            : Number(item.timestamp) || undefined,
+          typeof item.timestamp === 'number' ? item.timestamp : Number(item.timestamp) || undefined,
         schemaVersion: 2 as const
       }))
 
@@ -482,16 +480,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
   const Toggle = ({ value, onChange }: { value: boolean; onChange: () => void }) => (
     <div
-      className="w-10 h-6 border-2 relative transition-all duration-100 cursor-pointer shrink-0"
+      className="w-10 h-6 border relative transition-all duration-150 cursor-pointer shrink-0 rounded-sm"
       style={{
         borderColor: value ? 'var(--color-primary)' : 'var(--color-border)',
         background: value ? 'var(--color-primary)' : 'transparent',
-        boxShadow: value ? 'var(--shadow-brutal-sm)' : 'none'
+        boxShadow: value ? 'var(--shadow-control)' : 'inset 0 1px 3px rgba(0,0,0,.18)'
       }}
       onClick={onChange}
     >
       <div
-        className="absolute top-0.5 w-4 h-4 border transition-all duration-150"
+        className="absolute top-0.5 w-4 h-4 border transition-all duration-150 rounded-sm"
         style={{
           left: value ? '18px' : '2px',
           background: value ? 'white' : 'var(--color-muted)',
@@ -510,23 +508,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl max-h-[90vh] flex flex-col animate-brutal-in"
+        className="aero-window w-full max-w-xl max-h-[90vh] flex flex-col animate-brutal-in"
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--color-surface)',
-          border: '4px solid var(--color-border-strong)',
-          boxShadow: 'var(--shadow-brutal-lg)'
+          border: '1px solid var(--color-border-strong)',
+          boxShadow: 'var(--shadow-window)'
         }}
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-5 py-3 border-b-4 shrink-0"
+          className="aero-titlebar flex items-center justify-between px-5 py-3 border-b shrink-0"
           style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
         >
           <h2 className="text-base font-black text-white uppercase tracking-wider">Settings</h2>
           <button
             onClick={onClose}
-            className="w-7 h-7 border-2 border-white text-white flex items-center justify-center hover:bg-white/20 transition"
+            className="aero-icon-button w-7 h-7 text-white flex items-center justify-center transition"
           >
             <X className="w-4 h-4" />
           </button>
@@ -536,7 +534,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
         <div className="flex-1 overflow-auto p-5 space-y-4">
           {/* ── APPEARANCE ── */}
           <div
-            className="p-4 border-2"
+            className="aero-panel p-4"
             style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}
           >
             <h3
@@ -591,7 +589,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
           {/* ── TYPOGRAPHY ── */}
           <div
-            className="p-4 border-2"
+            className="aero-panel p-4"
             style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}
           >
             <h3
@@ -648,7 +646,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                   value={fontSearch}
                   onChange={(e) => setFontSearch(e.target.value)}
                   placeholder={`Search ${availableFonts.length} system fonts…`}
-                  className="w-full px-3 py-2 border-2 text-xs font-bold outline-none"
+                  className="aero-input w-full px-3 py-2 text-xs font-semibold outline-none"
                   style={{
                     borderColor: 'var(--color-border)',
                     background: 'var(--color-background)',
@@ -721,7 +719,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
           </div>
 
           <div
-            className="border-2"
+            className="aero-panel"
             style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}
           >
             {/* Firebase header */}
@@ -835,13 +833,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                             borderColor: 'var(--color-cyan)',
                             color: 'var(--color-cyan)',
                             background: 'var(--color-cyan)10',
-                            boxShadow: '2px 2px 0 var(--color-cyan)'
+                            boxShadow: 'var(--shadow-control)'
                           }}
                           onMouseOver={(e) => {
-                            if (!isLoading) e.currentTarget.style.transform = 'translate(-1px,-1px)'
+                            if (!isLoading) e.currentTarget.style.filter = 'brightness(1.06)'
                           }}
                           onMouseOut={(e) => {
-                            e.currentTarget.style.transform = ''
+                            e.currentTarget.style.filter = ''
                           }}
                         >
                           {op === 'testing' ? (
@@ -861,13 +859,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                             borderColor: 'var(--color-primary)',
                             color: 'var(--color-primary)',
                             background: 'var(--color-primary)10',
-                            boxShadow: '2px 2px 0 var(--color-primary)'
+                            boxShadow: 'var(--shadow-control)'
                           }}
                           onMouseOver={(e) => {
-                            if (!isLoading) e.currentTarget.style.transform = 'translate(-1px,-1px)'
+                            if (!isLoading) e.currentTarget.style.filter = 'brightness(1.06)'
                           }}
                           onMouseOut={(e) => {
-                            e.currentTarget.style.transform = ''
+                            e.currentTarget.style.filter = ''
                           }}
                         >
                           {op === 'pushing' ? (
@@ -887,13 +885,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                             borderColor: 'var(--color-violet)',
                             color: 'var(--color-violet)',
                             background: 'var(--color-violet)10',
-                            boxShadow: '2px 2px 0 var(--color-violet)'
+                            boxShadow: 'var(--shadow-control)'
                           }}
                           onMouseOver={(e) => {
-                            if (!isLoading) e.currentTarget.style.transform = 'translate(-1px,-1px)'
+                            if (!isLoading) e.currentTarget.style.filter = 'brightness(1.06)'
                           }}
                           onMouseOut={(e) => {
-                            e.currentTarget.style.transform = ''
+                            e.currentTarget.style.filter = ''
                           }}
                         >
                           {op === 'pulling' ? (
@@ -945,7 +943,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
           {/* ── SERVER SYNC ── */}
           <div
-            className="border-2"
+            className="aero-panel"
             style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}
           >
             <div
@@ -965,9 +963,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                   <span
                     className="text-[9px] font-black uppercase tracking-wider px-2 py-1 border"
                     style={{
-                      borderColor: serverHealth.status === 'ok' ? 'var(--color-primary)' : '#dc2626',
+                      borderColor:
+                        serverHealth.status === 'ok' ? 'var(--color-primary)' : '#dc2626',
                       color: serverHealth.status === 'ok' ? 'var(--color-primary)' : '#dc2626',
-                      background: serverHealth.status === 'ok' ? 'var(--color-primary)10' : '#dc262610'
+                      background:
+                        serverHealth.status === 'ok' ? 'var(--color-primary)10' : '#dc262610'
                     }}
                   >
                     {serverHealth.status || 'unknown'}
@@ -996,7 +996,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                   value={serverUrl}
                   onChange={(e) => setServerUrl(e.target.value)}
                   placeholder="https://api.my-shipyard.com"
-                  className="w-full px-3 py-2 border-2 text-xs font-bold outline-none"
+                  className="aero-input w-full px-3 py-2 text-xs font-semibold outline-none"
                   style={{
                     borderColor: 'var(--color-border)',
                     background: 'var(--color-background)',
@@ -1011,7 +1011,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                   onChange={() => setServerSyncEnabled(!serverSyncEnabled)}
                 />
                 <div>
-                  <span className="font-black text-xs uppercase tracking-wider">Enable server sync</span>
+                  <span className="font-black text-xs uppercase tracking-wider">
+                    Enable server sync
+                  </span>
                   <p
                     className="text-[10px] font-bold mt-0.5"
                     style={{ color: 'var(--color-muted)' }}
@@ -1030,13 +1032,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                     borderColor: 'var(--color-cyan)',
                     color: 'var(--color-cyan)',
                     background: 'var(--color-cyan)10',
-                    boxShadow: '2px 2px 0 var(--color-cyan)'
+                    boxShadow: 'var(--shadow-control)'
                   }}
                   onMouseOver={(e) => {
-                    if (!isServerBusy) e.currentTarget.style.transform = 'translate(-1px,-1px)'
+                    if (!isServerBusy) e.currentTarget.style.filter = 'brightness(1.06)'
                   }}
                   onMouseOut={(e) => {
-                    e.currentTarget.style.transform = ''
+                    e.currentTarget.style.filter = ''
                   }}
                 >
                   {serverOp === 'health' ? (
@@ -1055,13 +1057,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                     borderColor: 'var(--color-primary)',
                     color: 'var(--color-primary)',
                     background: 'var(--color-primary)10',
-                    boxShadow: '2px 2px 0 var(--color-primary)'
+                    boxShadow: 'var(--shadow-control)'
                   }}
                   onMouseOver={(e) => {
-                    if (!isServerBusy) e.currentTarget.style.transform = 'translate(-1px,-1px)'
+                    if (!isServerBusy) e.currentTarget.style.filter = 'brightness(1.06)'
                   }}
                   onMouseOut={(e) => {
-                    e.currentTarget.style.transform = ''
+                    e.currentTarget.style.filter = ''
                   }}
                 >
                   {serverOp === 'syncing' ? (
@@ -1101,7 +1103,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
           {/* ── DATA EXPORT ── */}
           <div
-            className="border-2"
+            className="aero-panel"
             style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}
           >
             <div
@@ -1118,23 +1120,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
             </div>
             <div className="p-4">
               <p className="text-xs font-bold mb-3" style={{ color: 'var(--color-muted)' }}>
-                Export Workspaces, Projects, Boards, Columns, Tasks, and Subtasks to JSON, CSV, or Markdown. The
-                export wizard lets you pick exactly which items to include.
+                Export Workspaces, Projects, Boards, Columns, Tasks, and Subtasks to JSON, CSV, or
+                Markdown. The export wizard lets you pick exactly which items to include.
               </p>
               <button
                 onClick={() => setShowExportModal(true)}
-                className="w-full flex items-center justify-center gap-2 py-2.5 border-2 font-black text-xs uppercase tracking-wider transition-all duration-100"
+                className="btn-secondary w-full flex items-center justify-center gap-2 py-2.5 text-xs transition-all duration-150"
                 style={{
                   borderColor: 'var(--color-primary)',
                   color: 'var(--color-primary)',
                   background: 'var(--color-primary)10',
-                  boxShadow: '2px 2px 0 var(--color-primary)'
+                  boxShadow: 'var(--shadow-control)'
                 }}
                 onMouseOver={(e) => {
-                  e.currentTarget.style.transform = 'translate(-1px,-1px)'
+                  e.currentTarget.style.filter = 'brightness(1.06)'
                 }}
                 onMouseOut={(e) => {
-                  e.currentTarget.style.transform = ''
+                  e.currentTarget.style.filter = ''
                 }}
               >
                 <Download className="w-4 h-4" />
@@ -1145,7 +1147,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
           {/* ── DATABASE INFO ── */}
           <div
-            className="p-4 border-2"
+            className="aero-panel p-4"
             style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}
           >
             <h3
@@ -1173,7 +1175,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
         {/* Footer */}
         <div
-          className="flex justify-end gap-3 px-5 py-3 border-t-4 shrink-0"
+          className="flex justify-end gap-3 px-5 py-3 border-t shrink-0"
           style={{
             borderColor: 'var(--color-border-strong)',
             background: 'var(--color-background)'

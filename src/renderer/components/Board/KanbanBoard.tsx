@@ -15,10 +15,26 @@ import { CreateColumnModal } from './CreateColumnModal'
 import { getBoardWithDetails } from '../../lib/data'
 
 const BOARD_COLORS = [
-  '#2D82B7', '#0B2545', '#1F5F8B', '#3FA796', '#5FA8D3',
-  '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#16a34a',
-  '#0891b2', '#9333ea', '#e11d48', '#f59e0b', '#6366f1',
-  '#64748b', '#111827', '#be123c', '#15803d', '#1d4ed8'
+  '#2D82B7',
+  '#0B2545',
+  '#1F5F8B',
+  '#3FA796',
+  '#5FA8D3',
+  '#2563eb',
+  '#7c3aed',
+  '#db2777',
+  '#ea580c',
+  '#16a34a',
+  '#0891b2',
+  '#9333ea',
+  '#e11d48',
+  '#f59e0b',
+  '#6366f1',
+  '#64748b',
+  '#111827',
+  '#be123c',
+  '#15803d',
+  '#1d4ed8'
 ]
 
 interface KanbanBoardProps {
@@ -27,7 +43,11 @@ interface KanbanBoardProps {
   onGoBack?: () => void
 }
 
-export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery = '', onGoBack }) => {
+export const KanbanBoard: React.FC<KanbanBoardProps> = ({
+  boardId,
+  searchQuery = '',
+  onGoBack
+}) => {
   const [board, setBoard] = useState<any>(null)
   const [columns, setColumns] = useState<any[]>([])
   const [showCreateColumn, setShowCreateColumn] = useState(false)
@@ -52,7 +72,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
   const reorderTasks = (activeId: string, overId: string, currentColumns: any[]) => {
     if (activeId === overId) return { columns: currentColumns, changedColumnIds: [], moved: false }
 
-    const columnsCopy = currentColumns.map(column => ({ ...column, tasks: [...(column.tasks || [])] }))
+    const columnsCopy = currentColumns.map((column) => ({
+      ...column,
+      tasks: [...(column.tasks || [])]
+    }))
 
     let sourceColumnIndex = -1
     let targetColumnIndex = -1
@@ -78,16 +101,32 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
       if (activeTaskIndex !== -1 && overTaskIndex !== -1) break
     }
 
-    if (sourceColumnIndex === -1 || targetColumnIndex === -1 || activeTaskIndex === -1 || overTaskIndex === -1)
+    if (
+      sourceColumnIndex === -1 ||
+      targetColumnIndex === -1 ||
+      activeTaskIndex === -1 ||
+      overTaskIndex === -1
+    )
       return { columns: currentColumns, changedColumnIds: [], moved: false }
 
     if (sourceColumnIndex === targetColumnIndex && activeTaskIndex === overTaskIndex)
       return { columns: currentColumns, changedColumnIds: [], moved: false }
 
     if (sourceColumnIndex === targetColumnIndex) {
-      const updatedTasks = arrayMove(columnsCopy[sourceColumnIndex].tasks, activeTaskIndex, overTaskIndex)
-      columnsCopy[sourceColumnIndex] = normalizeColumnOrders({ ...columnsCopy[sourceColumnIndex], tasks: updatedTasks })
-      return { columns: columnsCopy, changedColumnIds: [columnsCopy[sourceColumnIndex].id], moved: true }
+      const updatedTasks = arrayMove(
+        columnsCopy[sourceColumnIndex].tasks,
+        activeTaskIndex,
+        overTaskIndex
+      )
+      columnsCopy[sourceColumnIndex] = normalizeColumnOrders({
+        ...columnsCopy[sourceColumnIndex],
+        tasks: updatedTasks
+      })
+      return {
+        columns: columnsCopy,
+        changedColumnIds: [columnsCopy[sourceColumnIndex].id],
+        moved: true
+      }
     }
 
     const sourceColumn = columnsCopy[sourceColumnIndex]
@@ -101,7 +140,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
     columnsCopy[sourceColumnIndex] = normalizeColumnOrders({ ...sourceColumn })
     columnsCopy[targetColumnIndex] = normalizeColumnOrders({ ...targetColumn, tasks: targetTasks })
 
-    return { columns: columnsCopy, changedColumnIds: [sourceColumn.id, targetColumn.id], moved: true }
+    return {
+      columns: columnsCopy,
+      changedColumnIds: [sourceColumn.id, targetColumn.id],
+      moved: true
+    }
   }
 
   const persistTaskOrder = async (
@@ -114,7 +157,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
 
     const previousMap = new Map<string, Map<string, { order: number; columnId: string }>>()
     for (const columnId of uniqueColumnIds) {
-      const previousColumn = previousColumns.find(column => column.id === columnId)
+      const previousColumn = previousColumns.find((column) => column.id === columnId)
       if (!previousColumn) continue
       const taskMap = new Map<string, { order: number; columnId: string }>()
       ;(previousColumn.tasks || []).forEach((task: any, index: number) => {
@@ -126,7 +169,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
     const updates: Promise<any>[] = []
 
     for (const columnId of uniqueColumnIds) {
-      const nextColumn = nextColumns.find(column => column.id === columnId)
+      const nextColumn = nextColumns.find((column) => column.id === columnId)
       if (!nextColumn) continue
       const previousTasks = previousMap.get(columnId)
 
@@ -154,11 +197,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
       }))
     : columns
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
-  )
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
-  useEffect(() => { loadBoard() }, [boardId])
+  useEffect(() => {
+    loadBoard()
+  }, [boardId])
 
   const loadBoard = async () => {
     const boardData = await getBoardWithDetails(boardId)
@@ -200,10 +243,13 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
     const isActiveTask = active.data.current?.type === 'task'
     const isOverTask = over.data.current?.type === 'task'
     if (isActiveTask && isOverTask) {
-      setColumns(previous => {
+      setColumns((previous) => {
         const result = reorderTasks(active.id as string, over.id as string, previous)
         if (result.moved) {
-          dragStateRef.current = { previousColumns: previous, changedColumnIds: result.changedColumnIds }
+          dragStateRef.current = {
+            previousColumns: previous,
+            changedColumnIds: result.changedColumnIds
+          }
         }
         return result.moved ? result.columns : previous
       })
@@ -228,11 +274,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
       if (dragState?.changedColumnIds?.length) {
         void persistTaskOrder(columns, dragState.changedColumnIds, dragState.previousColumns)
       } else {
-        const { columns: nextColumns, changedColumnIds, moved } = reorderTasks(
-          active.id as string,
-          over.id as string,
-          columns
-        )
+        const {
+          columns: nextColumns,
+          changedColumnIds,
+          moved
+        } = reorderTasks(active.id as string, over.id as string, columns)
 
         if (moved) {
           setColumns(nextColumns)
@@ -261,7 +307,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
 
     const updates = normalized
       .filter((column: any) => previousOrder.get(column.id) !== column.order)
-      .map((column: any) => window.electron.db.update('columns', column.id, { order: column.order }))
+      .map((column: any) =>
+        window.electron.db.update('columns', column.id, { order: column.order })
+      )
 
     if (updates.length > 0) {
       await Promise.all(updates)
@@ -270,7 +318,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
 
   const handleCreateColumn = async (columnData: any) => {
     await window.electron.db.create('columns', {
-      ...columnData, boardId, order: columns.length, createdAt: Date.now(), updatedAt: Date.now()
+      ...columnData,
+      boardId,
+      order: columns.length,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
     })
     loadBoard()
     setShowCreateColumn(false)
@@ -284,7 +336,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
     const allTasks = await window.electron.db.findAll('tasks')
     const boardTasks = allTasks.filter((task: any) => task.boardId === boardId)
     const allSubtasks = await window.electron.db.findAll('subtasks')
-    const boardSubtasks = allSubtasks.filter((subtask: any) => boardTasks.some((task: any) => task.id === subtask.taskId))
+    const boardSubtasks = allSubtasks.filter((subtask: any) =>
+      boardTasks.some((task: any) => task.id === subtask.taskId)
+    )
     const allColumns = await window.electron.db.findAll('columns')
     const boardColumns = allColumns.filter((column: any) => column.boardId === boardId)
 
@@ -303,7 +357,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
             await window.electron.db.create('boards', boardSnapshot)
             for (const column of boardColumns) await window.electron.db.create('columns', column)
             for (const task of boardTasks) await window.electron.db.create('tasks', task)
-            for (const subtask of boardSubtasks) await window.electron.db.create('subtasks', subtask)
+            for (const subtask of boardSubtasks)
+              await window.electron.db.create('subtasks', subtask)
             window.dispatchEvent(new CustomEvent('reload-projects'))
           }
         }
@@ -320,15 +375,18 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
     <div className="h-full flex flex-col">
       {/* ── Board header ── */}
       <div
-        className="mb-6 p-4 border-4"
-        style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-surface)', boxShadow: 'var(--shadow-brutal)' }}
+        className="aero-panel mb-5 p-4"
+        style={{
+          borderColor: 'var(--color-border-strong)',
+          background: 'var(--color-surface)',
+          boxShadow: 'var(--shadow-brutal)'
+        }}
       >
-
         {/* Back button */}
         {onGoBack && (
           <button
             onClick={onGoBack}
-            className="flex items-center gap-1.5 mb-4 px-3 py-2 border-2 text-[10px] font-black uppercase tracking-[0.2em] transition-transform duration-100"
+            className="btn-secondary flex items-center gap-1.5 mb-4 px-3 py-2 text-[10px] font-semibold transition duration-150"
             style={{
               borderColor: 'var(--color-border)',
               color: 'var(--color-muted)',
@@ -345,22 +403,36 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
           /* View mode */
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-2 h-12 shrink-0 self-stretch" style={{ background: boardColor, boxShadow: `var(--shadow-brutal-sm)` }} />
+              <div
+                className="w-2 h-12 shrink-0 self-stretch"
+                style={{ background: boardColor, boxShadow: `var(--shadow-brutal-sm)` }}
+              />
               <div className="min-w-0">
-                <h1 className="text-3xl font-black uppercase tracking-tight" style={{ color: 'var(--color-text)' }}>
+                <h1
+                  className="text-3xl font-black uppercase tracking-tight"
+                  style={{ color: 'var(--color-text)' }}
+                >
                   {board.name}
                 </h1>
                 <div className="flex items-center gap-3 mt-2 flex-wrap">
                   <span
                     className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide px-3 py-1 border-2"
-                    style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)', background: 'var(--color-primary-soft)' }}
+                    style={{
+                      borderColor: 'var(--color-primary)',
+                      color: 'var(--color-primary)',
+                      background: 'var(--color-primary-soft)'
+                    }}
                   >
                     <LayoutList className="w-3 h-3" />
                     {columns.length} Columns
                   </span>
                   <span
                     className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide px-3 py-1 border-2"
-                    style={{ borderColor: 'var(--color-cyan, #0891b2)', color: 'var(--color-cyan, #0891b2)', background: 'rgba(53,194,255,0.12)' }}
+                    style={{
+                      borderColor: 'var(--color-cyan, #0891b2)',
+                      color: 'var(--color-cyan, #0891b2)',
+                      background: 'rgba(53,194,255,0.12)'
+                    }}
                   >
                     <Hash className="w-3 h-3" />
                     {totalTasks} Tasks
@@ -370,10 +442,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={openEdit}
-                className="btn-secondary text-xs px-4"
-              >
+              <button onClick={openEdit} className="btn-secondary text-xs px-4">
                 <Pencil className="w-3.5 h-3.5" />
                 Edit Board
               </button>
@@ -389,7 +458,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
                 <Trash2 className="w-3.5 h-3.5" />
                 Delete
               </button>
-              <button onClick={() => setShowCreateColumn(true)} className="btn-primary text-xs uppercase tracking-wider px-5">
+              <button
+                onClick={() => setShowCreateColumn(true)}
+                className="btn-primary text-xs uppercase tracking-wider px-5"
+              >
                 <Plus className="w-4 h-4 stroke-[3px]" />
                 Add Column
               </button>
@@ -398,47 +470,69 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
         ) : (
           /* Edit mode inline panel */
           <div
-            className="p-4 border-4 space-y-4 animate-brutal-in"
-            style={{ borderColor: 'var(--color-primary)', background: 'var(--color-background)', boxShadow: 'var(--shadow-brutal)' }}
+            className="aero-panel p-4 space-y-4 animate-brutal-in"
+            style={{
+              borderColor: 'var(--color-primary)',
+              background: 'var(--color-background)',
+              boxShadow: 'var(--shadow-brutal)'
+            }}
           >
             <div className="flex items-center gap-2">
               <Pencil className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-              <span className="font-black text-xs uppercase tracking-widest" style={{ color: 'var(--color-muted)' }}>Edit Board</span>
+              <span
+                className="font-black text-xs uppercase tracking-widest"
+                style={{ color: 'var(--color-muted)' }}
+              >
+                Edit Board
+              </span>
             </div>
 
             {/* Name */}
             <div>
-              <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color: 'var(--color-muted)' }}>
+              <label
+                className="block text-[10px] font-black uppercase tracking-widest mb-1.5"
+                style={{ color: 'var(--color-muted)' }}
+              >
                 Board Name
               </label>
               <input
                 autoFocus
                 type="text"
                 value={editName}
-                onChange={e => setEditName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') cancelEdit() }}
-                className="w-full px-3 py-2.5 border-3 font-black text-sm outline-none"
-                style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-surface)', color: 'var(--color-text)' }}
-                onFocus={e => e.target.style.borderColor = 'var(--color-primary)'}
-                onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
+                onChange={(e) => setEditName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') saveEdit()
+                  if (e.key === 'Escape') cancelEdit()
+                }}
+                className="aero-input w-full px-3 py-2.5 font-semibold text-sm outline-none"
+                style={{
+                  borderColor: 'var(--color-border-strong)',
+                  background: 'var(--color-surface)',
+                  color: 'var(--color-text)'
+                }}
+                onFocus={(e) => (e.target.style.borderColor = 'var(--color-primary)')}
+                onBlur={(e) => (e.target.style.borderColor = 'var(--color-border)')}
                 placeholder="Board name..."
               />
             </div>
 
             {/* Color options */}
             <div>
-              <label className="block text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: 'var(--color-muted)' }}>
+              <label
+                className="block text-[10px] font-black uppercase tracking-widest mb-2"
+                style={{ color: 'var(--color-muted)' }}
+              >
                 Board Color
               </label>
               <div className="flex flex-wrap gap-2">
-                {BOARD_COLORS.map(c => (
+                {BOARD_COLORS.map((c) => (
                   <button
                     key={c}
                     onClick={() => setEditColor(c)}
-                   className="w-7 h-7 border-3 shrink-0 transition-all duration-100"
-                   style={{
-                     background: c,
-                     borderColor: editColor === c ? 'var(--color-border-strong)' : 'transparent',
+                    className="w-7 h-7 border shrink-0 transition-all duration-150 rounded-sm"
+                    style={{
+                      background: c,
+                      borderColor: editColor === c ? 'var(--color-border-strong)' : 'transparent',
                       transform: editColor === c ? 'scale(1.3)' : 'scale(1)',
                       boxShadow: editColor === c ? `0 0 0 2px ${c}66` : 'none'
                     }}
@@ -448,9 +542,21 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
               </div>
 
               {/* Live preview */}
-               <div className="flex items-center gap-3 mt-3 px-3 py-2 border-3" style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-surface)' }}>
-                <div className="w-1.5 h-8 shrink-0" style={{ background: editColor, borderRadius: '2px' }} />
-                <span className="font-black text-sm truncate" style={{ color: 'var(--color-text)' }}>
+              <div
+                className="aero-panel flex items-center gap-3 mt-3 px-3 py-2"
+                style={{
+                  borderColor: 'var(--color-border-strong)',
+                  background: 'var(--color-surface)'
+                }}
+              >
+                <div
+                  className="w-1.5 h-8 shrink-0"
+                  style={{ background: editColor, borderRadius: '2px' }}
+                />
+                <span
+                  className="font-black text-sm truncate"
+                  style={{ color: 'var(--color-text)' }}
+                >
                   {editName || 'Preview'}
                 </span>
               </div>
@@ -461,15 +567,20 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
               <button
                 onClick={saveEdit}
                 disabled={saving || !editName.trim()}
-                className="flex items-center gap-1.5 px-4 py-2 border-3 font-black text-xs uppercase tracking-wider transition-all disabled:opacity-40"
-                style={{ borderColor: 'var(--color-primary)', background: 'var(--color-primary)', color: 'white', boxShadow: 'var(--shadow-brutal-sm)' }}
+                className="btn-primary flex items-center gap-1.5 px-4 py-2 text-xs transition-all disabled:opacity-40"
+                style={{
+                  borderColor: 'var(--color-primary)',
+                  background: 'var(--color-primary)',
+                  color: 'white',
+                  boxShadow: 'var(--shadow-brutal-sm)'
+                }}
               >
                 <Check className="w-3.5 h-3.5" />
                 {saving ? 'Saving…' : 'Save'}
               </button>
               <button
                 onClick={cancelEdit}
-                className="flex items-center gap-1.5 px-4 py-2 border-3 font-black text-xs uppercase tracking-wider"
+                className="btn-secondary flex items-center gap-1.5 px-4 py-2 text-xs"
                 style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-muted)' }}
               >
                 <X className="w-3.5 h-3.5" />
@@ -481,33 +592,53 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
       </div>
 
       {/* Kanban board area */}
-      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+      >
         <div className="flex-1 overflow-x-auto">
           <div className="flex gap-5 h-full pb-6">
-            <SortableContext items={columns.map(column => column.id)} strategy={horizontalListSortingStrategy}>
-              {filteredColumns.map(column => (
-                <Column key={column.id} column={column} boardId={boardId} onTasksChange={loadBoard} />
+            <SortableContext
+              items={columns.map((column) => column.id)}
+              strategy={horizontalListSortingStrategy}
+            >
+              {filteredColumns.map((column) => (
+                <Column
+                  key={column.id}
+                  column={column}
+                  boardId={boardId}
+                  onTasksChange={loadBoard}
+                />
               ))}
             </SortableContext>
 
             {/* Add column */}
             <button
               onClick={() => setShowCreateColumn(true)}
-              className="w-80 shrink-0 h-fit p-5 border-4 border-dashed transition-all duration-100"
-              style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-muted)', boxShadow: 'var(--shadow-brutal-sm)' }}
-              onMouseOver={e => {
+              className="btn-secondary w-80 shrink-0 h-fit p-5 border border-dashed transition-all duration-150"
+              style={{
+                borderColor: 'var(--color-border-strong)',
+                color: 'var(--color-muted)',
+                boxShadow: 'var(--shadow-brutal-sm)'
+              }}
+              onMouseOver={(e) => {
                 e.currentTarget.style.borderColor = 'var(--color-primary)'
                 e.currentTarget.style.background = 'var(--color-primary-soft)'
                 e.currentTarget.style.color = 'var(--color-primary)'
               }}
-              onMouseOut={e => {
+              onMouseOut={(e) => {
                 e.currentTarget.style.borderColor = 'var(--color-border-strong)'
-                e.currentTarget.style.background = 'transparent'
+                e.currentTarget.style.background = ''
                 e.currentTarget.style.color = 'var(--color-muted)'
               }}
             >
               <div className="flex items-center justify-center gap-3">
-                <div className="w-8 h-8 border-3 flex items-center justify-center font-black" style={{ borderColor: 'currentColor' }}>
+                <div
+                  className="w-8 h-8 border flex items-center justify-center rounded-sm"
+                  style={{ borderColor: 'currentColor' }}
+                >
                   <Plus className="w-5 h-5 stroke-[3px]" />
                 </div>
                 <span className="font-black text-sm uppercase tracking-wider">Add Column</span>
@@ -518,7 +649,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
       </DndContext>
 
       {showCreateColumn && (
-        <CreateColumnModal onClose={() => setShowCreateColumn(false)} onCreate={handleCreateColumn} />
+        <CreateColumnModal
+          onClose={() => setShowCreateColumn(false)}
+          onCreate={handleCreateColumn}
+        />
       )}
     </div>
   )

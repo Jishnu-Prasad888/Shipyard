@@ -258,7 +258,7 @@ export const Column: React.FC<ColumnProps> = ({ column, boardId, onTasksChange }
               onChange={(e) => setEditedName(e.target.value)}
               onBlur={handleUpdateColumn}
               onKeyDown={(e) => e.key === 'Enter' && handleUpdateColumn()}
-              className="flex-1 px-2 py-1 border-2 bg-transparent text-sm font-black uppercase focus:outline-none"
+              className="aero-input flex-1 px-2 py-1 bg-transparent text-sm font-semibold focus:outline-none"
               style={{
                 borderColor: 'var(--color-primary)',
                 color: 'var(--color-text)'
@@ -313,17 +313,17 @@ export const Column: React.FC<ColumnProps> = ({ column, boardId, onTasksChange }
 
             {showHidePanel && (
               <div
-                className="absolute right-0 top-full mt-1 z-50 min-w-[200px] animate-brutal-in"
+                className="aero-window absolute right-0 top-full mt-1 z-50 min-w-[200px] animate-brutal-in"
                 style={{
                   background: 'var(--color-surface)',
-                  border: '3px solid var(--color-border-strong)',
-                  boxShadow: 'var(--shadow-brutal)'
+                  border: '1px solid var(--color-border-strong)',
+                  boxShadow: 'var(--shadow-window)'
                 }}
                 onClick={(e) => e.stopPropagation()}
                 ref={hidePanelRef}
               >
                 <div
-                  className="px-3 py-2 text-[10px] font-black uppercase tracking-widest border-b-2"
+                  className="aero-titlebar px-3 py-2 text-[10px] font-semibold border-b"
                   style={{
                     color: 'white',
                     background: 'var(--color-primary)',
@@ -424,7 +424,7 @@ export const Column: React.FC<ColumnProps> = ({ column, boardId, onTasksChange }
         <div className="shrink-0 pt-2 mt-auto">
           <button
             onClick={() => setShowCreateTask(true)}
-            className="flex items-center justify-center gap-2 w-full px-3 py-2 border-2 border-dashed transition-all duration-100 group font-black text-xs uppercase tracking-wider"
+            className="btn-secondary flex items-center justify-center gap-2 w-full px-3 py-2 border border-dashed transition-all duration-150 group text-xs"
             style={{
               borderColor: 'var(--color-border)',
               color: 'var(--color-muted)'

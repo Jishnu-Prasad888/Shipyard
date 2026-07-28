@@ -10,7 +10,7 @@ interface SubtaskProps {
 export const Subtask: React.FC<SubtaskProps> = ({ subtask, onToggle, onDelete }) => {
   return (
     <div
-      className={`flex items-center gap-3 p-3 rounded-lg border transition group ${
+      className={`flex items-center gap-3 p-3 rounded-sm border transition group ${
         subtask.completed
           ? 'border-primary/30 bg-primary-soft/50'
           : 'border-border hover:border-primary/50'
@@ -25,7 +25,9 @@ export const Subtask: React.FC<SubtaskProps> = ({ subtask, onToggle, onDelete })
         {subtask.completed ? <CheckCircle className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
       </button>
 
-      <span className={`flex-1 text-sm break-words whitespace-pre-wrap ${subtask.completed ? 'line-through text-muted' : ''}`}>
+      <span
+        className={`flex-1 text-sm break-words whitespace-pre-wrap ${subtask.completed ? 'line-through text-muted' : ''}`}
+      >
         {subtask.title}
       </span>
 

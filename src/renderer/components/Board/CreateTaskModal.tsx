@@ -15,7 +15,7 @@ const PRESET_COLORS = [
   '#d97706', // Amber
   '#dc2626', // Red
   '#db2777', // Pink
-  '#0f172a'  // Dark
+  '#0f172a' // Dark
 ]
 
 export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onCreate, boardId }) => {
@@ -61,29 +61,32 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onCre
     borderColor: 'var(--color-border-strong)',
     background: 'var(--color-background)',
     color: 'var(--color-text)',
-    boxShadow: 'inset 2px 2px 0 rgba(0,0,0,0.05)'
+    boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.16)'
   }
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={onClose}>
+    <div
+      className="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+      onClick={onClose}
+    >
       <div
-        className="w-full max-w-lg animate-brutal-in"
+        className="aero-window w-full max-w-lg animate-brutal-in"
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--color-surface)',
-          border: '4px solid var(--color-border-strong)',
-          boxShadow: 'var(--shadow-brutal-lg)'
+          border: '1px solid var(--color-border-strong)',
+          boxShadow: 'var(--shadow-window)'
         }}
       >
         {/* Header */}
         <div
-          className="flex items-center justify-between px-5 py-3 border-b-4"
+          className="aero-titlebar flex items-center justify-between px-5 py-3 border-b"
           style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
         >
           <h2 className="text-base font-black text-white uppercase tracking-wider">Create Task</h2>
           <button
             onClick={onClose}
-            className="w-7 h-7 border-2 border-white text-white flex items-center justify-center hover:bg-white/20 transition"
+            className="aero-icon-button w-7 h-7 text-white flex items-center justify-center transition"
           >
             <X className="w-4 h-4" />
           </button>
@@ -92,11 +95,13 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onCre
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Title */}
           <div>
-            <label className="block text-xs font-black uppercase tracking-wider mb-1">Title *</label>
+            <label className="block text-xs font-black uppercase tracking-wider mb-1">
+              Title *
+            </label>
             <textarea
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="w-full px-3 py-2 border-2 text-sm font-bold focus:outline-none resize-none overflow-hidden break-words whitespace-pre-wrap"
+              className="aero-input w-full px-3 py-2 text-sm font-semibold focus:outline-none resize-none overflow-hidden break-words whitespace-pre-wrap"
               style={inputStyle}
               placeholder="Task title"
               rows={1}
@@ -116,11 +121,13 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onCre
 
           {/* Description */}
           <div>
-            <label className="block text-xs font-black uppercase tracking-wider mb-1">Description</label>
+            <label className="block text-xs font-black uppercase tracking-wider mb-1">
+              Description
+            </label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border-2 text-sm font-bold focus:outline-none resize-none"
+              className="aero-input w-full px-3 py-2 text-sm font-semibold focus:outline-none resize-none"
               style={inputStyle}
               rows={3}
               placeholder="Add a description..."
@@ -129,7 +136,9 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onCre
 
           {/* Color */}
           <div>
-            <label className="block text-xs font-black uppercase tracking-wider mb-2">Task Accent Color</label>
+            <label className="block text-xs font-black uppercase tracking-wider mb-2">
+              Task Accent Color
+            </label>
             <div className="flex gap-2">
               {PRESET_COLORS.map((c) => (
                 <button
@@ -140,8 +149,10 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onCre
                   style={{
                     backgroundColor: c,
                     borderColor: color === c ? 'var(--color-border-strong)' : 'transparent',
-                    boxShadow: color === c ? '3px 3px 0 var(--color-border-strong)' : 'none',
-                    transform: color === c ? 'translate(-1px, -1px)' : 'none'
+                    boxShadow:
+                      color === c
+                        ? '0 0 0 2px var(--color-surface), 0 0 0 3px var(--color-border-strong)'
+                        : 'inset 0 1px 0 rgba(255,255,255,.45)'
                   }}
                 />
               ))}
@@ -150,12 +161,14 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onCre
 
           {/* Deadline */}
           <div>
-            <label className="block text-xs font-black uppercase tracking-wider mb-1">Deadline</label>
+            <label className="block text-xs font-black uppercase tracking-wider mb-1">
+              Deadline
+            </label>
             <input
               type="date"
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
-              className="w-full px-3 py-2 border-2 text-sm font-bold focus:outline-none"
+              className="aero-input w-full px-3 py-2 text-sm font-semibold focus:outline-none"
               style={inputStyle}
             />
           </div>
@@ -169,7 +182,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onCre
                 value={newTagName}
                 onChange={(e) => setNewTagName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
-                className="flex-1 px-3 py-2 border-2 text-sm font-bold focus:outline-none"
+                className="aero-input flex-1 px-3 py-2 text-sm font-semibold focus:outline-none"
                 style={inputStyle}
                 placeholder="Tag name..."
               />
@@ -187,7 +200,11 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onCre
                   <span
                     key={tag.id}
                     className="text-xs px-2 py-0.5 font-black uppercase tracking-wider border-2 flex items-center gap-1"
-                    style={{ backgroundColor: tag.color + '15', color: tag.color, borderColor: tag.color }}
+                    style={{
+                      backgroundColor: tag.color + '15',
+                      color: tag.color,
+                      borderColor: tag.color
+                    }}
                   >
                     {tag.name}
                     <button
@@ -205,7 +222,11 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onCre
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary text-xs uppercase tracking-wider">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-secondary text-xs uppercase tracking-wider"
+            >
               Cancel
             </button>
             <button

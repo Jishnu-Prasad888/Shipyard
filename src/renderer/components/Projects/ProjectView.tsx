@@ -11,14 +11,20 @@ interface ProjectViewProps {
   searchQuery: string
 }
 
-export const ProjectView: React.FC<ProjectViewProps> = ({ projectId, onSelectBoard, searchQuery }) => {
+export const ProjectView: React.FC<ProjectViewProps> = ({
+  projectId,
+  onSelectBoard,
+  searchQuery
+}) => {
   const [project, setProject] = useState<Project | null>(null)
   const [boards, setBoards] = useState<Board[]>([])
   const [filteredBoards, setFilteredBoards] = useState<Board[]>([])
   const [showCreateBoard, setShowCreateBoard] = useState(false)
   const [showEditProject, setShowEditProject] = useState(false)
   const [editingBoard, setEditingBoard] = useState<any>(null)
-  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, boardId: string } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; boardId: string } | null>(
+    null
+  )
 
   useEffect(() => {
     const handleReload = () => loadData()
@@ -28,10 +34,10 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ projectId, onSelectBoa
       if (e.target instanceof Element && e.target.closest('.context-menu')) return
       setContextMenu(null)
     }
-    
+
     window.addEventListener('click', handleClick)
     window.addEventListener('contextmenu', handleContextClick, { capture: true })
-    
+
     return () => {
       window.removeEventListener('reload-projects', handleReload)
       window.removeEventListener('click', handleClick)
@@ -78,11 +84,11 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ projectId, onSelectBoa
       const created = await window.electron.db.create('boards', newBoard)
 
       if (project && created && created.id) {
-       const boardIds = Array.isArray(project.boardIds) ? [...project.boardIds] : []
-       boardIds.push(created.id)
-       await window.electron.db.update('projects', projectId, {
-         boardIds: JSON.stringify(boardIds),
-         updatedAt: Date.now()
+        const boardIds = Array.isArray(project.boardIds) ? [...project.boardIds] : []
+        boardIds.push(created.id)
+        await window.electron.db.update('projects', projectId, {
+          boardIds: JSON.stringify(boardIds),
+          updatedAt: Date.now()
         })
       }
 
@@ -121,7 +127,9 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ projectId, onSelectBoa
     const allTasks = await window.electron.db.findAll('tasks')
     const boardTasks = allTasks.filter((task: any) => task.boardId === boardIdToDelete)
     const allSubtasks = await window.electron.db.findAll('subtasks')
-    const boardSubtasks = allSubtasks.filter((subtask: any) => boardTasks.some((task: any) => task.id === subtask.taskId))
+    const boardSubtasks = allSubtasks.filter((subtask: any) =>
+      boardTasks.some((task: any) => task.id === subtask.taskId)
+    )
     const allColumns = await window.electron.db.findAll('columns')
     const boardColumns = allColumns.filter((column: any) => column.boardId === boardIdToDelete)
 
@@ -133,7 +141,9 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ projectId, onSelectBoa
     if (project) {
       const boardIds = Array.isArray(project.boardIds) ? project.boardIds : []
       const newBoardIds = boardIds.filter((id: string) => id !== boardIdToDelete)
-      await window.electron.db.update('projects', project.id, { boardIds: JSON.stringify(newBoardIds) })
+      await window.electron.db.update('projects', project.id, {
+        boardIds: JSON.stringify(newBoardIds)
+      })
     }
 
     loadData()
@@ -146,11 +156,14 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ projectId, onSelectBoa
             await window.electron.db.create('boards', boardSnapshot)
             for (const column of boardColumns) await window.electron.db.create('columns', column)
             for (const task of boardTasks) await window.electron.db.create('tasks', task)
-            for (const subtask of boardSubtasks) await window.electron.db.create('subtasks', subtask)
+            for (const subtask of boardSubtasks)
+              await window.electron.db.create('subtasks', subtask)
             if (project) {
               const bIds = Array.isArray(project.boardIds) ? [...project.boardIds] : []
               bIds.push(boardIdToDelete)
-              await window.electron.db.update('projects', project.id, { boardIds: JSON.stringify(bIds) })
+              await window.electron.db.update('projects', project.id, {
+                boardIds: JSON.stringify(bIds)
+              })
             }
             loadData()
           }
@@ -169,10 +182,10 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ projectId, onSelectBoa
     <div className="space-y-6">
       {/* Project header */}
       <div
-        className="p-5 border-4"
+        className="surface p-5"
         style={{
           borderColor: projectColor,
-          boxShadow: `6px 6px 0 ${projectColor}`,
+          boxShadow: `0 3px 14px ${projectColor}35`,
           background: 'var(--color-surface)'
         }}
       >
@@ -183,12 +196,15 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ projectId, onSelectBoa
                 className="w-5 h-5 border-2"
                 style={{ backgroundColor: projectColor, borderColor: 'var(--color-border-strong)' }}
               />
-              <h1 className="text-2xl font-black uppercase tracking-tight" style={{ color: 'var(--color-text)' }}>
+              <h1
+                className="text-2xl font-black uppercase tracking-tight"
+                style={{ color: 'var(--color-text)' }}
+              >
                 {project.name}
               </h1>
               <button
                 onClick={() => setShowEditProject(true)}
-                className="p-1.5 border-2 transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5"
+                className="btn-secondary p-1.5 transition-all duration-150"
                 style={{
                   borderColor: 'var(--color-border)',
                   color: 'var(--color-muted)',
@@ -238,10 +254,17 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ projectId, onSelectBoa
           </button>
         </div>
 
-        <div className="mt-3 pt-3 border-t-2 flex items-center gap-4" style={{ borderColor: 'var(--color-border)' }}>
+        <div
+          className="mt-3 pt-3 border-t-2 flex items-center gap-4"
+          style={{ borderColor: 'var(--color-border)' }}
+        >
           <span
             className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider px-2 py-1 border-2"
-            style={{ borderColor: projectColor, color: projectColor, background: projectColor + '10' }}
+            style={{
+              borderColor: projectColor,
+              color: projectColor,
+              background: projectColor + '10'
+            }}
           >
             <LayoutGrid className="w-3 h-3" />
             {filteredBoards.length} Boards
@@ -266,20 +289,23 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ projectId, onSelectBoa
 
         {filteredBoards.length === 0 && (
           <div
-            className="col-span-full py-20 text-center border-4 border-dashed flex flex-col items-center justify-center"
+            className="aero-panel col-span-full py-20 text-center border border-dashed flex flex-col items-center justify-center"
             style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
           >
             <div
-              className="w-16 h-16 border-4 flex items-center justify-center mb-4"
+              className="w-16 h-16 border flex items-center justify-center mb-4 rounded-md"
               style={{
                 borderColor: projectColor,
                 color: projectColor,
-                boxShadow: `4px 4px 0 ${projectColor}`
+                boxShadow: `0 3px 12px ${projectColor}45`
               }}
             >
               <Plus className="w-8 h-8 stroke-[3px]" />
             </div>
-            <h3 className="text-xl font-black uppercase tracking-tight mb-1" style={{ color: 'var(--color-text)' }}>
+            <h3
+              className="text-xl font-black uppercase tracking-tight mb-1"
+              style={{ color: 'var(--color-text)' }}
+            >
               No Boards
             </h3>
             <p className="text-sm font-bold" style={{ color: 'var(--color-muted)' }}>
@@ -330,22 +356,25 @@ export const ProjectView: React.FC<ProjectViewProps> = ({ projectId, onSelectBoa
             top: Math.min(contextMenu.y, window.innerHeight - 150),
             left: Math.min(contextMenu.x, window.innerWidth - 200),
             background: 'var(--color-surface)',
-            border: '3px solid var(--color-border-strong)',
-            boxShadow: '4px 4px 0 var(--color-border-strong)'
+            border: '1px solid var(--color-border-strong)',
+            boxShadow: 'var(--shadow-window)'
           }}
           onClick={(e) => e.stopPropagation()}
         >
           <div
             className="px-4 py-2 text-xs font-black uppercase tracking-widest text-white border-b-2 truncate"
-            style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
+            style={{
+              background: 'var(--color-primary)',
+              borderColor: 'var(--color-border-strong)'
+            }}
           >
-            {boards.find(b => b.id === contextMenu.boardId)?.name || 'Board'}
+            {boards.find((b) => b.id === contextMenu.boardId)?.name || 'Board'}
           </div>
           <button
             className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold transition hover:bg-primary-soft border-b-2"
             style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
             onClick={() => {
-              const b = boards.find(b => b.id === contextMenu.boardId)
+              const b = boards.find((b) => b.id === contextMenu.boardId)
               if (b) setEditingBoard(b)
               setContextMenu(null)
             }}

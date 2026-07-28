@@ -50,22 +50,22 @@ const StatusModal: React.FC<StatusModalProps> = ({ onClose, onCreate }) => {
       onClick={onClose}
     >
       <div
-        className="w-80 animate-brutal-in"
+        className="aero-window w-80 animate-brutal-in"
         onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--color-surface)',
-          border: '3px solid var(--color-border-strong)',
-          boxShadow: 'var(--shadow-brutal)'
+          border: '1px solid var(--color-border-strong)',
+          boxShadow: 'var(--shadow-window)'
         }}
       >
         <div
-          className="flex items-center justify-between px-4 py-3 border-b-2"
+          className="aero-titlebar flex items-center justify-between px-4 py-3 border-b"
           style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
         >
           <h3 className="text-sm font-black text-white uppercase tracking-wider">New Status</h3>
           <button
             onClick={onClose}
-            className="w-6 h-6 border-2 border-white text-white flex items-center justify-center hover:bg-white/20"
+            className="aero-icon-button w-6 h-6 text-white flex items-center justify-center"
           >
             <X className="w-3 h-3" />
           </button>
@@ -80,7 +80,7 @@ const StatusModal: React.FC<StatusModalProps> = ({ onClose, onCreate }) => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-              className="w-full px-3 py-2 border-2 text-sm font-bold focus:outline-none"
+              className="aero-input w-full px-3 py-2 text-sm font-semibold focus:outline-none"
               style={{
                 borderColor: 'var(--color-border-strong)',
                 background: 'var(--color-background)',
@@ -101,8 +101,10 @@ const StatusModal: React.FC<StatusModalProps> = ({ onClose, onCreate }) => {
                   style={{
                     backgroundColor: c,
                     borderColor: color === c ? 'var(--color-border-strong)' : 'transparent',
-                    boxShadow: color === c ? '2px 2px 0 var(--color-border-strong)' : 'none',
-                    transform: color === c ? 'translate(-1px,-1px)' : 'none'
+                    boxShadow:
+                      color === c
+                        ? '0 0 0 2px var(--color-surface), 0 0 0 3px var(--color-border-strong)'
+                        : 'inset 0 1px 0 rgba(255,255,255,.45)'
                   }}
                 />
               ))}
@@ -221,16 +223,25 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
     let relevantTasks: any[]
     if (projectId) {
       const projectBoardIds = new Set(
-        allBoards.filter((board: any) => board.projectId === projectId).map((board: any) => board.id)
+        allBoards
+          .filter((board: any) => board.projectId === projectId)
+          .map((board: any) => board.id)
       )
-      relevantTasks = allTasks.filter((candidate: any) => projectBoardIds.has(candidate.boardId) && candidate.id !== task.id)
+      relevantTasks = allTasks.filter(
+        (candidate: any) => projectBoardIds.has(candidate.boardId) && candidate.id !== task.id
+      )
     } else {
-      relevantTasks = allTasks.filter((candidate: any) => candidate.boardId === task.boardId && candidate.id !== task.id)
+      relevantTasks = allTasks.filter(
+        (candidate: any) => candidate.boardId === task.boardId && candidate.id !== task.id
+      )
     }
 
     const tagMap = new Map<string, any>()
     for (const candidate of relevantTasks) {
-      const taskTags = typeof candidate.tags === 'string' ? JSON.parse(candidate.tags || '[]') : candidate.tags || []
+      const taskTags =
+        typeof candidate.tags === 'string'
+          ? JSON.parse(candidate.tags || '[]')
+          : candidate.tags || []
       for (const t of taskTags) {
         if (t.name && !tagMap.has(t.name.toLowerCase())) {
           tagMap.set(t.name.toLowerCase(), t)
@@ -263,7 +274,9 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
 
       if (projectId) {
         const projectBoardIds = new Set(
-          allBoards.filter((board: any) => board.projectId === projectId).map((board: any) => board.id)
+          allBoards
+            .filter((board: any) => board.projectId === projectId)
+            .map((board: any) => board.id)
         )
         filtered = filtered.filter((detail: any) => projectBoardIds.has(detail.boardId))
       } else {
@@ -313,7 +326,10 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
               taskId: task.id,
               createdAt: subtask.createdAt || Date.now()
             })
-          } else if (oldSubtask.completed !== subtask.completed || oldSubtask.title !== subtask.title) {
+          } else if (
+            oldSubtask.completed !== subtask.completed ||
+            oldSubtask.title !== subtask.title
+          ) {
             await window.electron.db.update('subtasks', subtask.id, {
               title: subtask.title,
               completed: subtask.completed ? 1 : 0
@@ -475,7 +491,9 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
     const allTasks = await window.electron.db.findAll('tasks')
     const affectedTasks = allTasks.filter((candidate: any) => {
       const taskStatus =
-        typeof candidate.status === 'string' && candidate.status.startsWith('{') ? JSON.parse(candidate.status) : candidate.status
+        typeof candidate.status === 'string' && candidate.status.startsWith('{')
+          ? JSON.parse(candidate.status)
+          : candidate.status
       return taskStatus && taskStatus.id === statusToDelete.id
     })
     const affectedTaskIds = affectedTasks.map((candidate: any) => candidate.id)
@@ -600,16 +618,22 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
 
     if (projectId) {
       const projectBoardIds = new Set(
-        allBoards.filter((board: any) => board.projectId === projectId).map((board: any) => board.id)
+        allBoards
+          .filter((board: any) => board.projectId === projectId)
+          .map((board: any) => board.id)
       )
       filtered = allTasks.filter(
         (candidate: any) =>
-          projectBoardIds.has(candidate.boardId) && candidate.id !== task.id && !connectedTaskIds.includes(candidate.id)
+          projectBoardIds.has(candidate.boardId) &&
+          candidate.id !== task.id &&
+          !connectedTaskIds.includes(candidate.id)
       )
     } else {
       filtered = allTasks.filter(
         (candidate: any) =>
-          candidate.boardId === task.boardId && candidate.id !== task.id && !connectedTaskIds.includes(candidate.id)
+          candidate.boardId === task.boardId &&
+          candidate.id !== task.id &&
+          !connectedTaskIds.includes(candidate.id)
       )
     }
 
@@ -654,7 +678,9 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
   const handleUnlinkTask = async (targetTaskId: string) => {
     const newConnectedIds = connectedTaskIds.filter((id) => id !== targetTaskId)
     setConnectedTaskIds(newConnectedIds)
-    setConnectedTaskDetails(connectedTaskDetails.filter((candidate: any) => candidate.id !== targetTaskId))
+    setConnectedTaskDetails(
+      connectedTaskDetails.filter((candidate: any) => candidate.id !== targetTaskId)
+    )
 
     // Remove reverse connection
     const targetTask = await window.electron.db.findById('tasks', targetTaskId)
@@ -688,15 +714,15 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
         onClick={onClose}
       >
         <div
-          className="w-full max-w-4xl max-h-[90vh] surface rounded-xl flex flex-col"
+          className="aero-window w-full max-w-4xl max-h-[90vh] surface flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border">
+          <div className="aero-titlebar flex items-center justify-between p-4 border-b border-border">
             <textarea
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="text-xl font-bold bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-primary rounded px-2 flex-1 resize-none overflow-hidden break-words whitespace-pre-wrap leading-tight py-2"
+              className="text-xl font-semibold text-white bg-transparent border-none focus:outline-none px-2 flex-1 resize-none overflow-hidden break-words whitespace-pre-wrap leading-tight py-2"
               rows={1}
               placeholder="Task title"
               onInput={(e) => {
@@ -718,12 +744,12 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
             <div className="flex items-center gap-2">
               <button
                 onClick={handleDeleteTask}
-                className="p-2 rounded-lg hover:bg-alert/10 text-muted hover:text-alert transition"
+                className="aero-icon-button p-2 text-white hover:text-alert transition"
                 title="Delete task"
               >
                 <Trash2 className="w-5 h-5" />
               </button>
-              <button onClick={onClose} className="p-2 rounded-lg hover:bg-primary-soft transition">
+              <button onClick={onClose} className="aero-icon-button p-2 text-white transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -740,13 +766,13 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:border-primary"
+                    className="aero-input w-full px-3 py-2 bg-surface text-text focus:outline-none"
                     rows={4}
                     placeholder="Add a description..."
                   />
                 </div>
 
-                  {/* Subtasks */}
+                {/* Subtasks */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-medium">
@@ -787,12 +813,12 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
                         value={newSubtaskTitle}
                         onChange={(e) => setNewSubtaskTitle(e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && handleAddSubtask()}
-                        className="flex-1 px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:border-primary"
+                        className="aero-input flex-1 px-3 py-2 bg-surface text-text focus:outline-none"
                         placeholder="Add a subtask..."
                       />
                       <button
                         onClick={handleAddSubtask}
-                        className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition"
+                        className="btn-primary px-4 py-2 transition"
                       >
                         Add
                       </button>
@@ -810,7 +836,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
               {/* Sidebar */}
               <div className="space-y-4">
                 {/* Status */}
-                <div className="p-4 border border-border rounded-lg">
+                <div className="aero-panel p-4">
                   <h4 className="font-medium mb-2 flex items-center gap-2">
                     <CheckSquare className="w-4 h-4" />
                     Status
@@ -859,7 +885,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
                 </div>
 
                 {/* Deadline */}
-                <div className="p-4 border border-border rounded-lg">
+                <div className="aero-panel p-4">
                   <h4 className="font-medium mb-2 flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
                     Deadline
@@ -868,7 +894,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
                     type="date"
                     value={deadlineStr}
                     onChange={(e) => setDeadlineStr(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:border-primary"
+                    className="aero-input w-full px-3 py-2 bg-surface text-text focus:outline-none"
                   />
                   {deadlineStr && (
                     <button
@@ -881,7 +907,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
                 </div>
 
                 {/* Color */}
-                <div className="p-4 border border-border rounded-lg">
+                <div className="aero-panel p-4">
                   <h4 className="font-medium mb-2">Task Color</h4>
                   <div className="flex flex-wrap gap-2">
                     {PRESET_COLORS.map((c) => (
@@ -900,7 +926,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
                 </div>
 
                 {/* Tags */}
-                <div className="p-4 border border-border rounded-lg">
+                <div className="aero-panel p-4">
                   <h4 className="font-medium mb-2 flex items-center gap-2">
                     <Tag className="w-4 h-4" />
                     Tags
@@ -918,19 +944,19 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
                           onFocus={() => setShowTagSuggestions(true)}
                           onBlur={() => setTimeout(() => setShowTagSuggestions(false), 200)}
                           onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
-                          className="flex-1 min-w-0 px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:border-primary text-sm"
+                          className="aero-input flex-1 min-w-0 px-3 py-2 bg-surface text-text focus:outline-none text-sm"
                           placeholder="New tag..."
                         />
                         <button
                           onClick={handleAddTag}
-                          className="shrink-0 px-3 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition"
+                          className="btn-primary shrink-0 px-3 py-2 transition"
                         >
                           <Plus className="w-4 h-4" />
                         </button>
                       </div>
 
                       {showTagSuggestions && (
-                        <div className="absolute top-full left-0 right-0 mt-1 surface border border-border rounded-lg shadow-xl z-20 max-h-48 overflow-auto">
+                        <div className="aero-window absolute top-full left-0 right-0 mt-1 surface z-20 max-h-48 overflow-auto">
                           {projectTagSuggestions
                             .filter(
                               (s) =>
@@ -955,14 +981,14 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
                                 <span className="text-sm">{suggestion.name}</span>
                               </button>
                             ))}
-                        {projectTagSuggestions.filter(
+                          {projectTagSuggestions.filter(
                             (s) =>
                               s.name.toLowerCase().includes(newTagName.toLowerCase()) &&
                               !tags.find((t: any) => t.name.toLowerCase() === s.name.toLowerCase())
                           ).length === 0 &&
                             newTagName.trim() === '' && (
                               <div className="px-3 py-2 text-xs text-muted italic">
-                              No other tags found in this project
+                                No other tags found in this project
                               </div>
                             )}
                         </div>
@@ -995,7 +1021,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
                 </div>
 
                 {/* Connected tasks in this project */}
-                <div className="p-4 border border-border rounded-lg">
+                <div className="aero-panel p-4">
                   <h4 className="font-medium mb-2 flex items-center gap-2">
                     <Link2 className="w-4 h-4" />
                     Connected Tasks
@@ -1007,7 +1033,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
                       {connectedTaskDetails.map((connectedTask: any) => (
                         <div
                           key={connectedTask.id}
-                          className="flex items-center justify-between p-2 rounded-lg border border-border hover:border-primary/50 transition"
+                          className="aero-panel flex items-center justify-between p-2 transition"
                         >
                           <div className="flex items-center gap-2 min-w-0">
                             <Link2 className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -1041,7 +1067,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
                           type="text"
                           value={linkSearchQuery}
                           onChange={(e) => setLinkSearchQuery(e.target.value)}
-                          className="w-full pl-8 pr-3 py-2 border border-border rounded-lg bg-surface text-text text-sm focus:outline-none focus:border-primary"
+                          className="aero-input w-full pl-8 pr-3 py-2 bg-surface text-text text-sm focus:outline-none"
                           placeholder="Search tasks in this project..."
                           autoFocus
                         />
@@ -1052,7 +1078,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
                             <button
                               key={candidate.id}
                               onClick={() => handleLinkTask(candidate.id)}
-                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary-soft transition"
+                              className="w-full text-left px-3 py-2 rounded-sm hover:bg-primary-soft transition"
                             >
                               <p className="text-sm break-words whitespace-pre-wrap leading-tight">
                                 {candidate.title}
@@ -1081,7 +1107,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
                   ) : (
                     <button
                       onClick={handleOpenLinkSearch}
-                      className="w-full px-3 py-2 border border-dashed border-border rounded-lg hover:border-primary hover:bg-primary-soft transition text-muted hover:text-primary text-sm"
+                      className="btn-secondary w-full px-3 py-2 border-dashed hover:bg-primary-soft transition text-muted hover:text-primary text-sm"
                     >
                       + Connect to task
                     </button>
@@ -1099,7 +1125,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
             <div className="flex gap-2">
               <button
                 onClick={handleUndoChanges}
-                className="px-4 py-2 border border-border rounded-lg hover:bg-primary-soft transition flex items-center gap-2"
+                className="btn-secondary px-4 py-2 transition flex items-center gap-2"
               >
                 <RotateCcw className="w-4 h-4" />
                 Undo Changes
@@ -1107,7 +1133,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
               <button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                className="btn-primary px-4 py-2 transition disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Save &amp; Close
               </button>

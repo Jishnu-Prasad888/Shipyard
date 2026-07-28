@@ -1,14 +1,30 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import {
-  ChevronLeft, ChevronRight, Calendar,
-  AlertCircle, Clock, CheckCircle2, FolderKanban, LayoutGrid
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
+  AlertCircle,
+  Clock,
+  CheckCircle2,
+  FolderKanban,
+  LayoutGrid
 } from 'lucide-react'
 
 // ── Helpers ─────────────────────────────────────────────────────────
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December'
 ]
 
 function getDaysInMonth(year: number, month: number) {
@@ -20,9 +36,11 @@ function getFirstDayOfMonth(year: number, month: number) {
 }
 
 function isSameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() &&
+  return (
+    a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate()
+  )
 }
 
 function isOverdue(deadline: number) {
@@ -92,7 +110,9 @@ const TaskChip = ({
       }}
     >
       {urgencyIcon}
-      <span className="flex-1 break-words whitespace-pre-wrap font-black leading-tight">{task.title}</span>
+      <span className="flex-1 break-words whitespace-pre-wrap font-black leading-tight">
+        {task.title}
+      </span>
       <StatusPill task={task} />
       <span className="text-[8px] shrink-0 opacity-60 group-hover:opacity-100">
         {task._boardName}
@@ -103,7 +123,12 @@ const TaskChip = ({
 
 // ── Day Cell ─────────────────────────────────────────────────────────
 const DayCell = ({
-  day, month, year, tasks, today, onTaskClick
+  day,
+  month,
+  year,
+  tasks,
+  today,
+  onTaskClick
 }: {
   day: number
   month: number
@@ -128,7 +153,7 @@ const DayCell = ({
           style={{
             background: isToday ? 'var(--color-primary)' : 'transparent',
             color: isToday ? 'white' : 'var(--color-text)',
-            boxShadow: isToday ? '2px 2px 0 var(--color-border-strong)' : 'none',
+            boxShadow: isToday ? 'var(--shadow-control)' : 'none',
             border: isToday ? '2px solid var(--color-border-strong)' : '2px solid transparent'
           }}
         >
@@ -143,7 +168,7 @@ const DayCell = ({
 
       {/* Task chips */}
       <div className="flex flex-col gap-0.5">
-        {tasks.slice(0, MAX_VISIBLE).map(task => (
+        {tasks.slice(0, MAX_VISIBLE).map((task) => (
           <TaskChip key={task.id} task={task} onClick={onTaskClick} />
         ))}
       </div>
@@ -182,13 +207,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
         ])
 
         const boardMap: Record<string, any> = {}
-        boards.forEach((b: any) => { boardMap[b.id] = b })
+        boards.forEach((b: any) => {
+          boardMap[b.id] = b
+        })
 
         const columnMap: Record<string, any> = {}
-        columns.forEach((column: any) => { columnMap[column.id] = column })
+        columns.forEach((column: any) => {
+          columnMap[column.id] = column
+        })
 
         const projectMap: Record<string, any> = {}
-        projects.forEach((project: any) => { projectMap[project.id] = project })
+        projects.forEach((project: any) => {
+          projectMap[project.id] = project
+        })
 
         const withDeadline = tasks
           .filter((task: any) => task.deadline && task.deadline > 0)
@@ -200,7 +231,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
             let parsedStatus: any = null
             if (task.status) {
               try {
-                parsedStatus = typeof task.status === 'string' ? JSON.parse(task.status) : task.status
+                parsedStatus =
+                  typeof task.status === 'string' ? JSON.parse(task.status) : task.status
               } catch {}
             }
 
@@ -236,7 +268,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
   // ── Map deadlines → dates ──────────────────────────────────────────
   const tasksByDate = useMemo(() => {
     const map: Record<string, any[]> = {}
-    allTasks.forEach(task => {
+    allTasks.forEach((task) => {
       const d = new Date(task.deadline)
       const key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
       if (!map[key]) map[key] = []
@@ -245,8 +277,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
     return map
   }, [allTasks])
 
-  const tasksForDate = (y: number, m: number, d: number) =>
-    tasksByDate[`${y}-${m}-${d}`] || []
+  const tasksForDate = (y: number, m: number, d: number) => tasksByDate[`${y}-${m}-${d}`] || []
 
   // ── Navigation ────────────────────────────────────────────────────
   const goBack = () => {
@@ -278,9 +309,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
         <div
           key={`prev-${i}`}
           className="min-h-[100px] p-1.5 border-r-2 border-b-2"
-          style={{ borderColor: 'var(--color-border-strong)' + '30', background: 'var(--color-surface-3)' + '40', opacity: 0.4 }}
+          style={{
+            borderColor: 'var(--color-border-strong)' + '30',
+            background: 'var(--color-surface-3)' + '40',
+            opacity: 0.4
+          }}
         >
-          <span className="text-xs font-bold" style={{ color: 'var(--color-muted)' }}>{d}</span>
+          <span className="text-xs font-bold" style={{ color: 'var(--color-muted)' }}>
+            {d}
+          </span>
         </div>
       )
     }
@@ -308,9 +345,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
         <div
           key={`next-${i}`}
           className="min-h-[100px] p-1.5 border-r-2 border-b-2"
-          style={{ borderColor: 'var(--color-border-strong)' + '30', background: 'var(--color-surface-3)' + '40', opacity: 0.4 }}
+          style={{
+            borderColor: 'var(--color-border-strong)' + '30',
+            background: 'var(--color-surface-3)' + '40',
+            opacity: 0.4
+          }}
         >
-          <span className="text-xs font-bold" style={{ color: 'var(--color-muted)' }}>{i}</span>
+          <span className="text-xs font-bold" style={{ color: 'var(--color-muted)' }}>
+            {i}
+          </span>
         </div>
       )
     }
@@ -331,7 +374,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
           const tasks = tasksForDate(date.getFullYear(), date.getMonth(), date.getDate())
           const isToday = isSameDay(date, today)
           return (
-            <div key={i} className="border-r-2" style={{ borderColor: 'var(--color-border)' + '30' }}>
+            <div
+              key={i}
+              className="border-r-2"
+              style={{ borderColor: 'var(--color-border)' + '30' }}
+            >
               {/* Day header */}
               <div
                 className="p-2 border-b-2 text-center sticky top-0 z-10"
@@ -340,19 +387,33 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
                   background: isToday ? 'var(--color-primary)' : 'var(--color-surface-2)'
                 }}
               >
-                <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: isToday ? 'white' : 'var(--color-muted)' }}>
+                <p
+                  className="text-[9px] font-black uppercase tracking-widest"
+                  style={{ color: isToday ? 'white' : 'var(--color-muted)' }}
+                >
                   {DAYS[i]}
                 </p>
-                <p className="text-lg font-black" style={{ color: isToday ? 'white' : 'var(--color-text)' }}>
+                <p
+                  className="text-lg font-black"
+                  style={{ color: isToday ? 'white' : 'var(--color-text)' }}
+                >
                   {date.getDate()}
                 </p>
               </div>
               {/* Tasks */}
               <div className="p-1.5 space-y-1 min-h-[200px]">
-                {tasks.length === 0
-                  ? <p className="text-center text-[9px] py-4" style={{ color: 'var(--color-muted)', opacity: 0.4 }}>—</p>
-                  : tasks.map(task => <TaskChip key={task.id} task={task} onClick={handleTaskClick} />)
-                }
+                {tasks.length === 0 ? (
+                  <p
+                    className="text-center text-[9px] py-4"
+                    style={{ color: 'var(--color-muted)', opacity: 0.4 }}
+                  >
+                    —
+                  </p>
+                ) : (
+                  tasks.map((task) => (
+                    <TaskChip key={task.id} task={task} onClick={handleTaskClick} />
+                  ))
+                )}
               </div>
             </div>
           )
@@ -366,16 +427,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
     const sorted = [...allTasks].sort((a, b) => a.deadline - b.deadline)
     if (sorted.length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center py-20 gap-4" style={{ color: 'var(--color-muted)' }}>
+        <div
+          className="flex flex-col items-center justify-center py-20 gap-4"
+          style={{ color: 'var(--color-muted)' }}
+        >
           <Calendar className="w-12 h-12 opacity-30" />
-          <p className="text-sm font-bold uppercase tracking-widest opacity-50">No task deadlines</p>
+          <p className="text-sm font-bold uppercase tracking-widest opacity-50">
+            No task deadlines
+          </p>
         </div>
       )
     }
 
     // Group by calendar date
     const groups: Record<string, any[]> = {}
-    sorted.forEach(c => {
+    sorted.forEach((c) => {
       const d = new Date(c.deadline)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
       if (!groups[key]) groups[key] = []
@@ -395,24 +461,47 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
                 <div
                   className="flex flex-col items-center justify-center w-10 h-10 border-2 shrink-0"
                   style={{
-                    borderColor: isT ? 'var(--color-primary)' : past ? 'var(--color-warning)' : 'var(--color-border)',
+                    borderColor: isT
+                      ? 'var(--color-primary)'
+                      : past
+                        ? 'var(--color-warning)'
+                        : 'var(--color-border)',
                     background: isT ? 'var(--color-primary)' : 'var(--color-surface)',
-                    boxShadow: isT ? '2px 2px 0 var(--color-border-strong)' : 'none'
+                    boxShadow: isT ? 'var(--shadow-control)' : 'none'
                   }}
                 >
-                  <span className="text-[8px] font-black uppercase" style={{ color: isT ? 'rgba(255,255,255,0.8)' : 'var(--color-muted)' }}>
+                  <span
+                    className="text-[8px] font-black uppercase"
+                    style={{ color: isT ? 'rgba(255,255,255,0.8)' : 'var(--color-muted)' }}
+                  >
                     {MONTHS[date.getMonth()].slice(0, 3)}
                   </span>
-                  <span className="text-base font-black leading-none" style={{ color: isT ? 'white' : 'var(--color-text)' }}>
+                  <span
+                    className="text-base font-black leading-none"
+                    style={{ color: isT ? 'white' : 'var(--color-text)' }}
+                  >
                     {date.getDate()}
                   </span>
                 </div>
                 <div>
-                  <p className="text-xs font-black uppercase tracking-wider" style={{ color: 'var(--color-text)' }}>
-                    {isT ? '🎯 Today' : date.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                  <p
+                    className="text-xs font-black uppercase tracking-wider"
+                    style={{ color: 'var(--color-text)' }}
+                  >
+                    {isT
+                      ? '🎯 Today'
+                      : date.toLocaleDateString('en-US', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
                   </p>
                   {past && (
-                    <p className="text-[9px] font-bold uppercase" style={{ color: 'var(--color-warning)' }}>
+                    <p
+                      className="text-[9px] font-bold uppercase"
+                      style={{ color: 'var(--color-warning)' }}
+                    >
                       ⚠ Overdue
                     </p>
                   )}
@@ -421,7 +510,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
 
               {/* Tasks */}
               <div className="ml-13 space-y-1.5" style={{ marginLeft: '3.5rem' }}>
-                {tasks.map(task => (
+                {tasks.map((task) => (
                   <button
                     key={task.id}
                     onClick={() => handleTaskClick(task)}
@@ -429,24 +518,47 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
                     style={{
                       background: 'var(--color-surface)',
                       borderColor: task.color || 'var(--color-border)',
-                      boxShadow: `2px 2px 0 ${task.color || 'var(--color-border-strong)'}`
+                      boxShadow: 'var(--shadow-control)'
                     }}
                   >
                     {/* Color swatch dot */}
-                    <div className="w-2.5 h-2.5 border border-black/20 shrink-0 rounded-full" style={{ background: task.color || 'var(--color-primary)' }} />
+                    <div
+                      className="w-2.5 h-2.5 border border-black/20 shrink-0 rounded-full"
+                      style={{ background: task.color || 'var(--color-primary)' }}
+                    />
                     {/* Info */}
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black break-words whitespace-pre-wrap leading-tight" style={{ color: 'var(--color-text)' }}>{task.title}</p>
+                      <p
+                        className="text-xs font-black break-words whitespace-pre-wrap leading-tight"
+                        style={{ color: 'var(--color-text)' }}
+                      >
+                        {task.title}
+                      </p>
                       <p className="text-[9px] font-bold" style={{ color: 'var(--color-muted)' }}>
-                        {task._projectName && <><FolderKanban className="w-2.5 h-2.5 inline mr-0.5" />{task._projectName} · </>}
-                        <LayoutGrid className="w-2.5 h-2.5 inline mr-0.5" />{task._boardName}
+                        {task._projectName && (
+                          <>
+                            <FolderKanban className="w-2.5 h-2.5 inline mr-0.5" />
+                            {task._projectName} ·{' '}
+                          </>
+                        )}
+                        <LayoutGrid className="w-2.5 h-2.5 inline mr-0.5" />
+                        {task._boardName}
                         {task._columnName && <> · {task._columnName}</>}
                       </p>
                     </div>
                     <StatusPill task={task} />
-                    {isOverdue(task.deadline) && <AlertCircle className="w-3.5 h-3.5 text-orange-500 shrink-0" />}
-                    {isDueSoon(task.deadline) && !isOverdue(task.deadline) && <Clock className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--color-warning)' }} />}
-                    {task._parsedStatus?.name === 'Done' && <CheckCircle2 className="w-3.5 h-3.5 text-teal-500 shrink-0" />}
+                    {isOverdue(task.deadline) && (
+                      <AlertCircle className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                    )}
+                    {isDueSoon(task.deadline) && !isOverdue(task.deadline) && (
+                      <Clock
+                        className="w-3.5 h-3.5 shrink-0"
+                        style={{ color: 'var(--color-warning)' }}
+                      />
+                    )}
+                    {task._parsedStatus?.name === 'Done' && (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-teal-500 shrink-0" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -466,41 +578,72 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
         onClick={() => setSelectedTask(null)}
       >
         <div
-          className="w-full max-w-md animate-brutal-in"
+          className="aero-window w-full max-w-md animate-brutal-in"
           style={{
             background: 'var(--color-surface)',
-            border: '3px solid var(--color-border-strong)',
-            boxShadow: 'var(--shadow-brutal-lg)'
+            border: '1px solid var(--color-border-strong)',
+            boxShadow: 'var(--shadow-window)'
           }}
-          onClick={e => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
         >
           {/* Header bar */}
           <div
-            className="px-4 py-3 border-b-2"
-            style={{ background: task.color || 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
+            className="aero-titlebar px-4 py-3 border-b"
+            style={
+              {
+                '--aero-titlebar-start': task.color || 'var(--color-primary-hover)',
+                '--aero-titlebar-accent': task.color || 'var(--color-primary)',
+                '--aero-titlebar-end': task.color || 'var(--color-secondary)',
+                borderColor: 'var(--color-border-strong)'
+              } as React.CSSProperties
+            }
           >
             <p className="text-sm font-black text-white uppercase tracking-wide">{task.title}</p>
           </div>
           <div className="p-4 space-y-2">
             {task.description && (
-              <p className="text-xs" style={{ color: 'var(--color-muted)' }}>{task.description}</p>
+              <p className="text-xs" style={{ color: 'var(--color-muted)' }}>
+                {task.description}
+              </p>
             )}
             <div className="grid grid-cols-2 gap-2 text-xs font-bold">
-              <div className="p-2 border-2" style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}>
+              <div
+                className="p-2 border-2"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
+              >
                 <p className="text-[9px] uppercase tracking-widest mb-0.5">Deadline</p>
-                <p style={{ color: over ? '#D97B66' : soon ? 'var(--color-warning)' : 'var(--color-text)' }}>
-                  {over && 'Overdue: '}{new Date(task.deadline).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                <p
+                  style={{
+                    color: over ? '#D97B66' : soon ? 'var(--color-warning)' : 'var(--color-text)'
+                  }}
+                >
+                  {over && 'Overdue: '}
+                  {new Date(task.deadline).toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
                 </p>
               </div>
-              <div className="p-2 border-2" style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}>
+              <div
+                className="p-2 border-2"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
+              >
                 <p className="text-[9px] uppercase tracking-widest mb-0.5">Status</p>
                 <p>{task._parsedStatus?.name || '-'}</p>
               </div>
-              <div className="p-2 border-2" style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}>
+              <div
+                className="p-2 border-2"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
+              >
                 <p className="text-[9px] uppercase tracking-widest mb-0.5">Board</p>
                 <p>{task._boardName || '-'}</p>
               </div>
-              <div className="p-2 border-2" style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}>
+              <div
+                className="p-2 border-2"
+                style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
+              >
                 <p className="text-[9px] uppercase tracking-widest mb-0.5">Project</p>
                 <p>{task._projectName || '-'}</p>
               </div>
@@ -508,7 +651,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
             {task._parsedTags?.length > 0 && (
               <div className="flex flex-wrap gap-1 pt-1">
                 {task._parsedTags.map((t: any, i: number) => (
-                  <span key={i} className="text-[9px] font-black uppercase px-1.5 py-0.5 border" style={{ borderColor: t.color || 'var(--color-primary)', color: t.color || 'var(--color-primary)' }}>
+                  <span
+                    key={i}
+                    className="text-[9px] font-black uppercase px-1.5 py-0.5 border"
+                    style={{
+                      borderColor: t.color || 'var(--color-primary)',
+                      color: t.color || 'var(--color-primary)'
+                    }}
+                  >
                     {t.name}
                   </span>
                 ))}
@@ -529,20 +679,21 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
   }
 
   // ── Stats bar ──────────────────────────────────────────────────────
-  const overdue = allTasks.filter(task => isOverdue(task.deadline))
-  const dueSoon = allTasks.filter(task => isDueSoon(task.deadline))
+  const overdue = allTasks.filter((task) => isOverdue(task.deadline))
+  const dueSoon = allTasks.filter((task) => isDueSoon(task.deadline))
 
   // ── Header title ───────────────────────────────────────────────────
-  const headerTitle = viewMode === 'month'
-    ? `${MONTHS[curMonth]} ${curYear}`
-    : viewMode === 'week'
-      ? (() => {
-          const day = viewDate.getDay()
-          const sun = new Date(viewDate.getTime() - day * 86400000)
-          const sat = new Date(sun.getTime() + 6 * 86400000)
-          return `${sun.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${sat.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
-        })()
-      : 'All Deadlines'
+  const headerTitle =
+    viewMode === 'month'
+      ? `${MONTHS[curMonth]} ${curYear}`
+      : viewMode === 'week'
+        ? (() => {
+            const day = viewDate.getDay()
+            const sun = new Date(viewDate.getTime() - day * 86400000)
+            const sat = new Date(sun.getTime() + 6 * 86400000)
+            return `${sun.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} – ${sat.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+          })()
+        : 'All Deadlines'
 
   return (
     <div
@@ -551,32 +702,45 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
     >
       {/* ── TOP BAR ── */}
       <div
-        className="flex items-center justify-between px-5 py-3 border-b-4 shrink-0"
+        className="aero-toolbar flex items-center justify-between px-5 py-3 border-b shrink-0"
         style={{ background: 'var(--color-header)', borderColor: 'var(--color-border-strong)' }}
       >
         <div className="flex items-center gap-3">
           <Calendar className="w-5 h-5 text-white" />
           <div>
-            <h1 className="text-base font-black text-white uppercase tracking-widest">Project Calendar</h1>
-            <p className="text-[10px] text-white/60 font-bold uppercase tracking-wider">{headerTitle}</p>
+            <h1 className="text-base font-black text-white uppercase tracking-widest">
+              Project Calendar
+            </h1>
+            <p className="text-[10px] text-white/60 font-bold uppercase tracking-wider">
+              {headerTitle}
+            </p>
           </div>
         </div>
 
         {/* Stats pills */}
         <div className="flex items-center gap-2">
           {overdue.length > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1 border-2 border-[#D97B66] text-[#D97B66]" style={{ background: '#D97B6614' }}>
+            <div
+              className="flex items-center gap-1.5 px-3 py-1 border-2 border-[#D97B66] text-[#D97B66]"
+              style={{ background: '#D97B6614' }}
+            >
               <AlertCircle className="w-3.5 h-3.5" />
               <span className="text-xs font-black">{overdue.length} Overdue</span>
             </div>
           )}
           {dueSoon.length > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1 border-2 border-[#d97706] text-[#d97706]" style={{ background: '#d9770614' }}>
+            <div
+              className="flex items-center gap-1.5 px-3 py-1 border-2 border-[#d97706] text-[#d97706]"
+              style={{ background: '#d9770614' }}
+            >
               <Clock className="w-3.5 h-3.5" />
               <span className="text-xs font-black">{dueSoon.length} Due Soon</span>
             </div>
           )}
-          <div className="flex items-center gap-1.5 px-3 py-1 border-2 border-[#5FA8D3] text-[#5FA8D3]" style={{ background: '#5FA8D314' }}>
+          <div
+            className="flex items-center gap-1.5 px-3 py-1 border-2 border-[#5FA8D3] text-[#5FA8D3]"
+            style={{ background: '#5FA8D314' }}
+          >
             <CheckCircle2 className="w-3.5 h-3.5" />
             <span className="text-xs font-black">{allTasks.length} Tasks</span>
           </div>
@@ -586,7 +750,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
         <div className="flex items-center gap-2">
           {/* View mode selector */}
           <div className="flex border-2 border-white/30">
-            {(['month', 'week', 'agenda'] as ViewMode[]).map(m => (
+            {(['month', 'week', 'agenda'] as ViewMode[]).map((m) => (
               <button
                 key={m}
                 onClick={() => setViewMode(m)}
@@ -632,8 +796,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center space-y-2">
-            <Calendar className="w-8 h-8 mx-auto animate-pulse" style={{ color: 'var(--color-primary)' }} />
-            <p className="text-xs font-bold uppercase tracking-widest" style={{ color: 'var(--color-muted)' }}>Loading Project Calendar...</p>
+            <Calendar
+              className="w-8 h-8 mx-auto animate-pulse"
+              style={{ color: 'var(--color-primary)' }}
+            />
+            <p
+              className="text-xs font-bold uppercase tracking-widest"
+              style={{ color: 'var(--color-muted)' }}
+            >
+              Loading Project Calendar...
+            </p>
           </div>
         </div>
       ) : (
@@ -643,13 +815,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
               {/* Day headers */}
               <div
                 className="grid grid-cols-7 border-b-2 shrink-0"
-                style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-surface-2)' }}
+                style={{
+                  borderColor: 'var(--color-border-strong)',
+                  background: 'var(--color-surface-2)'
+                }}
               >
-                {DAYS.map(d => (
+                {DAYS.map((d) => (
                   <div
                     key={d}
                     className="py-2 text-center text-[10px] font-black uppercase tracking-widest border-r-2"
-                    style={{ borderColor: 'var(--color-border)' + '40', color: 'var(--color-muted)' }}
+                    style={{
+                      borderColor: 'var(--color-border)' + '40',
+                      color: 'var(--color-muted)'
+                    }}
                   >
                     {d}
                   </div>
@@ -665,11 +843,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
             </>
           )}
 
-          {viewMode === 'week' && (
-            <>
-              {renderWeek()}
-            </>
-          )}
+          {viewMode === 'week' && <>{renderWeek()}</>}
 
           {viewMode === 'agenda' && renderAgenda()}
         </div>

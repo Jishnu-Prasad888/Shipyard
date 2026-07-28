@@ -564,16 +564,16 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl max-h-[90vh] flex flex-col animate-brutal-in"
+        className="aero-window w-full max-w-4xl max-h-[90vh] flex flex-col animate-brutal-in"
         onClick={(event) => event.stopPropagation()}
         style={{
           background: 'var(--color-surface)',
-          border: '4px solid var(--color-border-strong)',
-          boxShadow: 'var(--shadow-brutal-lg)'
+          border: '1px solid var(--color-border-strong)',
+          boxShadow: 'var(--shadow-window)'
         }}
       >
         <div
-          className="flex items-center justify-between px-5 py-3 border-b-4 shrink-0"
+          className="aero-titlebar flex items-center justify-between px-5 py-3 border-b shrink-0"
           style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
         >
           <h2 className="flex items-center gap-2 text-base font-black text-white uppercase tracking-wider">
@@ -581,7 +581,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
           </h2>
           <button
             onClick={onClose}
-            className="w-7 h-7 border-2 border-white text-white flex items-center justify-center"
+            className="aero-icon-button w-7 h-7 text-white flex items-center justify-center"
           >
             <X className="w-4 h-4" />
           </button>
@@ -660,7 +660,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
                 <button
                   key={value}
                   onClick={() => setFormat(value)}
-                  className="w-full flex items-center gap-2 px-3 py-2 mb-1 border-2 text-xs font-black uppercase"
+                  className="btn-secondary w-full flex items-center gap-2 px-3 py-2 mb-1 text-xs"
                   style={{
                     borderColor: format === value ? 'var(--color-primary)' : 'var(--color-border)',
                     color: format === value ? 'var(--color-primary)' : 'var(--color-text)'
@@ -675,7 +675,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
               <select
                 value={schemaVersion}
                 onChange={(event) => setSchemaVersion(Number(event.target.value) as ExportSchema)}
-                className="w-full border-2 px-2 py-2 text-xs font-bold"
+                className="aero-input w-full px-2 py-2 text-xs font-semibold"
               >
                 <option value={2}>Canonical v2</option>
                 <option value={1}>Legacy v1</option>
@@ -728,7 +728,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
             </button>
             {result && (
               <div
-                className="p-3 border-2 text-[10px] font-bold"
+                className="aero-panel p-3 text-[10px] font-semibold"
                 style={{ color: result.ok ? '#059669' : '#dc2626' }}
               >
                 <div className="flex items-start gap-1.5">
