@@ -23,7 +23,7 @@ function App() {
   const dispatch = useDispatch()
   const settings = useSelector((state: RootState) => state.settings)
 
-  const handleDataChange = () => setDataVersion(v => v + 1)
+  const handleDataChange = () => setDataVersion((v) => v + 1)
 
   useEffect(() => {
     const handleShowToast = (e: any) => {
@@ -63,7 +63,10 @@ function App() {
         window.electron.darkMode.toggle(true)
       }
       if (merged.fontFamily) {
-        document.documentElement.style.setProperty('--font-ui', `'${merged.fontFamily}', system-ui, sans-serif`)
+        document.documentElement.style.setProperty(
+          '--font-ui',
+          `'${merged.fontFamily}', system-ui, sans-serif`
+        )
       }
     })
   }, [dispatch])
@@ -117,9 +120,8 @@ function App() {
     dispatch(setSettings(updatedSettings))
   }
 
-
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    <div className="win7-theme aero-shell h-screen flex flex-col overflow-hidden">
       <Header
         onOpenSettings={() => setShowSettings(true)}
         onToggleTheme={handleToggleTheme}
@@ -143,15 +145,16 @@ function App() {
           onDataChange={handleDataChange}
         />
 
-        <main
-          className="flex-1 overflow-auto"
-          style={{ background: 'var(--color-background)' }}
-        >
+        <main className="flex-1 overflow-auto" style={{ background: 'var(--color-background)' }}>
           {showCalendar ? (
             <CalendarView dataVersion={dataVersion} />
           ) : selectedBoardId ? (
             <div className="p-6 h-full">
-              <KanbanBoard boardId={selectedBoardId} searchQuery={searchQuery} onGoBack={() => setSelectedBoardId(null)} />
+              <KanbanBoard
+                boardId={selectedBoardId}
+                searchQuery={searchQuery}
+                onGoBack={() => setSelectedBoardId(null)}
+              />
             </div>
           ) : selectedProjectId ? (
             <div className="p-6">
@@ -173,13 +176,9 @@ function App() {
       </div>
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
-      
+
       {toast && (
-        <Toast
-          message={toast.message}
-          onUndo={toast.onUndo}
-          onClose={() => setToast(null)}
-        />
+        <Toast message={toast.message} onUndo={toast.onUndo} onClose={() => setToast(null)} />
       )}
     </div>
   )

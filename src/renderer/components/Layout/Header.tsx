@@ -1,5 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, Settings, Moon, Sun, Anchor, Folder, FolderKanban, KanbanSquare, X, ArrowRight } from 'lucide-react'
+import {
+  Search,
+  Settings,
+  Moon,
+  Sun,
+  Anchor,
+  Folder,
+  FolderKanban,
+  KanbanSquare,
+  X,
+  ArrowRight
+} from 'lucide-react'
 
 interface SearchResult {
   id: string
@@ -120,8 +131,10 @@ export const Header: React.FC<HeaderProps> = ({
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (
-        dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
-        inputRef.current && !inputRef.current.contains(e.target as Node)
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(e.target as Node)
       ) {
         setIsOpen(false)
       }
@@ -189,7 +202,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header
-      className="h-16 flex items-center justify-between px-6 z-40 border-b-4"
+      className="aero-toolbar h-16 flex items-center justify-between px-6 z-40 border-b"
       style={{
         background: 'var(--color-header)',
         borderColor: 'var(--color-border-strong)',
@@ -200,13 +213,19 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Logo */}
         <div className="flex items-center gap-3 shrink-0">
           <div
-            className="w-10 h-10 flex items-center justify-center border-2 border-white"
-            style={{ background: 'var(--color-border-strong)', boxShadow: 'var(--shadow-brutal-sm)' }}
+            className="w-10 h-10 flex items-center justify-center border border-white/60 rounded-md"
+            style={{
+              background:
+                'linear-gradient(180deg, var(--color-secondary), var(--color-primary-hover))',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,.65), 0 2px 5px rgba(0,0,0,.35)'
+            }}
           >
             <Anchor className="w-5 h-5 text-white" strokeWidth={2.5} />
           </div>
           <div className="leading-tight text-white">
-            <span className="block text-xs font-black uppercase tracking-[0.2em] opacity-80">Shipyard</span>
+            <span className="block text-xs font-black uppercase tracking-[0.2em] opacity-80">
+              Shipyard
+            </span>
             <span className="block text-lg font-black uppercase tracking-tight">Workspace</span>
           </div>
         </div>
@@ -220,10 +239,10 @@ export const Header: React.FC<HeaderProps> = ({
               type="text"
               value={query}
               placeholder="Search workspaces, projects, boards..."
-              className="w-full pl-10 pr-10 py-2 text-sm font-bold uppercase tracking-wide border-2 bg-white/5 text-white placeholder:text-white/60 focus:outline-none transition-all"
+              className="w-full pl-10 pr-10 py-2 text-sm font-semibold border bg-white/10 text-white placeholder:text-white/60 focus:outline-none transition-all rounded-sm"
               style={{
                 borderColor: 'white',
-                boxShadow: 'var(--shadow-brutal-sm)'
+                boxShadow: 'inset 0 1px 4px rgba(0,0,0,.32), 0 1px 0 rgba(255,255,255,.22)'
               }}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => query && results.length > 0 && setIsOpen(true)}
@@ -232,7 +251,11 @@ export const Header: React.FC<HeaderProps> = ({
             {query && (
               <button
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors"
-                onClick={() => { setQuery(''); setIsOpen(false); onSearch('') }}
+                onClick={() => {
+                  setQuery('')
+                  setIsOpen(false)
+                  onSearch('')
+                }}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -243,22 +266,28 @@ export const Header: React.FC<HeaderProps> = ({
           {isOpen && (
             <div
               ref={dropdownRef}
-              className="absolute top-full left-0 right-0 mt-3 z-50 overflow-hidden animate-brutal-in"
+              className="aero-window absolute top-full left-0 right-0 mt-2 z-50 overflow-hidden animate-brutal-in"
               style={{
                 background: 'var(--color-surface)',
-                border: '3px solid var(--color-border-strong)',
-                boxShadow: 'var(--shadow-brutal)',
+                border: '1px solid var(--color-border-strong)',
+                boxShadow: 'var(--shadow-window)',
                 maxHeight: '420px',
                 overflowY: 'auto',
-                borderRadius: '12px'
+                borderRadius: '6px'
               }}
             >
               {isLoading ? (
-                <div className="px-4 py-3 text-xs font-black uppercase tracking-wider" style={{ color: 'var(--color-muted)' }}>
+                <div
+                  className="px-4 py-3 text-xs font-black uppercase tracking-wider"
+                  style={{ color: 'var(--color-muted)' }}
+                >
                   Searching...
                 </div>
               ) : results.length === 0 ? (
-                <div className="px-4 py-3 text-xs font-black uppercase tracking-wider" style={{ color: 'var(--color-muted)' }}>
+                <div
+                  className="px-4 py-3 text-xs font-black uppercase tracking-wider"
+                  style={{ color: 'var(--color-muted)' }}
+                >
                   No results for "{query}"
                 </div>
               ) : (
@@ -269,12 +298,17 @@ export const Header: React.FC<HeaderProps> = ({
                     return (
                       <div key={type}>
                         {/* Group header */}
-                      <div
+                        <div
                           className="px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] border-b-2 flex items-center gap-2"
                           style={{
                             background: 'var(--color-surface-3)',
                             borderColor: 'var(--color-border-strong)',
-                            color: type === 'workspace' ? '#1b4f82' : type === 'project' ? '#0b6c90' : '#1f7acb'
+                            color:
+                              type === 'workspace'
+                                ? '#1b4f82'
+                                : type === 'project'
+                                  ? '#0b6c90'
+                                  : '#1f7acb'
                           }}
                         >
                           {typeIcon(type)}
@@ -286,14 +320,16 @@ export const Header: React.FC<HeaderProps> = ({
                           const globalIdx = results.indexOf(result)
                           const isHot = highlighted === globalIdx
                           return (
-                          <button
-                            key={result.id}
-                            className="w-full text-left px-4 py-3 flex items-center gap-3 border-b-2 transition-all duration-100 group"
-                            style={{
-                              borderColor: 'var(--color-border)',
-                              background: isHot ? (result.color || 'var(--color-primary)') : 'transparent',
-                              color: isHot ? '#041020' : 'var(--color-text)'
-                            }}
+                            <button
+                              key={result.id}
+                              className="w-full text-left px-4 py-3 flex items-center gap-3 border-b-2 transition-all duration-100 group"
+                              style={{
+                                borderColor: 'var(--color-border)',
+                                background: isHot
+                                  ? result.color || 'var(--color-primary)'
+                                  : 'transparent',
+                                color: isHot ? '#041020' : 'var(--color-text)'
+                              }}
                               onClick={() => handleSelect(result)}
                               onMouseEnter={() => setHighlighted(globalIdx)}
                             >
@@ -301,10 +337,16 @@ export const Header: React.FC<HeaderProps> = ({
                               <div
                                 className="w-9 h-9 border-2 flex items-center justify-center shrink-0 transition-all"
                                 style={{
-                                  borderColor: isHot ? '#041020' : result.color || 'var(--color-primary)',
-                                  background: isHot ? 'rgba(255,255,255,0.8)' : (result.color || '#2563eb') + '12',
+                                  borderColor: isHot
+                                    ? '#041020'
+                                    : result.color || 'var(--color-primary)',
+                                  background: isHot
+                                    ? 'rgba(255,255,255,0.8)'
+                                    : (result.color || '#2563eb') + '12',
                                   color: isHot ? '#041020' : result.color || 'var(--color-primary)',
-                                  boxShadow: isHot ? 'var(--shadow-brutal-sm)' : `3px 3px 0 ${(result.color || '#2563eb')}`
+                                  boxShadow: isHot
+                                    ? 'var(--shadow-control)'
+                                    : `0 2px 6px ${result.color || '#2563eb'}45`
                                 }}
                               >
                                 {typeIcon(result.type)}
@@ -315,7 +357,9 @@ export const Header: React.FC<HeaderProps> = ({
                                 {result.subtitle && (
                                   <div
                                     className="text-[11px] font-medium tracking-wide truncate mt-0.5"
-                                    style={{ color: isHot ? 'rgba(3,16,31,0.65)' : 'var(--color-muted)' }}
+                                    style={{
+                                      color: isHot ? 'rgba(3,16,31,0.65)' : 'var(--color-muted)'
+                                    }}
                                   >
                                     {result.subtitle}
                                   </div>
@@ -350,7 +394,11 @@ export const Header: React.FC<HeaderProps> = ({
                   {/* Footer hint */}
                   <div
                     className="px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] flex items-center gap-3"
-                    style={{ background: 'var(--color-surface-2)', color: 'var(--color-muted)', borderTop: '2px solid var(--color-border-strong)' }}
+                    style={{
+                      background: 'var(--color-surface-2)',
+                      color: 'var(--color-muted)',
+                      borderTop: '2px solid var(--color-border-strong)'
+                    }}
                   >
                     <span>↑↓ Navigate</span>
                     <span>↵ Select</span>
@@ -366,14 +414,14 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={onToggleTheme}
-            className="p-2.5 border-2 border-white text-white font-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5"
+            className="aero-icon-button p-2.5 text-white transition-all duration-150"
             title={isDarkMode ? 'Light Mode' : 'Dark Mode'}
           >
             {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
           <button
             onClick={onOpenSettings}
-            className="p-2.5 border-2 border-white text-white font-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5"
+            className="aero-icon-button p-2.5 text-white transition-all duration-150"
             title="Settings"
           >
             <Settings className="w-4 h-4" />

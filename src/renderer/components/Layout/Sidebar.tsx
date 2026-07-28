@@ -372,7 +372,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <aside
-      className="w-64 flex flex-col h-full z-10 overflow-hidden border-r-4"
+      className="aero-sidebar w-64 flex flex-col h-full z-10 overflow-hidden border-r"
       style={{
         background: 'var(--color-sidebar)',
         borderColor: 'var(--color-border-strong)',
@@ -380,7 +380,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }}
     >
       <div className="brutal-accent" />
-      <div className="p-4 pb-3 border-b-4" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
+      <div className="p-4 pb-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
         <NavButton
           active={isHome}
           onClick={onGoHome}
@@ -394,7 +394,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label="Project Calendar"
         />
       </div>
-      <div className="p-4 border-b-4 space-y-2" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
+      <div className="p-4 border-b space-y-2" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
         <button
           onClick={() => {
             setTargetWorkspaceId(null)
@@ -409,7 +409,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             setTargetWorkspaceId(null)
             setShowWorkspaceModal(true)
           }}
-          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-black uppercase border-2 text-white border-white/20"
+          className="aero-icon-button w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-white"
         >
           <Folder className="w-4 h-4" /> Create Workspace
         </button>
@@ -546,12 +546,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => setShowWorkspaceModal(false)}
         >
           <form
-            className="w-full max-w-sm surface p-5 space-y-4"
+            className="aero-window w-full max-w-sm surface p-5 space-y-4"
             onSubmit={createWorkspace}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h2 className="font-black uppercase">Create Workspace</h2>
+              <h2 className="font-semibold">Create Workspace</h2>
               <button type="button" onClick={() => setShowWorkspaceModal(false)}>
                 <X className="w-4 h-4" />
               </button>
@@ -561,7 +561,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               value={workspaceName}
               onChange={(event) => setWorkspaceName(event.target.value)}
               placeholder="Workspace name"
-              className="w-full px-3 py-2 border-2 bg-transparent"
+              className="aero-input w-full px-3 py-2 bg-transparent"
             />
             <div className="flex justify-end gap-2">
               <button
@@ -599,7 +599,7 @@ const NavButton = ({
 }) => (
   <button
     onClick={onClick}
-    className="w-full flex items-center gap-2 px-3 py-2 mt-2 text-xs font-black uppercase border-2 text-white"
+    className="nav-item w-full flex items-center gap-2 px-3 py-2 mt-2 text-xs text-white"
     style={{
       borderColor: active ? 'var(--color-primary)' : 'rgba(255,255,255,0.18)',
       background: active ? 'var(--color-primary)' : 'rgba(255,255,255,0.06)'
