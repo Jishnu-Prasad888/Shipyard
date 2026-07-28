@@ -15,14 +15,6 @@ pub struct DbQueryArgs {
     pub id: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
-pub struct CommandResult {
-    pub success: bool,
-    pub message: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub data: Option<Value>,
-}
-
 // ── db:query (replaces all window.electron.db.* calls) ──
 #[tauri::command]
 pub fn db_query(db: State<Database>, args: DbQueryArgs) -> Result<Value, String> {
@@ -152,7 +144,7 @@ pub async fn export_save_file(app: AppHandle, args: SaveFileArgs) -> Result<Valu
         .file()
         .set_title("Export Shipyard Data")
         .set_file_name(&default_name)
-        .add_filter(&extension.to_uppercase(), &[&extension])
+        .add_filter(extension.to_uppercase(), &[&extension])
         .blocking_save_file();
 
     match file_path {
