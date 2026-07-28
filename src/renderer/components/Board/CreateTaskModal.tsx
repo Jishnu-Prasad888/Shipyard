@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
 import { X, Plus } from 'lucide-react'
 
-interface CreateCardModalProps {
+interface CreateTaskModalProps {
   onClose: () => void
-  onCreate: (card: any) => void
+  onCreate: (task: any) => void
   boardId: string
 }
 
@@ -18,7 +18,7 @@ const PRESET_COLORS = [
   '#0f172a'  // Dark
 ]
 
-export const CreateCardModal: React.FC<CreateCardModalProps> = ({ onClose, onCreate, boardId }) => {
+export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onCreate, boardId }) => {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [color, setColor] = useState('')
@@ -51,9 +51,9 @@ export const CreateCardModal: React.FC<CreateCardModalProps> = ({ onClose, onCre
       boardId,
       notes: '',
       status: null,
-      subCards: [],
-      connectedCardIds: JSON.stringify([]),
-      connectedListIds: JSON.stringify([])
+      subtasks: [],
+      connectedTaskIds: JSON.stringify([]),
+      connectedColumnIds: JSON.stringify([])
     })
   }
 
@@ -80,7 +80,7 @@ export const CreateCardModal: React.FC<CreateCardModalProps> = ({ onClose, onCre
           className="flex items-center justify-between px-5 py-3 border-b-4"
           style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
         >
-          <h2 className="text-base font-black text-white uppercase tracking-wider">Create Card</h2>
+          <h2 className="text-base font-black text-white uppercase tracking-wider">Create Task</h2>
           <button
             onClick={onClose}
             className="w-7 h-7 border-2 border-white text-white flex items-center justify-center hover:bg-white/20 transition"
@@ -98,7 +98,7 @@ export const CreateCardModal: React.FC<CreateCardModalProps> = ({ onClose, onCre
               onChange={(e) => setTitle(e.target.value)}
               className="w-full px-3 py-2 border-2 text-sm font-bold focus:outline-none resize-none overflow-hidden break-words whitespace-pre-wrap"
               style={inputStyle}
-              placeholder="Card title"
+              placeholder="Task title"
               rows={1}
               onInput={(e) => {
                 e.currentTarget.style.height = 'auto'
@@ -129,7 +129,7 @@ export const CreateCardModal: React.FC<CreateCardModalProps> = ({ onClose, onCre
 
           {/* Color */}
           <div>
-            <label className="block text-xs font-black uppercase tracking-wider mb-2">Card Accent Color</label>
+            <label className="block text-xs font-black uppercase tracking-wider mb-2">Task Accent Color</label>
             <div className="flex gap-2">
               {PRESET_COLORS.map((c) => (
                 <button
@@ -213,7 +213,7 @@ export const CreateCardModal: React.FC<CreateCardModalProps> = ({ onClose, onCre
               disabled={!title.trim()}
               className="btn-primary text-xs uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Create Card
+              Create Task
             </button>
           </div>
         </form>

@@ -13,7 +13,6 @@ import {
   Loader,
   Wifi,
   WifiOff,
-  Package,
   Type,
   Server,
   Activity
@@ -27,6 +26,7 @@ import {
   getServerHealth,
   getServerSyncStatus,
   pushSyncOperations,
+  SyncTable,
   ServerHealth,
   ServerSyncStatus
 } from '../../services/api.service'
@@ -437,14 +437,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
       const operations = pending.map((item: any) => ({
         id: item.id,
-        operation: item.operation,
-        table: item.table,
+        operation: item.operation as 'CREATE' | 'UPDATE' | 'DELETE',
+        table: item.table as SyncTable,
         recordId: item.recordId,
         data: parsePayload(item.data),
         timestamp:
           typeof item.timestamp === 'number'
             ? item.timestamp
-            : Number(item.timestamp) || undefined
+            : Number(item.timestamp) || undefined,
+        schemaVersion: 2 as const
       }))
 
       const result = await pushSyncOperations(url, operations, 'shipyard-tauri')
@@ -1107,7 +1108,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
               className="flex items-center gap-2 px-4 py-3 border-b-2"
               style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)' }}
             >
-              <Package className="w-3.5 h-3.5" style={{ color: 'var(--color-muted)' }} />
+              <Download className="w-3.5 h-3.5" style={{ color: 'var(--color-muted)' }} />
               <h3
                 className="font-black text-[10px] uppercase tracking-widest"
                 style={{ color: 'var(--color-muted)' }}
@@ -1117,7 +1118,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
             </div>
             <div className="p-4">
               <p className="text-xs font-bold mb-3" style={{ color: 'var(--color-muted)' }}>
-                Export your Ports, Docks, Ships, Manifests and Cargo to JSON, CSV, or Markdown. The
+                Export Workspaces, Projects, Boards, Columns, Tasks, and Subtasks to JSON, CSV, or Markdown. The
                 export wizard lets you pick exactly which items to include.
               </p>
               <button

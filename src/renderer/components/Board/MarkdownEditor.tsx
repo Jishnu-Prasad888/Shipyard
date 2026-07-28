@@ -410,7 +410,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
           style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)', background: 'var(--color-background)' }}
         >
           💡{' '}
-          <code className="px-1 border" style={{ borderColor: 'var(--color-border)' }}>[[Card Name]]</code>{' '}
+          <code className="px-1 border" style={{ borderColor: 'var(--color-border)' }}>[[Task Name]]</code>{' '}
           wikilink · <kbd>Ctrl+B</kbd> bold · <kbd>Ctrl+I</kbd> italic ·{' '}
           <code className="px-1 border" style={{ borderColor: 'var(--color-border)' }}>- [ ]</code>{' '}task
         </div>

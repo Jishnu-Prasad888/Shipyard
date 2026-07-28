@@ -14,9 +14,6 @@
  */
 
 import { invoke } from '@tauri-apps/api/core'
-import { save as dialogSave, open as dialogOpen } from '@tauri-apps/plugin-dialog'
-import { writeTextFile } from '@tauri-apps/plugin-fs'
-import { open as shellOpen } from '@tauri-apps/plugin-shell'
 
 // ── Type helpers ──
 interface DbArgs {
@@ -40,7 +37,7 @@ const electronBridge = {
       dbQuery({ operation: 'update', table, id, data }),
     delete: (table: string, id: string) => dbQuery({ operation: 'delete', table, id }),
     getBoardWithDetails: (id: string) => dbQuery({ operation: 'getBoardWithDetails', id }),
-    getDocksWithFolders: () => dbQuery({ operation: 'getDocksWithFolders' })
+    getProjectsWithWorkspaces: () => dbQuery({ operation: 'getProjectsWithWorkspaces' })
   },
 
   settings: {

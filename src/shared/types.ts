@@ -1,8 +1,8 @@
-export interface Dock {
+export interface Project {
   id: string
   name: string
   description?: string
-  folderId?: string
+  workspaceId?: string
   tags: string[]
   createdAt: number
   updatedAt: number
@@ -10,57 +10,62 @@ export interface Dock {
   boardIds: string[]
 }
 
-export interface DockFolder {
+export interface Workspace {
   id: string
   name: string
   color?: string
+  parentWorkspaceId?: string
   createdAt: number
 }
 
 export interface Board {
   id: string
   name: string
-  dockId: string
-  lists: List[]
+  description?: string
+  projectId: string
+  columns: Column[]
   connections: Connection[]
+  color?: string
+  tags: string[]
   createdAt: number
   updatedAt: number
 }
 
-export interface List {
+export interface Column {
   id: string
   name: string
   boardId: string
-  cards: Card[]
+  tasks: Task[]
   order: number
   color?: string
   createdAt: number
   updatedAt: number
 }
 
-export interface Card {
+export interface Task {
   id: string
   title: string
   description?: string
-  listId: string
+  columnId: string
+  boardId?: string
   order: number
   color?: string
   tags: Tag[]
   deadline?: number
   status: Status
   notes?: string
-  subCards: SubCard[]
-  connectedCardIds: string[]
-  connectedListIds: string[]
+  subtasks: Subtask[]
+  connectedTaskIds: string[]
+  connectedColumnIds: string[]
   createdAt: number
   updatedAt: number
 }
 
-export interface SubCard {
+export interface Subtask {
   id: string
   title: string
   completed: boolean
-  cardId: string
+  taskId: string
   createdAt: number
 }
 
@@ -81,7 +86,7 @@ export interface Connection {
   id: string
   fromId: string
   toId: string
-  type: 'card-to-card' | 'list-to-list'
+  type: 'task-to-task' | 'column-to-column'
   points?: { x: number; y: number }[]
 }
 

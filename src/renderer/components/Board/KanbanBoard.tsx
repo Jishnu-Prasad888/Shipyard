@@ -10,11 +10,11 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { Plus, LayoutList, Hash, Pencil, Check, X, ChevronLeft, Trash2 } from 'lucide-react'
-import { List } from './List'
-import { CreateListModal } from './CreateListModal'
+import { Column } from './Column'
+import { CreateColumnModal } from './CreateColumnModal'
 import { getBoardWithDetails } from '../../lib/data'
 
-const SHIP_COLORS = [
+const BOARD_COLORS = [
   '#2D82B7', '#0B2545', '#1F5F8B', '#3FA796', '#5FA8D3',
   '#2563eb', '#7c3aed', '#db2777', '#ea580c', '#16a34a',
   '#0891b2', '#9333ea', '#e11d48', '#f59e0b', '#6366f1',
@@ -29,111 +29,111 @@ interface KanbanBoardProps {
 
 export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery = '', onGoBack }) => {
   const [board, setBoard] = useState<any>(null)
-  const [lists, setLists] = useState<any[]>([])
-  const [showCreateList, setShowCreateList] = useState(false)
+  const [columns, setColumns] = useState<any[]>([])
+  const [showCreateColumn, setShowCreateColumn] = useState(false)
   const [, setActiveId] = useState<string | null>(null)
 
-  // Edit ship state
+  // Edit board state
   const [editing, setEditing] = useState(false)
   const [editName, setEditName] = useState('')
   const [editColor, setEditColor] = useState('')
   const [saving, setSaving] = useState(false)
-  const dragStateRef = useRef<{ previousLists: any[]; changedListIds: string[] } | null>(null)
+  const dragStateRef = useRef<{ previousColumns: any[]; changedColumnIds: string[] } | null>(null)
 
-  const normalizeListOrders = (list: any) => ({
-    ...list,
-    cards: (list.cards || []).map((card: any, index: number) =>
-      card.order === index && card.listId === list.id
-        ? card
-        : { ...card, order: index, listId: list.id }
+  const normalizeColumnOrders = (column: any) => ({
+    ...column,
+    tasks: (column.tasks || []).map((task: any, index: number) =>
+      task.order === index && task.columnId === column.id
+        ? task
+        : { ...task, order: index, columnId: column.id }
     )
   })
 
-  const reorderCards = (activeId: string, overId: string, currentLists: any[]) => {
-    if (activeId === overId) return { lists: currentLists, changedListIds: [], moved: false }
+  const reorderTasks = (activeId: string, overId: string, currentColumns: any[]) => {
+    if (activeId === overId) return { columns: currentColumns, changedColumnIds: [], moved: false }
 
-    const listsCopy = currentLists.map(list => ({ ...list, cards: [...(list.cards || [])] }))
+    const columnsCopy = currentColumns.map(column => ({ ...column, tasks: [...(column.tasks || [])] }))
 
-    let sourceListIndex = -1
-    let targetListIndex = -1
-    let activeCardIndex = -1
-    let overCardIndex = -1
+    let sourceColumnIndex = -1
+    let targetColumnIndex = -1
+    let activeTaskIndex = -1
+    let overTaskIndex = -1
 
-    for (let i = 0; i < listsCopy.length; i++) {
-      const cards = listsCopy[i].cards || []
-      if (activeCardIndex === -1) {
-        const idx = cards.findIndex((c: any) => c.id === activeId)
+    for (let i = 0; i < columnsCopy.length; i++) {
+      const tasks = columnsCopy[i].tasks || []
+      if (activeTaskIndex === -1) {
+        const idx = tasks.findIndex((task: any) => task.id === activeId)
         if (idx !== -1) {
-          sourceListIndex = i
-          activeCardIndex = idx
+          sourceColumnIndex = i
+          activeTaskIndex = idx
         }
       }
-      if (overCardIndex === -1) {
-        const idx = cards.findIndex((c: any) => c.id === overId)
+      if (overTaskIndex === -1) {
+        const idx = tasks.findIndex((task: any) => task.id === overId)
         if (idx !== -1) {
-          targetListIndex = i
-          overCardIndex = idx
+          targetColumnIndex = i
+          overTaskIndex = idx
         }
       }
-      if (activeCardIndex !== -1 && overCardIndex !== -1) break
+      if (activeTaskIndex !== -1 && overTaskIndex !== -1) break
     }
 
-    if (sourceListIndex === -1 || targetListIndex === -1 || activeCardIndex === -1 || overCardIndex === -1)
-      return { lists: currentLists, changedListIds: [], moved: false }
+    if (sourceColumnIndex === -1 || targetColumnIndex === -1 || activeTaskIndex === -1 || overTaskIndex === -1)
+      return { columns: currentColumns, changedColumnIds: [], moved: false }
 
-    if (sourceListIndex === targetListIndex && activeCardIndex === overCardIndex)
-      return { lists: currentLists, changedListIds: [], moved: false }
+    if (sourceColumnIndex === targetColumnIndex && activeTaskIndex === overTaskIndex)
+      return { columns: currentColumns, changedColumnIds: [], moved: false }
 
-    if (sourceListIndex === targetListIndex) {
-      const updatedCards = arrayMove(listsCopy[sourceListIndex].cards, activeCardIndex, overCardIndex)
-      listsCopy[sourceListIndex] = normalizeListOrders({ ...listsCopy[sourceListIndex], cards: updatedCards })
-      return { lists: listsCopy, changedListIds: [listsCopy[sourceListIndex].id], moved: true }
+    if (sourceColumnIndex === targetColumnIndex) {
+      const updatedTasks = arrayMove(columnsCopy[sourceColumnIndex].tasks, activeTaskIndex, overTaskIndex)
+      columnsCopy[sourceColumnIndex] = normalizeColumnOrders({ ...columnsCopy[sourceColumnIndex], tasks: updatedTasks })
+      return { columns: columnsCopy, changedColumnIds: [columnsCopy[sourceColumnIndex].id], moved: true }
     }
 
-    const sourceList = listsCopy[sourceListIndex]
-    const targetList = listsCopy[targetListIndex]
-    const [movingCard] = sourceList.cards.splice(activeCardIndex, 1)
-    if (!movingCard) return { lists: currentLists, changedListIds: [], moved: false }
+    const sourceColumn = columnsCopy[sourceColumnIndex]
+    const targetColumn = columnsCopy[targetColumnIndex]
+    const [movingTask] = sourceColumn.tasks.splice(activeTaskIndex, 1)
+    if (!movingTask) return { columns: currentColumns, changedColumnIds: [], moved: false }
 
-    const targetCards = [...targetList.cards]
-    targetCards.splice(overCardIndex, 0, { ...movingCard, listId: targetList.id })
+    const targetTasks = [...targetColumn.tasks]
+    targetTasks.splice(overTaskIndex, 0, { ...movingTask, columnId: targetColumn.id })
 
-    listsCopy[sourceListIndex] = normalizeListOrders({ ...sourceList })
-    listsCopy[targetListIndex] = normalizeListOrders({ ...targetList, cards: targetCards })
+    columnsCopy[sourceColumnIndex] = normalizeColumnOrders({ ...sourceColumn })
+    columnsCopy[targetColumnIndex] = normalizeColumnOrders({ ...targetColumn, tasks: targetTasks })
 
-    return { lists: listsCopy, changedListIds: [sourceList.id, targetList.id], moved: true }
+    return { columns: columnsCopy, changedColumnIds: [sourceColumn.id, targetColumn.id], moved: true }
   }
 
-  const persistCardOrder = async (
-    nextLists: any[],
-    changedListIds: string[],
-    prevLists: any[]
+  const persistTaskOrder = async (
+    nextColumns: any[],
+    changedColumnIds: string[],
+    previousColumns: any[]
   ) => {
-    const uniqueListIds = Array.from(new Set(changedListIds)).filter(Boolean)
-    if (uniqueListIds.length === 0) return
+    const uniqueColumnIds = Array.from(new Set(changedColumnIds)).filter(Boolean)
+    if (uniqueColumnIds.length === 0) return
 
-    const previousMap = new Map<string, Map<string, { order: number; listId: string }>>()
-    for (const listId of uniqueListIds) {
-      const prevList = prevLists.find(l => l.id === listId)
-      if (!prevList) continue
-      const cardMap = new Map<string, { order: number; listId: string }>()
-      ;(prevList.cards || []).forEach((card: any, index: number) => {
-        cardMap.set(card.id, { order: card.order ?? index, listId: prevList.id })
+    const previousMap = new Map<string, Map<string, { order: number; columnId: string }>>()
+    for (const columnId of uniqueColumnIds) {
+      const previousColumn = previousColumns.find(column => column.id === columnId)
+      if (!previousColumn) continue
+      const taskMap = new Map<string, { order: number; columnId: string }>()
+      ;(previousColumn.tasks || []).forEach((task: any, index: number) => {
+        taskMap.set(task.id, { order: task.order ?? index, columnId: previousColumn.id })
       })
-      previousMap.set(listId, cardMap)
+      previousMap.set(columnId, taskMap)
     }
 
     const updates: Promise<any>[] = []
 
-    for (const listId of uniqueListIds) {
-      const nextList = nextLists.find(l => l.id === listId)
-      if (!nextList) continue
-      const prevCards = previousMap.get(listId)
+    for (const columnId of uniqueColumnIds) {
+      const nextColumn = nextColumns.find(column => column.id === columnId)
+      if (!nextColumn) continue
+      const previousTasks = previousMap.get(columnId)
 
-      ;(nextList.cards || []).forEach((card: any, index: number) => {
-        const prev = prevCards?.get(card.id)
-        if (!prev || prev.order !== index || prev.listId !== listId) {
-          updates.push(window.electron.db.update('cards', card.id, { listId, order: index }))
+      ;(nextColumn.tasks || []).forEach((task: any, index: number) => {
+        const previous = previousTasks?.get(task.id)
+        if (!previous || previous.order !== index || previous.columnId !== columnId) {
+          updates.push(window.electron.db.update('tasks', task.id, { columnId, order: index }))
         }
       })
     }
@@ -143,16 +143,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
     }
   }
 
-  const filteredLists = searchQuery
-    ? lists.map((list) => ({
-        ...list,
-        cards: list.cards?.filter(
-          (card: any) =>
-            card.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            card.description?.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredColumns = searchQuery
+    ? columns.map((column) => ({
+        ...column,
+        tasks: column.tasks?.filter(
+          (task: any) =>
+            task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            task.description?.toLowerCase().includes(searchQuery.toLowerCase())
         )
       }))
-    : lists
+    : columns
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -164,13 +164,13 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
     const boardData = await getBoardWithDetails(boardId)
     if (boardData) {
       setBoard(boardData)
-      setLists(boardData.lists || [])
+      setColumns(boardData.columns || [])
     }
   }
 
   const openEdit = () => {
     setEditName(board?.name || '')
-    setEditColor(board?.color || SHIP_COLORS[0])
+    setEditColor(board?.color || BOARD_COLORS[0])
     setEditing(true)
   }
 
@@ -197,15 +197,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event
     if (!over) return
-    const isActiveCard = active.data.current?.type === 'card'
-    const isOverCard = over.data.current?.type === 'card'
-    if (isActiveCard && isOverCard) {
-      setLists(prev => {
-        const result = reorderCards(active.id as string, over.id as string, prev)
+    const isActiveTask = active.data.current?.type === 'task'
+    const isOverTask = over.data.current?.type === 'task'
+    if (isActiveTask && isOverTask) {
+      setColumns(previous => {
+        const result = reorderTasks(active.id as string, over.id as string, previous)
         if (result.moved) {
-          dragStateRef.current = { previousLists: prev, changedListIds: result.changedListIds }
+          dragStateRef.current = { previousColumns: previous, changedColumnIds: result.changedColumnIds }
         }
-        return result.moved ? result.lists : prev
+        return result.moved ? result.columns : previous
       })
     }
   }
@@ -214,66 +214,66 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
     setActiveId(null)
     const { active, over } = event
     if (!over) {
-      if (dragStateRef.current?.previousLists) {
-        setLists(dragStateRef.current.previousLists)
+      if (dragStateRef.current?.previousColumns) {
+        setColumns(dragStateRef.current.previousColumns)
       }
       dragStateRef.current = null
       return
     }
 
-    if (active.data.current?.type === 'card' && over.data.current?.type === 'card') {
+    if (active.data.current?.type === 'task' && over.data.current?.type === 'task') {
       const dragState = dragStateRef.current
       dragStateRef.current = null
 
-      if (dragState?.changedListIds?.length) {
-        void persistCardOrder(lists, dragState.changedListIds, dragState.previousLists)
+      if (dragState?.changedColumnIds?.length) {
+        void persistTaskOrder(columns, dragState.changedColumnIds, dragState.previousColumns)
       } else {
-        const { lists: nextLists, changedListIds, moved } = reorderCards(
+        const { columns: nextColumns, changedColumnIds, moved } = reorderTasks(
           active.id as string,
           over.id as string,
-          lists
+          columns
         )
 
         if (moved) {
-          setLists(nextLists)
-          void persistCardOrder(nextLists, changedListIds, lists)
+          setColumns(nextColumns)
+          void persistTaskOrder(nextColumns, changedColumnIds, columns)
         }
       }
       return
     }
 
-    if (active.data.current?.type === 'list' && over.data.current?.type === 'list')
-      handleListReorder(active.id as string, over.id as string)
+    if (active.data.current?.type === 'column' && over.data.current?.type === 'column')
+      handleColumnReorder(active.id as string, over.id as string)
   }
 
-  const handleListReorder = async (activeId: string, overId: string) => {
-    const oldIndex = lists.findIndex((l: any) => l.id === activeId)
-    const newIndex = lists.findIndex((l: any) => l.id === overId)
+  const handleColumnReorder = async (activeId: string, overId: string) => {
+    const oldIndex = columns.findIndex((column: any) => column.id === activeId)
+    const newIndex = columns.findIndex((column: any) => column.id === overId)
     if (oldIndex === -1 || newIndex === -1) return
 
-    const previousOrder = new Map(lists.map((l: any) => [l.id, l.order]))
-    const reorderedLists = arrayMove(lists, oldIndex, newIndex)
-    const normalized = reorderedLists.map((list: any, index: number) =>
-      list.order === index ? list : { ...list, order: index }
+    const previousOrder = new Map(columns.map((column: any) => [column.id, column.order]))
+    const reorderedColumns = arrayMove(columns, oldIndex, newIndex)
+    const normalized = reorderedColumns.map((column: any, index: number) =>
+      column.order === index ? column : { ...column, order: index }
     )
 
-    setLists(normalized)
+    setColumns(normalized)
 
     const updates = normalized
-      .filter((list: any) => previousOrder.get(list.id) !== list.order)
-      .map((list: any) => window.electron.db.update('lists', list.id, { order: list.order }))
+      .filter((column: any) => previousOrder.get(column.id) !== column.order)
+      .map((column: any) => window.electron.db.update('columns', column.id, { order: column.order }))
 
     if (updates.length > 0) {
       await Promise.all(updates)
     }
   }
 
-  const handleCreateList = async (listData: any) => {
-    await window.electron.db.create('lists', {
-      ...listData, boardId, order: lists.length, createdAt: Date.now(), updatedAt: Date.now()
+  const handleCreateColumn = async (columnData: any) => {
+    await window.electron.db.create('columns', {
+      ...columnData, boardId, order: columns.length, createdAt: Date.now(), updatedAt: Date.now()
     })
     loadBoard()
-    setShowCreateList(false)
+    setShowCreateColumn(false)
   }
 
   const handleDeleteBoard = async () => {
@@ -281,16 +281,16 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
     const boardSnapshot = await window.electron.db.findById('boards', boardId)
     if (!boardSnapshot) return
 
-    const allCards = await window.electron.db.findAll('cards')
-    const boardCards = allCards.filter((c: any) => c.boardId === boardId)
-    const allSubCards = await window.electron.db.findAll('subcards')
-    const boardSubCards = allSubCards.filter((sc: any) => boardCards.some((c: any) => c.id === sc.cardId))
-    const allLists = await window.electron.db.findAll('lists')
-    const boardLists = allLists.filter((l: any) => l.boardId === boardId)
+    const allTasks = await window.electron.db.findAll('tasks')
+    const boardTasks = allTasks.filter((task: any) => task.boardId === boardId)
+    const allSubtasks = await window.electron.db.findAll('subtasks')
+    const boardSubtasks = allSubtasks.filter((subtask: any) => boardTasks.some((task: any) => task.id === subtask.taskId))
+    const allColumns = await window.electron.db.findAll('columns')
+    const boardColumns = allColumns.filter((column: any) => column.boardId === boardId)
 
     // Delete everything
-    for (const card of boardCards) await window.electron.db.delete('cards', card.id)
-    for (const list of boardLists) await window.electron.db.delete('lists', list.id)
+    for (const task of boardTasks) await window.electron.db.delete('tasks', task.id)
+    for (const column of boardColumns) await window.electron.db.delete('columns', column.id)
     await window.electron.db.delete('boards', boardId)
 
     if (onGoBack) onGoBack()
@@ -298,13 +298,13 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
     window.dispatchEvent(
       new CustomEvent('show-toast', {
         detail: {
-          message: `Ship "${boardSnapshot.name}" jettisoned`,
+          message: `Board "${boardSnapshot.name}" deleted`,
           onUndo: async () => {
             await window.electron.db.create('boards', boardSnapshot)
-            for (const list of boardLists) await window.electron.db.create('lists', list)
-            for (const card of boardCards) await window.electron.db.create('cards', card)
-            for (const sc of boardSubCards) await window.electron.db.create('subcards', sc)
-            window.dispatchEvent(new CustomEvent('reload-docks')) // Tells dock view to reload if active
+            for (const column of boardColumns) await window.electron.db.create('columns', column)
+            for (const task of boardTasks) await window.electron.db.create('tasks', task)
+            for (const subtask of boardSubtasks) await window.electron.db.create('subtasks', subtask)
+            window.dispatchEvent(new CustomEvent('reload-projects'))
           }
         }
       })
@@ -313,8 +313,8 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
 
   if (!board) return null
 
-  const totalCards = lists.reduce((acc, l) => acc + (l.cards?.length || 0), 0)
-  const shipColor = board.color || 'var(--color-primary)'
+  const totalTasks = columns.reduce((total, column) => total + (column.tasks?.length || 0), 0)
+  const boardColor = board.color || 'var(--color-primary)'
 
   return (
     <div className="h-full flex flex-col">
@@ -337,7 +337,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
             }}
           >
             <ChevronLeft className="w-3.5 h-3.5" />
-            Back to Dock
+            Back to Project
           </button>
         )}
 
@@ -345,7 +345,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
           /* View mode */
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-2 h-12 shrink-0 self-stretch" style={{ background: shipColor, boxShadow: `var(--shadow-brutal-sm)` }} />
+              <div className="w-2 h-12 shrink-0 self-stretch" style={{ background: boardColor, boxShadow: `var(--shadow-brutal-sm)` }} />
               <div className="min-w-0">
                 <h1 className="text-3xl font-black uppercase tracking-tight" style={{ color: 'var(--color-text)' }}>
                   {board.name}
@@ -356,14 +356,14 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
                     style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)', background: 'var(--color-primary-soft)' }}
                   >
                     <LayoutList className="w-3 h-3" />
-                    {lists.length} Manifests
+                    {columns.length} Columns
                   </span>
                   <span
                     className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide px-3 py-1 border-2"
                     style={{ borderColor: 'var(--color-cyan, #0891b2)', color: 'var(--color-cyan, #0891b2)', background: 'rgba(53,194,255,0.12)' }}
                   >
                     <Hash className="w-3 h-3" />
-                    {totalCards} Cargo
+                    {totalTasks} Tasks
                   </span>
                 </div>
               </div>
@@ -375,7 +375,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
                 className="btn-secondary text-xs px-4"
               >
                 <Pencil className="w-3.5 h-3.5" />
-                Edit Ship
+                Edit Board
               </button>
               <button
                 onClick={handleDeleteBoard}
@@ -387,11 +387,11 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
                 }}
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                Jettison
+                Delete
               </button>
-              <button onClick={() => setShowCreateList(true)} className="btn-primary text-xs uppercase tracking-wider px-5">
+              <button onClick={() => setShowCreateColumn(true)} className="btn-primary text-xs uppercase tracking-wider px-5">
                 <Plus className="w-4 h-4 stroke-[3px]" />
-                Add Manifest
+                Add Column
               </button>
             </div>
           </div>
@@ -403,13 +403,13 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
           >
             <div className="flex items-center gap-2">
               <Pencil className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-              <span className="font-black text-xs uppercase tracking-widest" style={{ color: 'var(--color-muted)' }}>Edit Ship</span>
+              <span className="font-black text-xs uppercase tracking-widest" style={{ color: 'var(--color-muted)' }}>Edit Board</span>
             </div>
 
             {/* Name */}
             <div>
               <label className="block text-[10px] font-black uppercase tracking-widest mb-1.5" style={{ color: 'var(--color-muted)' }}>
-                Ship Name
+                Board Name
               </label>
               <input
                 autoFocus
@@ -421,17 +421,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
                 style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-surface)', color: 'var(--color-text)' }}
                 onFocus={e => e.target.style.borderColor = 'var(--color-primary)'}
                 onBlur={e => e.target.style.borderColor = 'var(--color-border)'}
-                placeholder="Ship name…"
+                placeholder="Board name..."
               />
             </div>
 
-            {/* Color palette */}
+            {/* Color options */}
             <div>
               <label className="block text-[10px] font-black uppercase tracking-widest mb-2" style={{ color: 'var(--color-muted)' }}>
-                Ship Colour
+                Board Color
               </label>
               <div className="flex flex-wrap gap-2">
-                {SHIP_COLORS.map(c => (
+                {BOARD_COLORS.map(c => (
                   <button
                     key={c}
                     onClick={() => setEditColor(c)}
@@ -484,15 +484,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
         <div className="flex-1 overflow-x-auto">
           <div className="flex gap-5 h-full pb-6">
-            <SortableContext items={lists.map(l => l.id)} strategy={horizontalListSortingStrategy}>
-              {filteredLists.map(list => (
-                <List key={list.id} list={list} boardId={boardId} onCardsChange={loadBoard} />
+            <SortableContext items={columns.map(column => column.id)} strategy={horizontalListSortingStrategy}>
+              {filteredColumns.map(column => (
+                <Column key={column.id} column={column} boardId={boardId} onTasksChange={loadBoard} />
               ))}
             </SortableContext>
 
-            {/* Add manifest placeholder */}
+            {/* Add column */}
             <button
-              onClick={() => setShowCreateList(true)}
+              onClick={() => setShowCreateColumn(true)}
               className="w-80 shrink-0 h-fit p-5 border-4 border-dashed transition-all duration-100"
               style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-muted)', boxShadow: 'var(--shadow-brutal-sm)' }}
               onMouseOver={e => {
@@ -510,15 +510,15 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({ boardId, searchQuery =
                 <div className="w-8 h-8 border-3 flex items-center justify-center font-black" style={{ borderColor: 'currentColor' }}>
                   <Plus className="w-5 h-5 stroke-[3px]" />
                 </div>
-                <span className="font-black text-sm uppercase tracking-wider">Add Manifest</span>
+                <span className="font-black text-sm uppercase tracking-wider">Add Column</span>
               </div>
             </button>
           </div>
         </div>
       </DndContext>
 
-      {showCreateList && (
-        <CreateListModal onClose={() => setShowCreateList(false)} onCreate={handleCreateList} />
+      {showCreateColumn && (
+        <CreateColumnModal onClose={() => setShowCreateColumn(false)} onCreate={handleCreateColumn} />
       )}
     </div>
   )

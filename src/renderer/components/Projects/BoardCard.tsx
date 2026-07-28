@@ -1,13 +1,13 @@
 import React from 'react'
 import { Grid, Calendar, ArrowRight } from 'lucide-react'
 
-interface DockCardProps {
+interface BoardCardProps {
   board: any
   onClick: () => void
   onContextMenu?: (e: React.MouseEvent) => void
 }
 
-export const DockCard: React.FC<DockCardProps> = ({ board, onClick, onContextMenu }) => {
+export const BoardCard: React.FC<BoardCardProps> = ({ board, onClick, onContextMenu }) => {
   const boardColor = board.color || '#2563eb'
 
   return (

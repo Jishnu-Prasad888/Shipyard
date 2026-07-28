@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
 import { X } from 'lucide-react'
 
-interface CreateListModalProps {
+interface CreateColumnModalProps {
   onClose: () => void
-  onCreate: (list: any) => void
+  onCreate: (column: any) => void
 }
 
 const PRESET_COLORS = [
@@ -17,7 +17,7 @@ const PRESET_COLORS = [
   '#0f172a'  // Dark
 ]
 
-export const CreateListModal: React.FC<CreateListModalProps> = ({ onClose, onCreate }) => {
+export const CreateColumnModal: React.FC<CreateColumnModalProps> = ({ onClose, onCreate }) => {
   const [name, setName] = useState('')
   const [color, setColor] = useState('#2563eb')
 
@@ -47,7 +47,7 @@ export const CreateListModal: React.FC<CreateListModalProps> = ({ onClose, onCre
           className="flex items-center justify-between px-5 py-3 border-b-4"
           style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
         >
-          <h2 className="text-base font-black text-white uppercase tracking-wider">Create List</h2>
+          <h2 className="text-base font-black text-white uppercase tracking-wider">Create Column</h2>
           <button
             onClick={onClose}
             className="w-7 h-7 border-2 border-white text-white flex items-center justify-center hover:bg-white/20 transition"
@@ -59,7 +59,7 @@ export const CreateListModal: React.FC<CreateListModalProps> = ({ onClose, onCre
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Name */}
           <div>
-            <label className="block text-xs font-black uppercase tracking-wider mb-1">List Name *</label>
+            <label className="block text-xs font-black uppercase tracking-wider mb-1">Column Name *</label>
             <input
               type="text"
               value={name}
@@ -78,7 +78,7 @@ export const CreateListModal: React.FC<CreateListModalProps> = ({ onClose, onCre
 
           {/* Color */}
           <div>
-            <label className="block text-xs font-black uppercase tracking-wider mb-2">List Color</label>
+            <label className="block text-xs font-black uppercase tracking-wider mb-2">Column Color</label>
             <div className="flex gap-2">
               {PRESET_COLORS.map((c) => (
                 <button
@@ -107,7 +107,7 @@ export const CreateListModal: React.FC<CreateListModalProps> = ({ onClose, onCre
               disabled={!name.trim()}
               className="btn-primary text-xs uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Create List
+              Create Column
             </button>
           </div>
         </form>

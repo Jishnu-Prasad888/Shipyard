@@ -1,19 +1,32 @@
 import React, { useEffect, useState } from 'react'
-import { Folder, Grid, Plus, ChevronDown, ChevronRight, Palette, Trash2, Edit2, Home, Calendar } from 'lucide-react'
-import { CreateDockModal } from '../Docks/CreateDockModel'
+import {
+  Calendar,
+  ChevronDown,
+  ChevronRight,
+  Edit2,
+  Folder,
+  FolderKanban,
+  Home,
+  KanbanSquare,
+  Palette,
+  Plus,
+  Trash2,
+  X
+} from 'lucide-react'
 import {
   DndContext,
   DragEndEvent,
-  useDroppable,
+  PointerSensor,
   useDraggable,
-  useSensors,
+  useDroppable,
   useSensor,
-  PointerSensor
+  useSensors
 } from '@dnd-kit/core'
+import { ProjectModal } from '../Projects/ProjectModal'
 
 interface SidebarProps {
-  onSelectDock: (dockId: string) => void
-  selectedDockId: string | null
+  onSelectProject: (projectId: string) => void
+  selectedProjectId: string | null
   onSelectBoard: (boardId: string) => void
   selectedBoardId: string | null
   onGoHome: () => void
@@ -24,20 +37,27 @@ interface SidebarProps {
   onDataChange?: () => void
 }
 
+type MenuTarget = {
+  x: number
+  y: number
+  type: 'workspace' | 'project' | 'unassigned'
+  id: string | null
+}
+
 const COLORS = [
-  '#2563eb', // Blue
-  '#0891b2', // Cyan
-  '#7c3aed', // Violet
-  '#059669', // Emerald
-  '#d97706', // Amber
-  '#dc2626', // Red
-  '#db2777', // Pink
-  '#0f172a'  // Dark
+  '#2563eb',
+  '#0891b2',
+  '#7c3aed',
+  '#059669',
+  '#d97706',
+  '#dc2626',
+  '#db2777',
+  '#0f172a'
 ]
 
 export const Sidebar: React.FC<SidebarProps> = ({
-  onSelectDock,
-  selectedDockId,
+  onSelectProject,
+  selectedProjectId,
   onSelectBoard,
   selectedBoardId,
   onGoHome,
@@ -47,590 +67,456 @@ export const Sidebar: React.FC<SidebarProps> = ({
   searchQuery = '',
   onDataChange
 }) => {
-  const [docks, setDocks] = useState<any[]>([])
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
-  const [folders, setFolders] = useState<any[]>([])
-  const [contextMenu, setContextMenu] = useState<{
-    x: number
-    y: number
-    type: 'folder' | 'dock' | 'uncategorized'
-    targetId: string | null
-  } | null>(null)
-  const [targetParentId, setTargetParentId] = useState<string | null>(null)
+  const [projects, setProjects] = useState<any[]>([])
+  const [workspaces, setWorkspaces] = useState<any[]>([])
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [menu, setMenu] = useState<MenuTarget | null>(null)
+  const [showProjectModal, setShowProjectModal] = useState(false)
+  const [editingProject, setEditingProject] = useState<any>(null)
+  const [showWorkspaceModal, setShowWorkspaceModal] = useState(false)
+  const [workspaceName, setWorkspaceName] = useState('')
+  const [targetWorkspaceId, setTargetWorkspaceId] = useState<string | null>(null)
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
-  const [showCreateDock, setShowCreateDock] = useState(false)
-  const [editingDock, setEditingDock] = useState<any | null>(null)
-  const [showCreateFolder, setShowCreateFolder] = useState(false)
-  const [newFolderName, setNewFolderName] = useState('')
+  const matchesSearch = (value: string) => value.toLowerCase().includes(searchQuery.toLowerCase())
+  const projectsForWorkspace = (workspaceId: string | null, filter = true) =>
+    projects.filter(
+      (project) =>
+        (workspaceId ? project.workspaceId === workspaceId : !project.workspaceId) &&
+        (!filter || !searchQuery || matchesSearch(project.name))
+    )
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8
-      }
-    })
-  )
+  const workspaceMatches = (workspaceId: string, matchingIds?: Set<string>): boolean => {
+    const workspace = workspaces.find((candidate) => candidate.id === workspaceId)
+    if (!workspace) return false
+    const childMatches = workspaces
+      .filter((candidate) => candidate.parentWorkspaceId === workspaceId)
+      .some((child) => workspaceMatches(child.id, matchingIds))
+    const matches =
+      matchesSearch(workspace.name) || projectsForWorkspace(workspaceId).length > 0 || childMatches
+    if (matches) matchingIds?.add(workspaceId)
+    return matches
+  }
+
+  const loadData = async () => {
+    const [projectRows, workspaceRows] = await Promise.all([
+      window.electron.db.findAll('projects'),
+      window.electron.db.findAll('workspaces')
+    ])
+    setProjects(projectRows)
+    setWorkspaces(workspaceRows)
+  }
 
   useEffect(() => {
-    loadDocks()
-    loadFolders()
+    void loadData()
   }, [])
 
   useEffect(() => {
-    const handleClick = () => {
-      setContextMenu(null)
+    const close = () => setMenu(null)
+    const closeContextMenu = (event: MouseEvent) => {
+      if (event.target instanceof Element && event.target.closest('.context-menu')) return
+      setMenu(null)
     }
-    const handleContextMenu = (e: MouseEvent) => {
-      if (e.target instanceof Element && e.target.closest('.context-menu')) return
-      setContextMenu(null)
-    }
-    
-    window.addEventListener('click', handleClick)
-    window.addEventListener('contextmenu', handleContextMenu, { capture: true })
+    window.addEventListener('click', close)
+    window.addEventListener('contextmenu', closeContextMenu, { capture: true })
     return () => {
-      window.removeEventListener('click', handleClick)
-      window.removeEventListener('contextmenu', handleContextMenu, { capture: true })
+      window.removeEventListener('click', close)
+      window.removeEventListener('contextmenu', closeContextMenu, { capture: true })
     }
   }, [])
 
   useEffect(() => {
-    if (searchQuery) {
-      const matchIds = new Set<string>()
-
-      const checkFolder = (folderId: string) => {
-        const folder = folders.find((f) => f.id === folderId)
-        if (!folder) return false
-
-        const nameMatches = folder.name.toLowerCase().includes(searchQuery.toLowerCase())
-        const dockMatches = (docksByFolder[folderId] || []).some((d: any) =>
-          d.name.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-
-        let subMatches = false
-        const subFolders = folders.filter((f) => f.parentId === folderId)
-        for (const sub of subFolders) {
-          if (checkFolder(sub.id)) subMatches = true
-        }
-
-        if (nameMatches || dockMatches || subMatches) {
-          matchIds.add(folderId)
-          return true
-        }
-        return false
-      }
-
-      folders.forEach((f) => checkFolder(f.id))
-
-      if (matchIds.size > 0) {
-        setExpandedFolders((prev) => {
-          const next = new Set(prev)
-          matchIds.forEach((id) => next.add(id))
-          return next
-        })
-      }
+    if (!searchQuery) return
+    const query = searchQuery.toLowerCase()
+    const matchingIds = new Set<string>()
+    const checkWorkspace = (workspaceId: string): boolean => {
+      const workspace = workspaces.find((candidate) => candidate.id === workspaceId)
+      if (!workspace) return false
+      const childMatches = workspaces
+        .filter((candidate) => candidate.parentWorkspaceId === workspaceId)
+        .some((child) => checkWorkspace(child.id))
+      const matches =
+        workspace.name.toLowerCase().includes(query) ||
+        projects.some(
+          (project) =>
+            project.workspaceId === workspaceId && project.name.toLowerCase().includes(query)
+        ) ||
+        childMatches
+      if (matches) matchingIds.add(workspaceId)
+      return matches
     }
-  }, [searchQuery, folders, docks])
+    workspaces.forEach((workspace) => checkWorkspace(workspace.id))
+    setExpanded((previous) => new Set([...previous, ...matchingIds]))
+  }, [searchQuery, workspaces, projects])
 
-  const loadDocks = async () => {
-    const docksData = await window.electron.db.findAll('docks')
-    setDocks(docksData)
+  const refresh = async () => {
+    await loadData()
+    onDataChange?.()
   }
 
-  const loadFolders = async () => {
-    const foldersData = await window.electron.db.findAll('folders')
-    setFolders(foldersData)
-  }
-
-  const toggleFolder = (folderId: string) => {
-    const newExpanded = new Set(expandedFolders)
-    if (newExpanded.has(folderId)) {
-      newExpanded.delete(folderId)
-    } else {
-      newExpanded.add(folderId)
-    }
-    setExpandedFolders(newExpanded)
-  }
-
-  const handleCreateNewDock = async (dockData: any) => {
-    try {
-      const newDock = {
-        name: dockData.name,
-        description: dockData.description || '',
-        color: dockData.color || '#2563eb',
-        tags: dockData.tags || JSON.stringify([]),
-        folderId: targetParentId,
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        boardIds: JSON.stringify([])
-      }
-
-      await window.electron.db.create('docks', newDock)
-      loadDocks()
-      setShowCreateDock(false)
-      setTargetParentId(null)
-      onDataChange?.()
-
-      if (targetParentId && !expandedFolders.has(targetParentId)) {
-        setExpandedFolders(prev => {
-          const next = new Set(prev)
-          next.add(targetParentId)
-          return next
-        })
-      }
-    } catch (err) {
-      console.error('Failed to create dock:', err)
-      alert('Could not create dock. Please check database.')
-    }
-  }
-
-  const handleUpdateDock = async (dockData: any) => {
-    if (!editingDock) return
-
-    const update = {
-      name: dockData.name,
-      description: dockData.description,
-      color: dockData.color,
-      tags: dockData.tags,
+  const createProject = async (data: any) => {
+    await window.electron.db.create('projects', {
+      ...data,
+      workspaceId: targetWorkspaceId,
+      boardIds: JSON.stringify([]),
+      createdAt: Date.now(),
       updatedAt: Date.now()
+    })
+    setShowProjectModal(false)
+    setTargetWorkspaceId(null)
+    if (targetWorkspaceId) {
+      setExpanded((previous) => new Set(previous).add(targetWorkspaceId))
     }
-
-    await window.electron.db.update('docks', editingDock.id, update)
-    loadDocks()
-    setEditingDock(null)
-    onDataChange?.()
+    await refresh()
   }
 
-  const handleDeleteDock = async (dockId: string) => {
-    // Snapshot everything for undo
-    const dockSnapshot = await window.electron.db.findById('docks', dockId)
-    const allBoards = await window.electron.db.findAll('boards')
-    const dockBoards = allBoards.filter((b: any) => b.dockId === dockId)
-    const allCards = await window.electron.db.findAll('cards')
-    const dockCards = allCards.filter((c: any) => dockBoards.some((b: any) => b.id === c.boardId))
-    const allSubCards = await window.electron.db.findAll('subcards')
-    const dockSubCards = allSubCards.filter((sc: any) => dockCards.some((c: any) => c.id === sc.cardId))
-    const allLists = await window.electron.db.findAll('lists')
-    const dockLists = allLists.filter((l: any) => dockBoards.some((b: any) => b.id === l.boardId))
-
-    // Delete everything
-    for (const board of dockBoards) await window.electron.db.delete('boards', board.id)
-    await window.electron.db.delete('docks', dockId)
-    loadDocks()
-    setContextMenu(null)
-    onDataChange?.()
-
-    window.dispatchEvent(new CustomEvent('show-toast', {
-      detail: {
-        message: `Dock "${dockSnapshot?.name}" deleted`,
-        onUndo: async () => {
-          await window.electron.db.create('docks', dockSnapshot)
-          for (const board of dockBoards) await window.electron.db.create('boards', board)
-          for (const list of dockLists) await window.electron.db.create('lists', list)
-          for (const card of dockCards) await window.electron.db.create('cards', card)
-          for (const sc of dockSubCards) await window.electron.db.create('subcards', sc)
-          loadDocks()
-          onDataChange?.()
-        }
-      }
-    }))
+  const updateProject = async (data: any) => {
+    if (!editingProject) return
+    await window.electron.db.update('projects', editingProject.id, {
+      ...data,
+      updatedAt: Date.now()
+    })
+    setEditingProject(null)
+    await refresh()
   }
 
-  const handleDeleteFolder = async (folderId: string) => {
-    const folderSnapshot = await window.electron.db.findById('folders', folderId)
-    const folderDocks = docks.filter((d) => d.folderId === folderId)
-
-    // Move docks out of folder
-    for (const dock of folderDocks) {
-      await window.electron.db.update('docks', dock.id, { folderId: null })
-    }
-    await window.electron.db.delete('folders', folderId)
-    loadFolders()
-    loadDocks()
-    setContextMenu(null)
-    onDataChange?.()
-
-    window.dispatchEvent(new CustomEvent('show-toast', {
-      detail: {
-        message: `Port "${folderSnapshot?.name}" deleted`,
-        onUndo: async () => {
-          await window.electron.db.create('folders', folderSnapshot)
-          // Re-assign docks back to the folder
-          for (const dock of folderDocks) {
-            await window.electron.db.update('docks', dock.id, { folderId })
-          }
-          loadFolders()
-          loadDocks()
-          onDataChange?.()
-        }
-      }
-    }))
-  }
-
-  const handleCreateNewFolder = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newFolderName.trim()) return
-
-    const newFolder = {
-      name: newFolderName.trim(),
+  const createWorkspace = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!workspaceName.trim()) return
+    await window.electron.db.create('workspaces', {
+      name: workspaceName.trim(),
       color: '#2563eb',
-      parentId: targetParentId,
+      parentWorkspaceId: targetWorkspaceId,
       createdAt: Date.now()
+    })
+    setWorkspaceName('')
+    setTargetWorkspaceId(null)
+    setShowWorkspaceModal(false)
+    if (targetWorkspaceId) {
+      setExpanded((previous) => new Set(previous).add(targetWorkspaceId))
     }
+    await refresh()
+  }
 
-    await window.electron.db.create('folders', newFolder)
-    loadFolders()
-    setShowCreateFolder(false)
-    setNewFolderName('')
-    setTargetParentId(null)
-    onDataChange?.()
+  const deleteProject = async (projectId: string) => {
+    const project = await window.electron.db.findById('projects', projectId)
+    const [boards, columns, tasks, subtasks, statuses, connections] = await Promise.all([
+      window.electron.db.findAll('boards'),
+      window.electron.db.findAll('columns'),
+      window.electron.db.findAll('tasks'),
+      window.electron.db.findAll('subtasks'),
+      window.electron.db.findAll('statuses'),
+      window.electron.db.findAll('connections')
+    ])
+    const projectBoards = boards.filter((board: any) => board.projectId === projectId)
+    const boardIds = new Set(projectBoards.map((board: any) => board.id))
+    const projectColumns = columns.filter((column: any) => boardIds.has(column.boardId))
+    const columnIds = new Set(projectColumns.map((column: any) => column.id))
+    const projectTasks = tasks.filter(
+      (task: any) => boardIds.has(task.boardId) || columnIds.has(task.columnId)
+    )
+    const taskIds = new Set(projectTasks.map((task: any) => task.id))
+    const projectSubtasks = subtasks.filter((subtask: any) => taskIds.has(subtask.taskId))
+    const projectStatuses = statuses.filter((status: any) => boardIds.has(status.boardId))
+    const projectConnections = connections.filter((connection: any) =>
+      boardIds.has(connection.boardId)
+    )
 
-    if (targetParentId && !expandedFolders.has(targetParentId)) {
-      setExpandedFolders((prev) => {
-        const next = new Set(prev)
-        next.add(targetParentId)
-        return next
+    await window.electron.db.delete('projects', projectId)
+    setMenu(null)
+    await refresh()
+    window.dispatchEvent(
+      new CustomEvent('show-toast', {
+        detail: {
+          message: `Project "${project?.name}" deleted`,
+          onUndo: async () => {
+            await window.electron.db.create('projects', project)
+            for (const board of projectBoards) await window.electron.db.create('boards', board)
+            for (const column of projectColumns) await window.electron.db.create('columns', column)
+            for (const task of projectTasks) await window.electron.db.create('tasks', task)
+            for (const subtask of projectSubtasks)
+              await window.electron.db.create('subtasks', subtask)
+            for (const status of projectStatuses)
+              await window.electron.db.create('statuses', status)
+            for (const connection of projectConnections) {
+              await window.electron.db.create('connections', connection)
+            }
+            await refresh()
+          }
+        }
       })
-    }
+    )
   }
 
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const { active, over } = event
-    if (!over) return
-
-    if (active.data.current?.type === 'dock' && over.data.current?.type === 'folder') {
-      const dockId = active.id as string
-      const folderId = over.id === 'uncategorized' ? null : (over.id as string)
-
-      await window.electron.db.update('docks', dockId, { folderId })
-      loadDocks()
-      onDataChange?.()
+  const deleteWorkspace = async (workspaceId: string) => {
+    const collectWorkspaceTree = (id: string): any[] => {
+      const workspace = workspaces.find((candidate) => candidate.id === id)
+      if (!workspace) return []
+      return [
+        workspace,
+        ...workspaces
+          .filter((candidate) => candidate.parentWorkspaceId === id)
+          .flatMap((child) => collectWorkspaceTree(child.id))
+      ]
     }
+    const workspaceTree = collectWorkspaceTree(workspaceId)
+    const workspaceIds = new Set(workspaceTree.map((workspace) => workspace.id))
+    const assignedProjects = projects.filter((project) => workspaceIds.has(project.workspaceId))
+    for (const project of assignedProjects) {
+      await window.electron.db.update('projects', project.id, { workspaceId: null })
+    }
+    await window.electron.db.delete('workspaces', workspaceId)
+    setMenu(null)
+    await refresh()
+    window.dispatchEvent(
+      new CustomEvent('show-toast', {
+        detail: {
+          message: `Workspace "${workspaceTree[0]?.name}" deleted`,
+          onUndo: async () => {
+            for (const workspace of workspaceTree) {
+              await window.electron.db.create('workspaces', workspace)
+            }
+            for (const project of assignedProjects) {
+              await window.electron.db.update('projects', project.id, {
+                workspaceId: project.workspaceId
+              })
+            }
+            await refresh()
+          }
+        }
+      })
+    )
   }
 
-  const openContextMenu = (
-    e: React.MouseEvent,
-    type: 'folder' | 'dock' | 'uncategorized',
-    targetId: string | null
-  ) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setContextMenu({ x: e.clientX, y: e.clientY, type, targetId })
+  const handleDragEnd = async ({ active, over }: DragEndEvent) => {
+    if (!over || active.data.current?.type !== 'project') return
+    if (over.data.current?.type !== 'workspace') return
+    const workspaceId = over.id === 'unassigned' ? null : String(over.id)
+    await window.electron.db.update('projects', String(active.id), { workspaceId })
+    await refresh()
+  }
+
+  const openMenu = (event: React.MouseEvent, type: MenuTarget['type'], id: string | null) => {
+    event.preventDefault()
+    event.stopPropagation()
+    setMenu({ x: event.clientX, y: event.clientY, type, id })
   }
 
   const changeColor = async (color: string) => {
-    if (!contextMenu) return
-    const { type, targetId } = contextMenu
-    if (targetId) {
-      if (type === 'folder') {
-        await window.electron.db.update('folders', targetId, { color })
-        loadFolders()
-      } else if (type === 'dock') {
-        await window.electron.db.update('docks', targetId, { color })
-        loadDocks()
-      }
+    if (!menu?.id) return
+    if (menu.type === 'workspace') {
+      await window.electron.db.update('workspaces', menu.id, { color })
+    } else if (menu.type === 'project') {
+      await window.electron.db.update('projects', menu.id, { color })
     }
-    setContextMenu(null)
+    setMenu(null)
+    await refresh()
   }
 
-  const docksByFolder = docks.reduce(
-    (acc, dock) => {
-      const folderId = dock.folderId || 'uncategorized'
-      if (!acc[folderId]) acc[folderId] = []
-      acc[folderId].push(dock)
-      return acc
-    },
-    {} as Record<string, any[]>
-  )
-
-  const renderFolderTree = (parentId: string | null = null, depth: number = 0) => {
-    const currentLevelFolders = folders.filter((f) => (f.parentId || null) === parentId)
-
-    const hasMatches = (folder: any): boolean => {
-      if (!searchQuery) return true
-      if (folder.name.toLowerCase().includes(searchQuery.toLowerCase())) return true
-      if (
-        (docksByFolder[folder.id] || []).some((d: any) =>
-          d.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const renderWorkspaces = (parentWorkspaceId: string | null = null, depth = 0): React.ReactNode =>
+    workspaces
+      .filter((workspace) => (workspace.parentWorkspaceId || null) === parentWorkspaceId)
+      .filter((workspace) => !searchQuery || workspaceMatches(workspace.id))
+      .map((workspace) => {
+        const isExpanded = expanded.has(workspace.id)
+        const workspaceProjects = projectsForWorkspace(workspace.id)
+        const childWorkspaces = workspaces
+          .filter((candidate) => candidate.parentWorkspaceId === workspace.id)
+          .filter((candidate) => !searchQuery || workspaceMatches(candidate.id))
+        return (
+          <div key={workspace.id}>
+            <WorkspaceRow
+              workspace={workspace}
+              depth={depth}
+              expanded={isExpanded}
+              onToggle={() =>
+                setExpanded((previous) => {
+                  const next = new Set(previous)
+                  if (next.has(workspace.id)) next.delete(workspace.id)
+                  else next.add(workspace.id)
+                  return next
+                })
+              }
+              onContextMenu={(event) => openMenu(event, 'workspace', workspace.id)}
+            />
+            {isExpanded && (
+              <div className="space-y-1 mt-1">
+                {renderWorkspaces(workspace.id, depth + 1)}
+                {workspaceProjects.map((project) => (
+                  <ProjectRow
+                    key={project.id}
+                    project={project}
+                    depth={depth + 1}
+                    selected={selectedProjectId === project.id}
+                    selectedBoardId={selectedBoardId}
+                    onSelect={onSelectProject}
+                    onSelectBoard={onSelectBoard}
+                    onContextMenu={(event) => openMenu(event, 'project', project.id)}
+                  />
+                ))}
+                {childWorkspaces.length === 0 && workspaceProjects.length === 0 && (
+                  <p
+                    className="px-4 py-1 text-xs font-bold uppercase tracking-wider text-white/40"
+                    style={{ paddingLeft: `${(depth + 1) * 0.75 + 1}rem` }}
+                  >
+                    Empty
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         )
-      )
-        return true
+      })
 
-      const subFolders = folders.filter((f) => f.parentId === folder.id)
-      return subFolders.some((s) => hasMatches(s))
-    }
-
-    const filteredLevelFolders = searchQuery
-      ? currentLevelFolders.filter((f) => hasMatches(f))
-      : currentLevelFolders
-
-    return filteredLevelFolders.map((folder) => {
-      const folderDocks = docksByFolder[folder.id] || []
-      const filteredDocks = searchQuery
-        ? folderDocks.filter((d: any) => d.name.toLowerCase().includes(searchQuery.toLowerCase()))
-        : folderDocks
-
-      return (
-        <div key={folder.id} className="relative">
-          <DroppableFolder
-            folder={folder}
-            depth={depth}
-            isExpanded={expandedFolders.has(folder.id)}
-            onToggle={() => toggleFolder(folder.id)}
-            onContextMenu={(e) => openContextMenu(e, 'folder', folder.id)}
-          />
-
-          {expandedFolders.has(folder.id) && (
-            <div className="mt-1 space-y-1">
-              {renderFolderTree(folder.id, depth + 1)}
-
-              {filteredDocks.map((dock: any) => (
-                <SidebarDockItem
-                  key={dock.id}
-                  dock={dock}
-                  depth={depth + 1}
-                  isSelected={selectedDockId === dock.id}
-                  onContextMenu={(e) => openContextMenu(e, 'dock', dock.id)}
-                  onSelect={onSelectDock}
-                  onSelectBoard={onSelectBoard}
-                  selectedBoardId={selectedBoardId}
-                />
-              ))}
-
-              {filteredLevelFolders.length === 0 && filteredDocks.length === 0 && (
-                <p
-                  className="text-xs font-bold text-muted px-4 py-1 uppercase tracking-wider"
-                  style={{ paddingLeft: `${(depth + 1) * 0.75 + 1}rem` }}
-                >
-                  Empty
-                </p>
-              )}
-            </div>
-          )}
-        </div>
-      )
-    })
-  }
-
-  const uncategorizedDocksOriginal = docksByFolder['uncategorized'] || []
-  const uncategorizedDocksFiltered = searchQuery
-    ? uncategorizedDocksOriginal.filter((d: any) =>
-        d.name.toLowerCase().includes(searchQuery.toLowerCase())
-      )
-    : uncategorizedDocksOriginal
+  const unassigned = projectsForWorkspace(null)
 
   return (
     <aside
-      className="w-64 flex flex-col relative h-full z-10 overflow-hidden border-r-4"
+      className="w-64 flex flex-col h-full z-10 overflow-hidden border-r-4"
       style={{
         background: 'var(--color-sidebar)',
         borderColor: 'var(--color-border-strong)',
         boxShadow: 'var(--shadow-brutal)'
       }}
     >
-      <div className="relative z-10 flex flex-col h-full">
-        {/* Accent bar */}
-        <div className="brutal-accent" />
-
-        {/* Home + calendar */}
-        <div className="p-4 pb-3 border-b-4" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
-          <button
-            onClick={onGoHome}
-            className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-black uppercase tracking-wider border-2 transition-all duration-100"
-            style={{
-              borderColor: isHome ? 'var(--color-primary)' : 'rgba(255,255,255,0.18)',
-              background: isHome ? 'var(--color-primary)' : 'rgba(255,255,255,0.06)',
-              color: 'white',
-              boxShadow: isHome ? 'var(--shadow-brutal-sm)' : 'none'
-            }}
+      <div className="brutal-accent" />
+      <div className="p-4 pb-3 border-b-4" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
+        <NavButton
+          active={isHome}
+          onClick={onGoHome}
+          icon={<Home className="w-4 h-4" />}
+          label="Workspace Overview"
+        />
+        <NavButton
+          active={isCalendar}
+          onClick={onOpenCalendar}
+          icon={<Calendar className="w-4 h-4" />}
+          label="Project Calendar"
+        />
+      </div>
+      <div className="p-4 border-b-4 space-y-2" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
+        <button
+          onClick={() => {
+            setTargetWorkspaceId(null)
+            setShowProjectModal(true)
+          }}
+          className="btn-primary w-full text-xs uppercase tracking-wider"
+        >
+          <Plus className="w-4 h-4" /> Create Project
+        </button>
+        <button
+          onClick={() => {
+            setTargetWorkspaceId(null)
+            setShowWorkspaceModal(true)
+          }}
+          className="w-full flex items-center gap-2 px-3 py-2 text-xs font-black uppercase border-2 text-white border-white/20"
+        >
+          <Folder className="w-4 h-4" /> Create Workspace
+        </button>
+      </div>
+      <div className="flex-1 overflow-auto px-3 py-4 space-y-2">
+        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          {renderWorkspaces()}
+          <UnassignedDropZone
+            projects={unassigned}
+            onContextMenu={(event) => openMenu(event, 'unassigned', null)}
           >
-            <Home className="w-4 h-4" />
-            <span className="flex-1 text-left">Fleet Overview</span>
-          </button>
-
-          <button
-            onClick={onOpenCalendar}
-            className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-black uppercase tracking-wider border-2 transition-all duration-100 mt-2"
-            style={{
-              borderColor: isCalendar ? 'var(--color-secondary)' : 'rgba(255,255,255,0.18)',
-              background: isCalendar ? 'var(--color-secondary)' : 'rgba(255,255,255,0.06)',
-              color: 'white',
-              boxShadow: isCalendar ? 'var(--shadow-brutal-sm)' : 'none'
-            }}
-          >
-            <Calendar className="w-4 h-4" />
-            <span className="flex-1 text-left">Voyage Calendar</span>
-          </button>
-        </div>
-
-        {/* New Dock */}
-        <div className="p-4 border-b-4" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
-          <button
-            onClick={() => {
-              setTargetParentId(null)
-              setShowCreateDock(true)
-            }}
-            className="btn-primary w-full text-xs uppercase tracking-wider"
-          >
-            <Plus className="w-4 h-4 stroke-[3px]" />
-            New Dock
-          </button>
-        </div>
-
-        {/* New Folder */}
-        <div className="px-4 pt-4 pb-2">
-          <button
-            onClick={() => {
-              setTargetParentId(null)
-              setShowCreateFolder(true)
-            }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-black uppercase tracking-wider border-2 transition-all duration-100"
-            style={{
-              borderColor: 'rgba(255,255,255,0.2)',
-              color: 'rgba(255,255,255,0.85)',
-              background: 'rgba(255,255,255,0.06)'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.background = 'rgba(95,182,255,0.18)'
-              e.currentTarget.style.borderColor = 'var(--color-primary)'
-              e.currentTarget.style.color = 'white'
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.06)'
-              e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'
-              e.currentTarget.style.color = 'rgba(255,255,255,0.85)'
-            }}
-          >
-            <Folder className="w-3.5 h-3.5" />
-            <span className="flex-1 text-left">New Port</span>
-            <Plus className="w-3 h-3" />
-          </button>
-        </div>
-
-        {/* Tree */}
-        <div className="flex-1 overflow-auto px-3 pb-6 space-y-2">
-          <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-            <div className="space-y-2">
-              {renderFolderTree(null, 0)}
-
-              <DroppableUncategorized
-                docks={uncategorizedDocksFiltered}
-                onContextMenu={(e) => openContextMenu(e, 'uncategorized', null)}
-              >
-                {uncategorizedDocksFiltered.map((dock: any) => (
-                  <SidebarDockItem
-                    key={dock.id}
-                    dock={dock}
-                    depth={0}
-                    isSelected={selectedDockId === dock.id}
-                    onContextMenu={(e) => openContextMenu(e, 'dock', dock.id)}
-                    onSelect={onSelectDock}
-                    onSelectBoard={onSelectBoard}
-                    selectedBoardId={selectedBoardId}
-                  />
-                ))}
-              </DroppableUncategorized>
-            </div>
-          </DndContext>
-        </div>
+            {unassigned.map((project) => (
+              <ProjectRow
+                key={project.id}
+                project={project}
+                depth={0}
+                selected={selectedProjectId === project.id}
+                selectedBoardId={selectedBoardId}
+                onSelect={onSelectProject}
+                onSelectBoard={onSelectBoard}
+                onContextMenu={(event) => openMenu(event, 'project', project.id)}
+              />
+            ))}
+          </UnassignedDropZone>
+        </DndContext>
       </div>
 
-      {/* Context Menu */}
-      {contextMenu && (
+      {menu && (
         <div
           className="context-menu fixed z-50 min-w-[200px] animate-brutal-in"
-          style={{ top: Math.min(contextMenu.y, window.innerHeight - 260), left: contextMenu.x }}
-          onClick={(e) => e.stopPropagation()}
+          style={{ top: Math.min(menu.y, window.innerHeight - 290), left: menu.x }}
+          onClick={(event) => event.stopPropagation()}
         >
-          {/* Header */}
           <div
-            className="px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] text-white border-b"
-            style={{ background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))', borderColor: 'var(--color-border-strong)' }}
+            className="px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white border-b"
+            style={{
+              background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+              borderColor: 'var(--color-border-strong)'
+            }}
           >
-            {contextMenu.type} Options
+            {menu.type} Options
           </div>
-
-          {/* Folder / Uncategorized options */}
-          {(contextMenu.type === 'folder' || contextMenu.type === 'uncategorized') && (
-            <>
-              <button
-                className="context-menu-item border-b"
-                style={{ borderColor: 'var(--color-border)' }}
-                onClick={() => {
-                  setTargetParentId(contextMenu.targetId)
-                  setShowCreateDock(true)
-                  setContextMenu(null)
-                }}
-              >
-                <Plus className="w-4 h-4" />
-                New Dock Here
-              </button>
-              {contextMenu.type === 'folder' && (
-                <>
-                  <button
-                    className="context-menu-item border-b"
-                    style={{ borderColor: 'var(--color-border)' }}
-                    onClick={() => {
-                      setTargetParentId(contextMenu.targetId)
-                      setShowCreateFolder(true)
-                      setContextMenu(null)
-                    }}
-                  >
-                    <Folder className="w-4 h-4" />
-                    New Port Inside
-                  </button>
-                  <button
-                    className="context-menu-item danger border-b"
-                    style={{ borderColor: 'var(--color-border)' }}
-                    onClick={() => contextMenu.targetId && handleDeleteFolder(contextMenu.targetId)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                    Decommission Port
-                  </button>
-                </>
-              )}
-            </>
+          {(menu.type === 'workspace' || menu.type === 'unassigned') && (
+            <button
+              className="context-menu-item"
+              onClick={() => {
+                setTargetWorkspaceId(menu.id)
+                setShowProjectModal(true)
+                setMenu(null)
+              }}
+            >
+              <Plus className="w-4 h-4" /> Create Project
+            </button>
           )}
-
-          {/* Dock options */}
-          {contextMenu.type === 'dock' && (
+          {menu.type === 'workspace' && (
             <>
               <button
-                className="context-menu-item border-b"
-                style={{ borderColor: 'var(--color-border)' }}
+                className="context-menu-item"
                 onClick={() => {
-                  const dock = docks.find(d => d.id === contextMenu.targetId)
-                  if (dock) setEditingDock(dock)
-                  setContextMenu(null)
+                  setTargetWorkspaceId(menu.id)
+                  setShowWorkspaceModal(true)
+                  setMenu(null)
                 }}
               >
-                <Edit2 className="w-4 h-4" />
-                Edit Dock
+                <Folder className="w-4 h-4" /> Create Workspace
               </button>
               <button
-                className="context-menu-item danger border-b"
-                style={{ borderColor: 'var(--color-border)' }}
-                onClick={() => contextMenu.targetId && handleDeleteDock(contextMenu.targetId)}
+                className="context-menu-item danger"
+                onClick={() => menu.id && deleteWorkspace(menu.id)}
               >
-                <Trash2 className="w-4 h-4" />
-                Scuttle Dock
+                <Trash2 className="w-4 h-4" /> Delete Workspace
               </button>
             </>
           )}
-
-          {/* Color picker for folder/dock */}
-          {(contextMenu.type === 'folder' || contextMenu.type === 'dock') && (
+          {menu.type === 'project' && (
+            <>
+              <button
+                className="context-menu-item"
+                onClick={() => {
+                  setEditingProject(projects.find((project) => project.id === menu.id))
+                  setMenu(null)
+                }}
+              >
+                <Edit2 className="w-4 h-4" /> Edit Project
+              </button>
+              <button
+                className="context-menu-item danger"
+                onClick={() => menu.id && deleteProject(menu.id)}
+              >
+                <Trash2 className="w-4 h-4" /> Delete Project
+              </button>
+            </>
+          )}
+          {(menu.type === 'workspace' || menu.type === 'project') && (
             <div className="px-4 py-3 border-t-2" style={{ borderColor: 'var(--color-border)' }}>
               <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider mb-2">
                 <Palette className="w-3.5 h-3.5" />
                 Color
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {COLORS.map((c) => (
+                {COLORS.map((color) => (
                   <button
-                    key={c}
-                    onClick={() => changeColor(c)}
+                    key={color}
+                    onClick={() => changeColor(color)}
                     className="w-6 h-6 border-2 hover:scale-110 transition-transform"
-                    style={{ backgroundColor: c, borderColor: 'var(--color-border-strong)' }}
+                    style={{ backgroundColor: color, borderColor: 'var(--color-border-strong)' }}
+                    aria-label={`Set color ${color}`}
                   />
                 ))}
               </div>
@@ -639,257 +525,226 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       )}
 
-      {/* Modals */}
-      {showCreateDock && (
-        <CreateDockModal onClose={() => setShowCreateDock(false)} onCreate={handleCreateNewDock} />
-      )}
-
-      {editingDock && (
-        <CreateDockModal
-          title="Edit Dock Properties"
-          initialData={editingDock}
-          onClose={() => setEditingDock(null)}
-          onCreate={handleUpdateDock}
+      {showProjectModal && (
+        <ProjectModal
+          title="Create Project"
+          onClose={() => setShowProjectModal(false)}
+          onCreate={createProject}
         />
       )}
-
-      {showCreateFolder && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowCreateFolder(false)}>
-          <div className="w-full max-w-sm surface animate-brutal-in" onClick={(e) => e.stopPropagation()}>
-            {/* Header */}
-            <div
-              className="flex items-center justify-between px-5 py-3 border-b-3"
-              style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-primary)' }}
-            >
-              <h2 className="text-base font-black text-white uppercase tracking-wider">Establish New Port</h2>
-              <button
-                onClick={() => setShowCreateFolder(false)}
-                className="w-6 h-6 flex items-center justify-center border-2 border-white text-white font-black hover:bg-white/20 transition"
-              >
-                ✕
+      {editingProject && (
+        <ProjectModal
+          title="Edit Project"
+          initialData={editingProject}
+          onClose={() => setEditingProject(null)}
+          onCreate={updateProject}
+        />
+      )}
+      {showWorkspaceModal && (
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+          onClick={() => setShowWorkspaceModal(false)}
+        >
+          <form
+            className="w-full max-w-sm surface p-5 space-y-4"
+            onSubmit={createWorkspace}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="font-black uppercase">Create Workspace</h2>
+              <button type="button" onClick={() => setShowWorkspaceModal(false)}>
+                <X className="w-4 h-4" />
               </button>
             </div>
-
-            <form onSubmit={handleCreateNewFolder} className="p-5 space-y-4">
-              <div>
-                <label className="block text-xs font-black uppercase tracking-wider mb-1">Port Name *</label>
-                <input
-                  type="text"
-                  value={newFolderName}
-                  onChange={(e) => setNewFolderName(e.target.value)}
-                  className="w-full px-3 py-2 border-2 bg-transparent font-bold text-sm focus:outline-none"
-                  style={{
-                    borderColor: 'var(--color-border-strong)',
-                    color: 'var(--color-text)',
-                    boxShadow: 'inset 2px 2px 0 rgba(0,0,0,0.05)'
-                  }}
-                  placeholder="East Port, Harbor Alpha..."
-                  autoFocus
-                />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateFolder(false)}
-                  className="btn-secondary text-xs"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={!newFolderName.trim()}
-                  className="btn-primary text-xs disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  Create Folder
-                </button>
-              </div>
-            </form>
-          </div>
+            <input
+              autoFocus
+              value={workspaceName}
+              onChange={(event) => setWorkspaceName(event.target.value)}
+              placeholder="Workspace name"
+              className="w-full px-3 py-2 border-2 bg-transparent"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="btn-secondary text-xs"
+                onClick={() => setShowWorkspaceModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="btn-primary text-xs"
+                disabled={!workspaceName.trim()}
+              >
+                Create
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </aside>
   )
 }
 
-const DroppableFolder: React.FC<{
-  folder: any
-  depth: number
-  isExpanded: boolean
-  onToggle: () => void
-  onContextMenu: (e: React.MouseEvent) => void
-}> = ({ folder, depth, isExpanded, onToggle, onContextMenu }) => {
-  const { isOver, setNodeRef } = useDroppable({
-    id: folder.id,
-    data: { type: 'folder' }
-  })
+const NavButton = ({
+  active,
+  onClick,
+  icon,
+  label
+}: {
+  active: boolean
+  onClick: () => void
+  icon: React.ReactNode
+  label: string
+}) => (
+  <button
+    onClick={onClick}
+    className="w-full flex items-center gap-2 px-3 py-2 mt-2 text-xs font-black uppercase border-2 text-white"
+    style={{
+      borderColor: active ? 'var(--color-primary)' : 'rgba(255,255,255,0.18)',
+      background: active ? 'var(--color-primary)' : 'rgba(255,255,255,0.06)'
+    }}
+  >
+    {icon}
+    <span className="flex-1 text-left">{label}</span>
+  </button>
+)
 
+const WorkspaceRow = ({
+  workspace,
+  depth,
+  expanded,
+  onToggle,
+  onContextMenu
+}: {
+  workspace: any
+  depth: number
+  expanded: boolean
+  onToggle: () => void
+  onContextMenu: (event: React.MouseEvent) => void
+}) => {
+  const { isOver, setNodeRef } = useDroppable({ id: workspace.id, data: { type: 'workspace' } })
   return (
-    <div ref={setNodeRef}>
-      <button
-        onClick={onToggle}
-        onContextMenu={onContextMenu}
-        style={{
-          paddingLeft: `${depth * 0.75 + 0.75}rem`,
-          background: isOver ? 'rgba(95,182,255,0.15)' : undefined,
-          borderColor: isOver ? 'var(--color-border-strong)' : undefined,
-          boxShadow: isOver ? 'var(--shadow-brutal-sm)' : undefined
-        }}
-        className="nav-item w-full"
-      >
-        <div className="w-4 h-4 flex items-center justify-center shrink-0">
-          {isExpanded ? (
-            <ChevronDown className="w-3.5 h-3.5" />
-          ) : (
-            <ChevronRight className="w-3.5 h-3.5" />
-          )}
-        </div>
-        <Folder className="w-4 h-4 shrink-0" style={{ color: folder.color || '#2563eb' }} />
-        <span className="flex-1 text-left truncate text-xs uppercase tracking-wider">{folder.name}</span>
-      </button>
-    </div>
+    <button
+      ref={setNodeRef}
+      onClick={onToggle}
+      onContextMenu={onContextMenu}
+      className="nav-item w-full"
+      style={{
+        paddingLeft: `${depth * 12 + 8}px`,
+        background: isOver ? 'rgba(95,182,255,0.2)' : undefined
+      }}
+    >
+      {expanded ? (
+        <ChevronDown className="w-3.5 h-3.5" />
+      ) : (
+        <ChevronRight className="w-3.5 h-3.5" />
+      )}
+      <Folder className="w-4 h-4" style={{ color: workspace.color || '#2563eb' }} />
+      <span className="truncate">{workspace.name}</span>
+    </button>
   )
 }
 
-const DroppableUncategorized: React.FC<{
-  docks: any[]
-  onContextMenu: (e: React.MouseEvent) => void
+const UnassignedDropZone = ({
+  projects,
+  onContextMenu,
+  children
+}: {
+  projects: any[]
+  onContextMenu: (event: React.MouseEvent) => void
   children: React.ReactNode
-}> = ({ docks, onContextMenu, children }) => {
-  const { isOver, setNodeRef } = useDroppable({
-    id: 'uncategorized',
-    data: { type: 'folder' }
-  })
-
-  if (docks.length === 0 && !isOver) return null
-
+}) => {
+  const { isOver, setNodeRef } = useDroppable({ id: 'unassigned', data: { type: 'workspace' } })
   return (
     <div
       ref={setNodeRef}
-      className={`mt-4 transition-all ${isOver ? 'ring-2 ring-primary ring-offset-2 ring-offset-[var(--color-sidebar)] rounded-md' : ''}`}
       onContextMenu={onContextMenu}
+      className="mt-4"
+      style={{ outline: isOver ? '2px solid var(--color-primary)' : undefined }}
     >
-      <div
-        className="px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.2em] border-b-2 mb-2"
-        style={{ color: 'rgba(255,255,255,0.8)', borderColor: 'rgba(255,255,255,0.18)' }}
-      >
-        Uncharted Waters
-      </div>
+      <p className="px-3 py-2 text-[10px] font-black uppercase text-white/70">
+        Unassigned Projects
+      </p>
       <div className="space-y-1">{children}</div>
+      {!projects.length && (
+        <p className="px-3 py-1 text-[10px] font-bold uppercase text-white/40">
+          No unassigned projects
+        </p>
+      )}
     </div>
   )
 }
 
-interface SidebarDockItemProps {
-  dock: any
-  depth: number
-  isSelected: boolean
-  onContextMenu: (e: React.MouseEvent) => void
-  onSelect: (dockId: string) => void
-  onSelectBoard: (boardId: string) => void
-  selectedBoardId: string | null
-}
-
-const SidebarDockItem: React.FC<SidebarDockItemProps> = ({
-  dock,
+const ProjectRow = ({
+  project,
   depth,
-  isSelected,
-  onContextMenu,
+  selected,
+  selectedBoardId,
   onSelect,
   onSelectBoard,
-  selectedBoardId
+  onContextMenu
+}: {
+  project: any
+  depth: number
+  selected: boolean
+  selectedBoardId: string | null
+  onSelect: (id: string) => void
+  onSelectBoard: (id: string) => void
+  onContextMenu: (event: React.MouseEvent) => void
 }) => {
   const [boards, setBoards] = useState<any[]>([])
   const [expanded, setExpanded] = useState(false)
-
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: dock.id,
-    data: { type: 'dock', dock }
+    id: project.id,
+    data: { type: 'project', project }
   })
 
   useEffect(() => {
-    if (expanded) {
-      loadBoards()
-    }
-  }, [expanded])
-
-  const loadBoards = async () => {
-    const allBoards = await window.electron.db.findAll('boards')
-    const dockBoards = allBoards.filter((b: any) => b.dockId === dock.id)
-    setBoards(dockBoards)
-  }
+    if (!expanded) return
+    window.electron.db
+      .findAll('boards')
+      .then((rows) => setBoards(rows.filter((board: any) => board.projectId === project.id)))
+  }, [expanded, project.id])
 
   return (
     <div ref={setNodeRef} className={isDragging ? 'opacity-40' : ''}>
-      <div className="flex w-full items-center" onContextMenu={onContextMenu}>
+      <div className="flex" onContextMenu={onContextMenu}>
         <button
-          style={{ paddingLeft: `${depth * 0.75 + 0.75}rem` }}
+          className={`nav-item flex-1 ${selected ? 'active' : ''}`}
+          style={{ paddingLeft: `${depth * 12 + 8}px` }}
           onClick={() => {
-            onSelect(dock.id)
-            setExpanded(!expanded)
+            onSelect(project.id)
+            setExpanded((value) => !value)
           }}
-          className={`nav-item flex-1 ${isSelected ? 'active' : ''}`}
         >
-          <div className="w-4 h-4 flex items-center justify-center shrink-0">
-            {expanded ? (
-              <ChevronDown className="w-3 h-3 opacity-70" />
-            ) : (
-              <ChevronRight className="w-3 h-3 opacity-70" />
-            )}
-          </div>
-          <Grid className="w-3.5 h-3.5 shrink-0" style={{ color: dock.color || '#2563eb' }} />
-          <span className="flex-1 text-left truncate text-xs font-black uppercase tracking-wide">
-            {dock.name}
-          </span>
+          {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+          <FolderKanban className="w-4 h-4" style={{ color: project.color || '#2563eb' }} />
+          <span className="truncate">{project.name}</span>
         </button>
-        {/* Drag handle */}
-        <div
+        <button
           {...listeners}
           {...attributes}
-          className="pr-2 pl-1 py-2 cursor-grab active:cursor-grabbing opacity-30 hover:opacity-100 transition-opacity"
-          title="Drag to move"
+          className="px-2 text-white/40 cursor-grab"
+          title="Move project"
         >
-          <div className="flex flex-col gap-0.5">
-            <div className="w-3 h-0.5 bg-current rounded" />
-            <div className="w-3 h-0.5 bg-current rounded" />
-            <div className="w-3 h-0.5 bg-current rounded" />
-          </div>
-        </div>
+          ::
+        </button>
       </div>
-
       {expanded && (
-        <div className="mt-0.5 space-y-0.5" style={{ paddingLeft: `${depth * 0.75 + 2}rem` }}>
+        <div className="ml-8 space-y-1">
           {boards.map((board) => (
             <button
               key={board.id}
               onClick={() => onSelectBoard(board.id)}
-              className="w-full text-left px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide border-l-2 transition-all duration-150"
-              style={{
-                borderColor: selectedBoardId === board.id ? 'var(--color-secondary)' : 'rgba(255,255,255,0.2)',
-                color: selectedBoardId === board.id ? 'white' : 'rgba(255,255,255,0.75)',
-                background: selectedBoardId === board.id
-                  ? 'rgba(95,182,255,0.2)'
-                  : 'transparent'
-              }}
-              onMouseOver={e => {
-                if (selectedBoardId !== board.id) {
-                  e.currentTarget.style.color = 'white'
-                  e.currentTarget.style.background = 'rgba(95,182,255,0.12)'
-                }
-              }}
-              onMouseOut={e => {
-                if (selectedBoardId !== board.id) {
-                  e.currentTarget.style.color = 'rgba(255,255,255,0.75)'
-                  e.currentTarget.style.background = 'transparent'
-                }
-              }}
+              className="nav-item w-full"
+              style={{ color: selectedBoardId === board.id ? 'white' : undefined }}
             >
-              ▸ {board.name}
+              <KanbanSquare className="w-3 h-3" />
+              {board.name}
             </button>
           ))}
-          {boards.length === 0 && (
-            <p className="text-[10px] font-bold px-3 py-1 uppercase tracking-wider" style={{ color: 'rgba(255,255,255,0.35)' }}>No ships docked</p>
-          )}
+          {!boards.length && <p className="px-3 text-[10px] uppercase text-white/40">No boards</p>}
         </div>
       )}
     </div>

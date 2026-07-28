@@ -2,26 +2,26 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Plus, Edit2, Trash2, Eye, EyeOff, Download } from 'lucide-react'
-import { Card } from './Card'
-import { CreateCardModal } from './CreateCardModal'
+import { Task } from './Task'
+import { CreateTaskModal } from './CreateTaskModal'
 
-interface ListProps {
-  list: any
+interface ColumnProps {
+  column: any
   boardId: string
-  onCardsChange: () => void
+  onTasksChange: () => void
 }
 
-// Default statuses matching CardDetailsModal
+// Default statuses matching TaskDetailsModal
 const DEFAULT_STATUSES = [
-  { id: '__yet_to_start__', name: 'Yet to Start', color: '#6b7280' },
-  { id: '__working__', name: 'Working', color: '#f59e0b' },
-  { id: '__completed__', name: 'Completed', color: '#ef4444' }
+  { id: '__todo__', name: 'To Do', color: '#6b7280' },
+  { id: '__in_progress__', name: 'In Progress', color: '#f59e0b' },
+  { id: '__done__', name: 'Done', color: '#10b981' }
 ]
 
-export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
-  const [showCreateCard, setShowCreateCard] = useState(false)
+export const Column: React.FC<ColumnProps> = ({ column, boardId, onTasksChange }) => {
+  const [showCreateTask, setShowCreateTask] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
-  const [editedName, setEditedName] = useState(list.name)
+  const [editedName, setEditedName] = useState(column.name)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [hideStatuses, setHideStatuses] = useState<string[]>([])
   const [showHidePanel, setShowHidePanel] = useState(false)
@@ -29,8 +29,8 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
   const hidePanelRef = useRef<HTMLDivElement | null>(null)
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: list.id,
-    data: { type: 'list' }
+    id: column.id,
+    data: { type: 'column' }
   })
 
   const style = {
@@ -67,72 +67,72 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
     setBoardStatuses([...DEFAULT_STATUSES, ...filtered])
   }
 
-  const handleUpdateList = async () => {
-    if (editedName.trim() && editedName !== list.name) {
-      await window.electron.db.update('lists', list.id, {
+  const handleUpdateColumn = async () => {
+    if (editedName.trim() && editedName !== column.name) {
+      await window.electron.db.update('columns', column.id, {
         name: editedName,
         updatedAt: Date.now()
       })
-      list.name = editedName
+      column.name = editedName
     }
     setIsEditing(false)
   }
 
-  const handleDeleteList = async () => {
+  const handleDeleteColumn = async () => {
     setContextMenu(null)
     // Snapshot for undo
-    const listSnapshot = { ...list }
-    const cardSnapshots = [...(list.cards || [])]
-    const allSubCards = await window.electron.db.findAll('subcards')
-    const subCardSnapshots = allSubCards.filter((sc: any) =>
-      cardSnapshots.some((c: any) => c.id === sc.cardId)
+    const columnSnapshot = { ...column }
+    const taskSnapshots = [...(column.tasks || [])]
+    const allSubtasks = await window.electron.db.findAll('subtasks')
+    const subtaskSnapshots = allSubtasks.filter((subtask: any) =>
+      taskSnapshots.some((task: any) => task.id === subtask.taskId)
     )
 
     // Delete immediately
-    for (const card of cardSnapshots) {
-      await window.electron.db.delete('cards', card.id)
+    for (const task of taskSnapshots) {
+      await window.electron.db.delete('tasks', task.id)
     }
-    await window.electron.db.delete('lists', list.id)
-    onCardsChange()
+    await window.electron.db.delete('columns', column.id)
+    onTasksChange()
 
     window.dispatchEvent(
       new CustomEvent('show-toast', {
         detail: {
-          message: `Manifest "${list.name}" deleted`,
+          message: `Column "${column.name}" deleted`,
           onUndo: async () => {
-            await window.electron.db.create('lists', {
-              id: listSnapshot.id,
-              name: listSnapshot.name,
-              boardId: listSnapshot.boardId,
-              order: listSnapshot.order,
-              createdAt: listSnapshot.createdAt
+            await window.electron.db.create('columns', {
+              id: columnSnapshot.id,
+              name: columnSnapshot.name,
+              boardId: columnSnapshot.boardId,
+              order: columnSnapshot.order,
+              createdAt: columnSnapshot.createdAt
             })
-            for (const card of cardSnapshots) {
-              await window.electron.db.create('cards', card)
+            for (const task of taskSnapshots) {
+              await window.electron.db.create('tasks', task)
             }
-            for (const sc of subCardSnapshots) {
-              await window.electron.db.create('subcards', sc)
+            for (const subtask of subtaskSnapshots) {
+              await window.electron.db.create('subtasks', subtask)
             }
-            onCardsChange()
+            onTasksChange()
           }
         }
       })
     )
   }
 
-  const handleExportList = async () => {
+  const handleExportColumn = async () => {
     setContextMenu(null)
-    const listSnapshot = { ...list }
-    const cardSnapshots = [...(list.cards || [])]
+    const columnSnapshot = { ...column }
+    const taskSnapshots = [...(column.tasks || [])]
 
     // Clean items
-    const cleanList = (() => {
-      const { id, createdAt, updatedAt, boardId, listId, order, ...rest } = listSnapshot
+    const cleanColumn = (() => {
+      const { id, createdAt, updatedAt, boardId, columnId, order, ...rest } = columnSnapshot
       return rest
     })()
 
-    const cleanCards = cardSnapshots.map((c) => {
-      const { id, createdAt, updatedAt, boardId, listId, order, ...rest } = c
+    const cleanTasks = taskSnapshots.map((task) => {
+      const { id, createdAt, updatedAt, boardId, columnId, order, ...rest } = task
 
       // Basic parse
       const tags = (() => {
@@ -144,16 +144,16 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
       })()
       if (Array.isArray(tags)) rest.tags = tags.map((t: any) => t.name).join(', ')
 
-      const subCards = (() => {
+      const subtasks = (() => {
         try {
-          return JSON.parse(rest.subCards)
+          return JSON.parse(rest.subtasks)
         } catch {
-          return rest.subCards
+          return rest.subtasks
         }
       })()
-      if (Array.isArray(subCards))
-        rest.subCards = subCards
-          .map((sc: any) => `${sc.completed ? '[x]' : '[ ]'} ${sc.title}`)
+      if (Array.isArray(subtasks))
+        rest.subtasks = subtasks
+          .map((subtask: any) => `${subtask.completed ? '[x]' : '[ ]'} ${subtask.title}`)
           .join('; ')
 
       const status = (() => {
@@ -170,12 +170,12 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
 
     // Turn to markdown
     const md =
-      `## Manifest: ${cleanList.name}\n` +
-      (cleanCards.length
-        ? `| ${Object.keys(cleanCards[0]).join(' | ')} |\n| ${Object.keys(cleanCards[0])
+      `## Column: ${cleanColumn.name}\n` +
+      (cleanTasks.length
+        ? `| ${Object.keys(cleanTasks[0]).join(' | ')} |\n| ${Object.keys(cleanTasks[0])
             .map(() => '---')
             .join(' | ')} |\n` +
-          cleanCards
+          cleanTasks
             .map(
               (c) =>
                 `| ${Object.keys(c)
@@ -183,10 +183,10 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
                   .join(' | ')} |`
             )
             .join('\n')
-        : '_No cargo_')
+        : '_No tasks_')
 
     const res = await (window.electron as any).export.saveFile({
-      defaultName: `manifest-${cleanList.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`,
+      defaultName: `column-${cleanColumn.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}`,
       content: md,
       ext: 'md'
     })
@@ -194,7 +194,7 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
     if (res?.success) {
       window.dispatchEvent(
         new CustomEvent('show-toast', {
-          detail: { message: `Exported manifest to ${res.filePath}` } // Open handled below or let user find it, we could add onUndo as an open action if we wanted
+          detail: { message: `Exported column to ${res.filePath}` }
         })
       )
       // As requested, also open it:
@@ -202,19 +202,19 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
     }
   }
 
-  const handleCreateCard = async (cardData: any) => {
-    const newCard = {
-      ...cardData,
-      listId: list.id,
+  const handleCreateTask = async (taskData: any) => {
+    const newTask = {
+      ...taskData,
+      columnId: column.id,
       boardId,
-      order: list.cards?.length || 0,
+      order: column.tasks?.length || 0,
       createdAt: Date.now(),
       updatedAt: Date.now()
     }
 
-    await window.electron.db.create('cards', newCard)
-    onCardsChange()
-    setShowCreateCard(false)
+    await window.electron.db.create('tasks', newTask)
+    onTasksChange()
+    setShowCreateTask(false)
   }
 
   const openContextMenu = (e: React.MouseEvent) => {
@@ -229,25 +229,24 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
     )
   }
 
-  // Filter cards based on hidden statuses
-  const visibleCards = (list.cards || []).filter((card: any) => {
+  const visibleTasks = (column.tasks || []).filter((task: any) => {
     if (hideStatuses.length === 0) return true
     const status =
-      typeof card.status === 'string' && card.status.startsWith('{')
-        ? JSON.parse(card.status)
-        : card.status
+      typeof task.status === 'string' && task.status.startsWith('{')
+        ? JSON.parse(task.status)
+        : task.status
     if (!status) return true
     return !hideStatuses.includes(status.name)
   })
 
-  const hiddenCount = (list.cards?.length || 0) - visibleCards.length
-  const cardCount = list.cards?.length || 0
-  const listColor = list.color || '#2563eb'
+  const hiddenCount = (column.tasks?.length || 0) - visibleTasks.length
+  const taskCount = column.tasks?.length || 0
+  const columnColor = column.color || '#2563eb'
 
   return (
     <>
       <div ref={setNodeRef} style={style} className="column" onContextMenu={openContextMenu}>
-        {/* List Header */}
+        {/* Column header */}
         <div
           className="flex items-center justify-between pb-3 border-b-2 shrink-0"
           style={{ borderColor: 'var(--color-border-strong)' }}
@@ -257,8 +256,8 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
               type="text"
               value={editedName}
               onChange={(e) => setEditedName(e.target.value)}
-              onBlur={handleUpdateList}
-              onKeyDown={(e) => e.key === 'Enter' && handleUpdateList()}
+              onBlur={handleUpdateColumn}
+              onKeyDown={(e) => e.key === 'Enter' && handleUpdateColumn()}
               className="flex-1 px-2 py-1 border-2 bg-transparent text-sm font-black uppercase focus:outline-none"
               style={{
                 borderColor: 'var(--color-primary)',
@@ -270,23 +269,23 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
             <div className="flex items-center gap-2 flex-1 min-w-0">
               <div
                 className="w-3 h-3 border-2 shrink-0"
-                style={{ backgroundColor: listColor, borderColor: 'var(--color-border-strong)' }}
+                style={{ backgroundColor: columnColor, borderColor: 'var(--color-border-strong)' }}
               />
               <h3
                 className="font-black text-xs uppercase tracking-wider truncate"
                 style={{ color: 'var(--color-text)' }}
               >
-                {list.name}
+                {column.name}
               </h3>
               <span
                 className="text-[10px] font-black px-1.5 py-0.5 shrink-0 border-2 ml-auto"
                 style={{
-                  borderColor: listColor,
-                  color: listColor,
-                  background: listColor + '15'
+                  borderColor: columnColor,
+                  color: columnColor,
+                  background: columnColor + '15'
                 }}
               >
-                {cardCount}
+                {taskCount}
               </span>
             </div>
           )}
@@ -299,7 +298,7 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
                 setShowHidePanel((v) => !v)
               }}
               className="p-1 transition-all"
-              title="Hide cargo by status"
+              title="Hide tasks by status"
               style={{
                 color: hideStatuses.length > 0 ? 'var(--color-warning)' : 'var(--color-muted)',
                 opacity: hideStatuses.length > 0 ? 1 : 0.5
@@ -331,7 +330,7 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
                     borderColor: 'var(--color-border-strong)'
                   }}
                 >
-                  Hide Cargo by Status
+                  Hide Tasks by Status
                 </div>
                 {boardStatuses.map((s: any) => {
                   const isHidden = hideStatuses.includes(s.name)
@@ -399,7 +398,7 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
           </div>
         </div>
 
-        {/* Hidden cargo notice */}
+        {/* Hidden task notice */}
         {hiddenCount > 0 && (
           <div
             className="text-[10px] font-black px-2 py-1 flex items-center gap-1 border-b-2"
@@ -410,21 +409,21 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
             }}
           >
             <EyeOff className="w-3 h-3" />
-            {hiddenCount} cargo hidden
+            {hiddenCount} tasks hidden
           </div>
         )}
 
-        {/* Cards — scrollable */}
+        {/* Tasks */}
         <div className="flex-1 space-y-2 min-h-[40px] overflow-y-auto">
-          {visibleCards.map((card: any) => (
-            <Card key={card.id} card={card} onUpdate={onCardsChange} />
+          {visibleTasks.map((task: any) => (
+            <Task key={task.id} task={task} onUpdate={onTasksChange} />
           ))}
         </div>
 
-        {/* Add Card — sticky at the bottom, always visible */}
+        {/* Add task */}
         <div className="shrink-0 pt-2 mt-auto">
           <button
-            onClick={() => setShowCreateCard(true)}
+            onClick={() => setShowCreateTask(true)}
             className="flex items-center justify-center gap-2 w-full px-3 py-2 border-2 border-dashed transition-all duration-100 group font-black text-xs uppercase tracking-wider"
             style={{
               borderColor: 'var(--color-border)',
@@ -442,7 +441,7 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
             }}
           >
             <Plus className="w-4 h-4 stroke-[3px] group-hover:rotate-90 transition-transform" />
-            Add Cargo
+            Add Task
           </button>
         </div>
       </div>
@@ -464,7 +463,7 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
               borderColor: 'var(--color-border-strong)'
             }}
           >
-            {list.name}
+            {column.name}
           </div>
           <button
             className="context-menu-item border-b-2"
@@ -475,41 +474,41 @@ export const List: React.FC<ListProps> = ({ list, boardId, onCardsChange }) => {
             }}
           >
             <Edit2 className="w-4 h-4" />
-            Rename Manifest
+            Edit Column
           </button>
           <button
             className="context-menu-item border-b-2"
             style={{ borderColor: 'var(--color-border)' }}
-            onClick={handleExportList}
+            onClick={handleExportColumn}
           >
             <Download className="w-4 h-4" />
-            Export Manifest
+            Export Column
           </button>
           <button
             className="context-menu-item border-b-2 danger"
             style={{ borderColor: 'var(--color-border)' }}
-            onClick={handleDeleteList}
+            onClick={handleDeleteColumn}
           >
             <Trash2 className="w-4 h-4" />
-            Jettison Manifest
+            Delete Column
           </button>
           <button
             className="context-menu-item"
             onClick={() => {
-              setShowCreateCard(true)
+              setShowCreateTask(true)
               setContextMenu(null)
             }}
           >
             <Plus className="w-4 h-4" />
-            Add Cargo
+            Add Task
           </button>
         </div>
       )}
 
-      {showCreateCard && (
-        <CreateCardModal
-          onClose={() => setShowCreateCard(false)}
-          onCreate={handleCreateCard}
+      {showCreateTask && (
+        <CreateTaskModal
+          onClose={() => setShowCreateTask(false)}
+          onCreate={handleCreateTask}
           boardId={boardId}
         />
       )}

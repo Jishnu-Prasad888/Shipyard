@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
 import { X, Plus, Tag } from 'lucide-react'
 
-interface CreateDockModalProps {
+interface ProjectModalProps {
   onClose: () => void
-  onCreate: (dock: any) => void
+  onCreate: (project: any) => void
   initialData?: any
   title?: string
 }
@@ -21,11 +21,11 @@ const COLORS = [
   '#22d3ee'  // Teal
 ]
 
-export const CreateDockModal: React.FC<CreateDockModalProps> = ({
+export const ProjectModal: React.FC<ProjectModalProps> = ({
   onClose,
   onCreate,
   initialData,
-  title = 'Create Board'
+  title = 'Create Project'
 }) => {
   const [name, setName] = useState(initialData?.name || '')
   const [description, setDescription] = useState(initialData?.description || '')
@@ -104,7 +104,7 @@ export const CreateDockModal: React.FC<CreateDockModalProps> = ({
               onChange={(e) => setName(e.target.value)}
               className="w-full px-3 py-2 border-2 text-sm font-bold focus:outline-none"
               style={inputStyle}
-              placeholder="Board name"
+              placeholder="Project name"
               autoFocus
             />
           </div>
@@ -120,7 +120,7 @@ export const CreateDockModal: React.FC<CreateDockModalProps> = ({
               className="w-full px-3 py-2 border-2 text-sm font-bold focus:outline-none resize-none"
               style={inputStyle}
               rows={2}
-              placeholder="What is this board for?"
+              placeholder="What is this project for?"
             />
           </div>
 
@@ -211,7 +211,7 @@ export const CreateDockModal: React.FC<CreateDockModalProps> = ({
               disabled={!name.trim()}
               className="btn-primary text-xs uppercase tracking-wider disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {initialData ? 'Update' : 'Create'}
+              {initialData ? 'Edit' : 'Create'}
             </button>
           </div>
         </form>

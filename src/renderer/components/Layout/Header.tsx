@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, Settings, Moon, Sun, Anchor, Folder, Grid, Ship, X, ArrowRight } from 'lucide-react'
+import { Search, Settings, Moon, Sun, Anchor, Folder, FolderKanban, KanbanSquare, X, ArrowRight } from 'lucide-react'
 
 interface SearchResult {
   id: string
-  type: 'dock' | 'board' | 'folder'
+  type: 'project' | 'board' | 'workspace'
   name: string
   subtitle?: string
   color?: string
-  dockId?: string   // for boards: the dock they belong to
-  folderId?: string // for docks: the folder they're in
+  projectId?: string
 }
 
 interface HeaderProps {
@@ -16,8 +15,8 @@ interface HeaderProps {
   onToggleTheme: () => void
   isDarkMode: boolean
   onSearch: (query: string) => void
-  onSelectDock: (dockId: string) => void
-  onSelectBoard: (boardId: string, dockId: string) => void
+  onSelectProject: (projectId: string) => void
+  onSelectBoard: (boardId: string, projectId: string) => void
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -25,7 +24,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTheme,
   isDarkMode,
   onSearch,
-  onSelectDock,
+  onSelectProject,
   onSelectBoard
 }) => {
   const [query, setQuery] = useState('')
@@ -47,39 +46,37 @@ export const Header: React.FC<HeaderProps> = ({
     setIsLoading(true)
     try {
       const lower = q.toLowerCase()
-      const [docks, boards, folders] = await Promise.all([
-        window.electron.db.findAll('docks'),
+      const [projects, boards, workspaces] = await Promise.all([
+        window.electron.db.findAll('projects'),
         window.electron.db.findAll('boards'),
-        window.electron.db.findAll('folders')
+        window.electron.db.findAll('workspaces')
       ])
 
       const matched: SearchResult[] = []
 
-      // Folders
-      folders
+      workspaces
         .filter((f: any) => f.name?.toLowerCase().includes(lower))
         .slice(0, 3)
         .forEach((f: any) => {
           matched.push({
             id: f.id,
-            type: 'folder',
+            type: 'workspace',
             name: f.name,
-            subtitle: 'Folder',
+            subtitle: 'Workspace',
             color: f.color || '#2563eb'
           })
         })
 
-      // Docks
-      docks
+      projects
         .filter((d: any) => d.name?.toLowerCase().includes(lower))
         .slice(0, 5)
         .forEach((d: any) => {
-          const folder = folders.find((f: any) => f.id === d.folderId)
+          const workspace = workspaces.find((candidate: any) => candidate.id === d.workspaceId)
           matched.push({
             id: d.id,
-            type: 'dock',
+            type: 'project',
             name: d.name,
-            subtitle: folder ? `in ${folder.name}` : 'Dock',
+            subtitle: workspace ? `in ${workspace.name}` : 'Unassigned Project',
             color: d.color || '#2563eb'
           })
         })
@@ -89,14 +86,14 @@ export const Header: React.FC<HeaderProps> = ({
         .filter((b: any) => b.name?.toLowerCase().includes(lower))
         .slice(0, 6)
         .forEach((b: any) => {
-          const dock = docks.find((d: any) => d.id === b.dockId)
+          const project = projects.find((candidate: any) => candidate.id === b.projectId)
           matched.push({
             id: b.id,
             type: 'board',
             name: b.name,
-            subtitle: dock ? `Board in ${dock.name}` : 'Kanban Board',
+            subtitle: project ? `Board in ${project.name}` : 'Board',
             color: b.color || '#0891b2',
-            dockId: b.dockId
+            projectId: b.projectId
           })
         })
 
@@ -138,17 +135,15 @@ export const Header: React.FC<HeaderProps> = ({
     setQuery('')
     onSearch('')
 
-    if (result.type === 'dock') {
-      onSelectDock(result.id)
+    if (result.type === 'project') {
+      onSelectProject(result.id)
     } else if (result.type === 'board') {
-      if (result.dockId) {
-        onSelectDock(result.dockId)
-        // Brief delay so dock is selected first, then navigate to board
-        setTimeout(() => onSelectBoard(result.id, result.dockId!), 50)
+      if (result.projectId) {
+        onSelectProject(result.projectId)
+        setTimeout(() => onSelectBoard(result.id, result.projectId!), 50)
       }
-    } else if (result.type === 'folder') {
-      // Folders aren't directly navigable, but we can show a hint
-      // For now just clear search — could expand folder in sidebar
+    } else if (result.type === 'workspace') {
+      // Workspaces are represented by their projects in navigation.
     }
   }
 
@@ -173,15 +168,15 @@ export const Header: React.FC<HeaderProps> = ({
   }
 
   const typeIcon = (type: SearchResult['type']) => {
-    if (type === 'folder') return <Folder className="w-4 h-4" />
-    if (type === 'dock') return <Grid className="w-4 h-4" />
-    return <Ship className="w-4 h-4" />
+    if (type === 'workspace') return <Folder className="w-4 h-4" />
+    if (type === 'project') return <FolderKanban className="w-4 h-4" />
+    return <KanbanSquare className="w-4 h-4" />
   }
 
   const typeLabel = (type: SearchResult['type']) => {
-    if (type === 'folder') return 'PORT'
-    if (type === 'dock') return 'DOCK'
-    return 'SHIP'
+    if (type === 'workspace') return 'WORKSPACE'
+    if (type === 'project') return 'PROJECT'
+    return 'BOARD'
   }
 
   // Group results by type
@@ -190,7 +185,7 @@ export const Header: React.FC<HeaderProps> = ({
     if (!grouped[r.type]) grouped[r.type] = []
     grouped[r.type].push(r)
   })
-  const typeOrder: SearchResult['type'][] = ['folder', 'dock', 'board']
+  const typeOrder: SearchResult['type'][] = ['workspace', 'project', 'board']
 
   return (
     <header
@@ -212,7 +207,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           <div className="leading-tight text-white">
             <span className="block text-xs font-black uppercase tracking-[0.2em] opacity-80">Shipyard</span>
-            <span className="block text-lg font-black uppercase tracking-tight">Fleet Workspace</span>
+            <span className="block text-lg font-black uppercase tracking-tight">Workspace</span>
           </div>
         </div>
 
@@ -224,7 +219,7 @@ export const Header: React.FC<HeaderProps> = ({
               ref={inputRef}
               type="text"
               value={query}
-              placeholder="Search ships, docks, ports…"
+              placeholder="Search workspaces, projects, boards..."
               className="w-full pl-10 pr-10 py-2 text-sm font-bold uppercase tracking-wide border-2 bg-white/5 text-white placeholder:text-white/60 focus:outline-none transition-all"
               style={{
                 borderColor: 'white',
@@ -279,7 +274,7 @@ export const Header: React.FC<HeaderProps> = ({
                           style={{
                             background: 'var(--color-surface-3)',
                             borderColor: 'var(--color-border-strong)',
-                            color: type === 'folder' ? '#1b4f82' : type === 'dock' ? '#0b6c90' : '#1f7acb'
+                            color: type === 'workspace' ? '#1b4f82' : type === 'project' ? '#0b6c90' : '#1f7acb'
                           }}
                         >
                           {typeIcon(type)}
@@ -327,14 +322,14 @@ export const Header: React.FC<HeaderProps> = ({
                                 )}
                               </div>
 
-                              {result.type !== 'folder' && (
+                              {result.type !== 'workspace' && (
                                 <ArrowRight
                                   className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                                   style={{ color: isHot ? '#041020' : 'var(--color-primary)' }}
                                 />
                               )}
 
-                              {result.type === 'folder' && (
+                              {result.type === 'workspace' && (
                                 <span
                                   className="text-[10px] font-semibold uppercase px-2 py-0.5 border rounded-full shrink-0"
                                   style={{

@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { Settings } from '@shared/types'
 import { Sidebar } from './components/Layout/Sidebar'
 import { Header } from './components/Layout/Header'
-import { DocksList } from './components/Docks/DocksList'
+import { ProjectView } from './components/Projects/ProjectView'
 import { KanbanBoard } from './components/Board/KanbanBoard'
 import { SettingsModal } from './components/Settings/SettingsModal'
 import { HomeScreen } from './components/Home/HomeScreen'
@@ -13,7 +13,7 @@ import { RootState } from './store'
 import { setSettings } from './store/settingsSlice'
 
 function App() {
-  const [selectedDockId, setSelectedDockId] = useState<string | null>(null)
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [showCalendar, setShowCalendar] = useState(false)
@@ -68,8 +68,8 @@ function App() {
     })
   }, [dispatch])
 
-  const handleSelectDock = (dockId: string) => {
-    setSelectedDockId(dockId)
+  const handleSelectProject = (projectId: string) => {
+    setSelectedProjectId(projectId)
     setSelectedBoardId(null)
   }
 
@@ -77,18 +77,16 @@ function App() {
     setSelectedBoardId(boardId)
   }
 
-  // From search: also need to set dock context
-  const handleSearchSelectBoard = (boardId: string, dockId: string) => {
-    setSelectedDockId(dockId)
+  const handleSearchSelectBoard = (boardId: string, projectId: string) => {
+    setSelectedProjectId(projectId)
     setSelectedBoardId(boardId)
   }
 
-  // From home screen: navigate to a board (need to first find its dockId)
   const handleHomeSelectBoard = async (boardId: string) => {
     const allBoards = await window.electron.db.findAll('boards')
     const board = allBoards.find((b: any) => b.id === boardId)
     if (board) {
-      setSelectedDockId(board.dockId)
+      setSelectedProjectId(board.projectId)
       setSelectedBoardId(boardId)
     } else {
       setSelectedBoardId(boardId)
@@ -96,18 +94,18 @@ function App() {
   }
 
   const handleGoHome = () => {
-    setSelectedDockId(null)
+    setSelectedProjectId(null)
     setSelectedBoardId(null)
     setShowCalendar(false)
   }
 
   const handleOpenCalendar = () => {
     setShowCalendar(true)
-    setSelectedDockId(null)
+    setSelectedProjectId(null)
     setSelectedBoardId(null)
   }
 
-  const isHome = !selectedDockId && !selectedBoardId && !showCalendar
+  const isHome = !selectedProjectId && !selectedBoardId && !showCalendar
 
   const handleToggleTheme = () => {
     const newTheme = settings.theme === 'light' ? 'dark' : 'light'
@@ -127,14 +125,14 @@ function App() {
         onToggleTheme={handleToggleTheme}
         isDarkMode={settings.theme === 'dark'}
         onSearch={setSearchQuery}
-        onSelectDock={handleSelectDock}
+        onSelectProject={handleSelectProject}
         onSelectBoard={handleSearchSelectBoard}
       />
 
       <div className="flex-1 flex overflow-hidden">
         <Sidebar
-          onSelectDock={handleSelectDock}
-          selectedDockId={selectedDockId}
+          onSelectProject={handleSelectProject}
+          selectedProjectId={selectedProjectId}
           onSelectBoard={handleSelectBoard}
           selectedBoardId={selectedBoardId}
           onGoHome={handleGoHome}
@@ -155,10 +153,10 @@ function App() {
             <div className="p-6 h-full">
               <KanbanBoard boardId={selectedBoardId} searchQuery={searchQuery} onGoBack={() => setSelectedBoardId(null)} />
             </div>
-          ) : selectedDockId ? (
+          ) : selectedProjectId ? (
             <div className="p-6">
-              <DocksList
-                dockId={selectedDockId}
+              <ProjectView
+                projectId={selectedProjectId}
                 onSelectBoard={handleSelectBoard}
                 searchQuery={searchQuery}
               />
@@ -166,7 +164,7 @@ function App() {
           ) : (
             /* HOME SCREEN */
             <HomeScreen
-              onSelectDock={handleSelectDock}
+              onSelectProject={handleSelectProject}
               onSelectBoard={handleHomeSelectBoard}
               dataVersion={dataVersion}
             />

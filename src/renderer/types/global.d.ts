@@ -41,7 +41,7 @@ declare global {
         update: (table: string, id: string, data: any) => Promise<any>
         delete: (table: string, id: string) => Promise<any>
         getBoardWithDetails: (id: string) => Promise<any>
-        getDocksWithFolders: () => Promise<any>
+        getProjectsWithWorkspaces: () => Promise<any>
       }
       settings: {
         get: () => Promise<any>

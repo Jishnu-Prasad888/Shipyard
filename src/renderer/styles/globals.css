@@ -6,7 +6,7 @@
  ====================== */
 
 @theme {
-  /* ── Brutalist Maritime Palette — light mode ── */
+  /* ── Brutalist application palette — light mode ── */
 
   /* Layout zones */
   --color-background: #e7f0fa;
@@ -63,7 +63,7 @@
  ====================== */
 
 .dark {
-  /* ── Midnight Harbor — dark mode ── */
+  /* ── Dark application palette ── */
   --color-background: #050d1a;
   --color-surface: #0d1f33;
   --color-surface-2: #122946;

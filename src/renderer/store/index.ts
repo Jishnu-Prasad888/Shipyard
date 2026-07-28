@@ -1,11 +1,11 @@
 import { configureStore } from '@reduxjs/toolkit'
-import docksReducer from './docksSlice'
+import projectsReducer from './projectsSlice'
 import boardReducer from './boardSlice'
 import settingsReducer from './settingsSlice'
 
 export const store = configureStore({
   reducer: {
-    docks: docksReducer,
+    projects: projectsReducer,
     board: boardReducer,
     settings: settingsReducer
   }
