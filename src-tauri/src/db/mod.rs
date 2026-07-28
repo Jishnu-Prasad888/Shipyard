@@ -1096,6 +1096,58 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn creates_a_consistent_backup_before_file_migration(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let database_path =
+            std::env::temp_dir().join(format!("shipyard-legacy-migration-{}.db", Uuid::new_v4()));
+        {
+            let connection = Connection::open(&database_path)?;
+            connection.execute_batch(
+                "CREATE TABLE folders (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    color TEXT,
+                    parentId TEXT,
+                    createdAt INTEGER NOT NULL
+                );
+                INSERT INTO folders VALUES ('workspace-1', 'Original Workspace', NULL, NULL, 100);",
+            )?;
+        }
+
+        let database = Database::new(database_path.to_str().unwrap())?;
+        database.initialize()?;
+
+        let file_name = database_path.file_name().unwrap().to_string_lossy();
+        let backup_prefix = format!("{file_name}.v0-backup-");
+        let backup_path = std::fs::read_dir(database_path.parent().unwrap())?
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.path())
+            .find(|path| {
+                path.file_name()
+                    .map(|name| name.to_string_lossy().starts_with(&backup_prefix))
+                    .unwrap_or(false)
+            })
+            .expect("migration backup was not created");
+
+        let backup = Connection::open(&backup_path)?;
+        assert!(raw_table_exists(&backup, "folders")?);
+        assert_eq!(
+            backup.query_row(
+                "SELECT name FROM folders WHERE id = 'workspace-1'",
+                [],
+                |row| row.get::<_, String>(0)
+            )?,
+            "Original Workspace"
+        );
+
+        drop(backup);
+        drop(database);
+        let _ = std::fs::remove_file(backup_path);
+        let _ = std::fs::remove_file(database_path);
+        Ok(())
+    }
+
     fn raw_columns(conn: &Connection, table: &str) -> Result<Vec<String>> {
         let mut stmt = conn.prepare(&format!("PRAGMA table_info(\"{table}\")"))?;
         let columns = stmt.query_map([], |row| row.get(1))?.collect();
