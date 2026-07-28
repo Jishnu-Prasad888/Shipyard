@@ -6,11 +6,11 @@ export const SHORTCUT_ACTIONS: Array<{
   group: 'Quick create' | 'Navigation'
 }> = [
   { id: 'quickCreate', label: 'Open quick create', group: 'Quick create' },
-  { id: 'createPort', label: 'Create port', group: 'Quick create' },
-  { id: 'createDock', label: 'Create dock', group: 'Quick create' },
-  { id: 'createShip', label: 'Create ship', group: 'Quick create' },
-  { id: 'createManifest', label: 'Create manifest', group: 'Quick create' },
-  { id: 'createCargo', label: 'Create cargo', group: 'Quick create' },
+  { id: 'createPort', label: 'Create workspace', group: 'Quick create' },
+  { id: 'createDock', label: 'Create project', group: 'Quick create' },
+  { id: 'createShip', label: 'Create board', group: 'Quick create' },
+  { id: 'createManifest', label: 'Create column', group: 'Quick create' },
+  { id: 'createCargo', label: 'Create task', group: 'Quick create' },
   { id: 'openSettings', label: 'Open settings', group: 'Navigation' },
   { id: 'goHome', label: 'Go home', group: 'Navigation' },
   { id: 'openCalendar', label: 'Open calendar', group: 'Navigation' },
@@ -18,6 +18,15 @@ export const SHORTCUT_ACTIONS: Array<{
 ]
 
 export const DEFAULT_KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
+  { action: 'quickCreate', strokes: ['Ctrl+N'] },
+  { action: 'createPort', strokes: ['Ctrl+N', 'W'] },
+  { action: 'createDock', strokes: ['Ctrl+N', 'P'] },
+  { action: 'createShip', strokes: ['Ctrl+N', 'B'] },
+  { action: 'createManifest', strokes: ['Ctrl+N', 'C'] },
+  { action: 'createCargo', strokes: ['Ctrl+N', 'T'] }
+]
+
+const LEGACY_DEFAULT_KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
   { action: 'quickCreate', strokes: ['Ctrl+N'] },
   { action: 'createPort', strokes: ['Ctrl+N', 'P'] },
   { action: 'createDock', strokes: ['Ctrl+N', 'D'] },
@@ -47,13 +56,30 @@ export const plainStroke = (stroke: string): string => stroke.split('+').at(-1) 
 
 export const effectiveKeyboardShortcuts = (
   shortcuts: Settings['keyboardShortcuts']
-): KeyboardShortcut[] =>
-  shortcuts === undefined
-    ? DEFAULT_KEYBOARD_SHORTCUTS.map((shortcut) => ({
-        ...shortcut,
-        strokes: [...shortcut.strokes]
-      }))
-    : shortcuts
+): KeyboardShortcut[] => {
+  if (shortcuts === undefined) {
+    return DEFAULT_KEYBOARD_SHORTCUTS.map((shortcut) => ({
+      ...shortcut,
+      strokes: [...shortcut.strokes]
+    }))
+  }
+
+  const hasUntouchedLegacyDefaults = LEGACY_DEFAULT_KEYBOARD_SHORTCUTS.every((legacy) =>
+    shortcuts.some(
+      (shortcut) =>
+        shortcut.action === legacy.action &&
+        shortcut.strokes.join('\u0000') === legacy.strokes.join('\u0000')
+    )
+  )
+  if (!hasUntouchedLegacyDefaults) return shortcuts
+
+  return shortcuts.map((shortcut) => {
+    const updatedDefault = DEFAULT_KEYBOARD_SHORTCUTS.find(
+      (candidate) => candidate.action === shortcut.action
+    )
+    return updatedDefault ? { ...updatedDefault, strokes: [...updatedDefault.strokes] } : shortcut
+  })
+}
 
 export const shortcutLabel = (strokes: string[]): string => strokes.join(', ')
 

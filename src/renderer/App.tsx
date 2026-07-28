@@ -145,7 +145,7 @@ function App(): ReactElement {
     setSelectedBoardId(result.boardId || null)
     setShowCalendar(false)
     setToast({
-      message: `${result.type[0].toUpperCase()}${result.type.slice(1)} "${result.entity.name || result.entity.title}" created`
+      message: `${result.label} "${result.entity.name || result.entity.title}" created`
     })
   }
 

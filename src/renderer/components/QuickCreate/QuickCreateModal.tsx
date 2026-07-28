@@ -1,5 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Anchor, Boxes, ClipboardList, Package, Plus, Search, ShipWheel, X } from 'lucide-react'
+import {
+  Columns3,
+  FolderKanban,
+  FolderTree,
+  LayoutDashboard,
+  ListTodo,
+  Plus,
+  Search,
+  X
+} from 'lucide-react'
 
 export type QuickCreateType = 'port' | 'dock' | 'ship' | 'manifest' | 'cargo'
 
@@ -41,6 +50,7 @@ interface CreatedEntity {
 
 export interface QuickCreateResult {
   type: QuickCreateType
+  label: string
   entity: CreatedEntity
   projectId?: string
   boardId?: string
@@ -71,40 +81,42 @@ const CREATE_TYPES: Array<{
 }> = [
   {
     id: 'port',
-    label: 'Port',
-    description: 'A workspace for related docks',
+    label: 'Workspace',
+    description: 'Organize related projects',
     color: '#2563eb',
-    icon: Anchor
+    icon: FolderTree
   },
   {
     id: 'dock',
-    label: 'Dock',
-    description: 'A project inside a port',
+    label: 'Project',
+    description: 'Group one or more boards',
     color: '#0891b2',
-    icon: Boxes
+    icon: FolderKanban
   },
   {
     id: 'ship',
-    label: 'Ship',
-    description: 'A board inside a dock',
+    label: 'Board',
+    description: 'Plan work inside a project',
     color: '#7c3aed',
-    icon: ShipWheel
+    icon: LayoutDashboard
   },
   {
     id: 'manifest',
-    label: 'Manifest',
-    description: 'A column on a ship',
+    label: 'Column',
+    description: 'Organize tasks on a board',
     color: '#d97706',
-    icon: ClipboardList
+    icon: Columns3
   },
   {
     id: 'cargo',
-    label: 'Cargo',
-    description: 'A task on a manifest',
+    label: 'Task',
+    description: 'Add work to a column',
     color: '#059669',
-    icon: Package
+    icon: ListTodo
   }
 ]
+
+const currentTimeMs = (): number => Date.now()
 
 const EntityPicker: React.FC<EntityPickerProps> = ({
   label,
@@ -341,7 +353,7 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
       name: portName,
       color: '#2563eb',
       parentWorkspaceId: null,
-      createdAt: Date.now()
+      createdAt: currentTimeMs()
     })) as WorkspaceRecord
     await loadData()
     setPortId(created.id)
@@ -349,7 +361,7 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
   }
 
   const createDock = async (dockName: string): Promise<void> => {
-    if (!portId) throw new Error('Select or create a port first.')
+    if (!portId) throw new Error('Select or create a workspace first.')
     const created = (await window.electron.db.create('projects', {
       name: dockName,
       description: '',
@@ -357,8 +369,8 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
       tags: JSON.stringify([]),
       color: '#0891b2',
       boardIds: JSON.stringify([]),
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      createdAt: currentTimeMs(),
+      updatedAt: currentTimeMs()
     })) as ProjectRecord
     await loadData()
     setDockId(created.id)
@@ -366,21 +378,21 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
   }
 
   const createShip = async (shipName: string): Promise<void> => {
-    if (!dockId) throw new Error('Select or create a dock first.')
+    if (!dockId) throw new Error('Select or create a project first.')
     const created = (await window.electron.db.create('boards', {
       name: shipName,
       description: '',
       projectId: dockId,
       color: '#7c3aed',
       tags: JSON.stringify([]),
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      createdAt: currentTimeMs(),
+      updatedAt: currentTimeMs()
     })) as BoardRecord
     const dock = (await window.electron.db.findById('projects', dockId)) as ProjectRecord | null
     const boardIds = [...parseIds(dock?.boardIds), created.id]
     await window.electron.db.update('projects', dockId, {
       boardIds: JSON.stringify([...new Set(boardIds)]),
-      updatedAt: Date.now()
+      updatedAt: currentTimeMs()
     })
     await loadData()
     setShipId(created.id)
@@ -388,14 +400,14 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
   }
 
   const createManifest = async (manifestName: string): Promise<void> => {
-    if (!shipId) throw new Error('Select or create a ship first.')
+    if (!shipId) throw new Error('Select or create a board first.')
     const created = (await window.electron.db.create('columns', {
       name: manifestName,
       boardId: shipId,
       order: columns.filter((column) => column.boardId === shipId).length,
       color: '#d97706',
-      createdAt: Date.now(),
-      updatedAt: Date.now()
+      createdAt: currentTimeMs(),
+      updatedAt: currentTimeMs()
     })) as ColumnRecord
     await loadData()
     setManifestId(created.id)
@@ -414,10 +426,10 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
           name: name.trim(),
           color: selectedType?.color,
           parentWorkspaceId: null,
-          createdAt: Date.now()
+          createdAt: currentTimeMs()
         })
       } else if (type === 'dock') {
-        if (!portId) throw new Error('Select or create a port.')
+        if (!portId) throw new Error('Select or create a workspace.')
         entity = await window.electron.db.create('projects', {
           name: name.trim(),
           description: '',
@@ -425,37 +437,37 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
           tags: JSON.stringify([]),
           color: selectedType?.color,
           boardIds: JSON.stringify([]),
-          createdAt: Date.now(),
-          updatedAt: Date.now()
+          createdAt: currentTimeMs(),
+          updatedAt: currentTimeMs()
         })
       } else if (type === 'ship') {
-        if (!dockId) throw new Error('Select or create a dock.')
+        if (!dockId) throw new Error('Select or create a project.')
         entity = await window.electron.db.create('boards', {
           name: name.trim(),
           description: '',
           projectId: dockId,
           color: selectedType?.color,
           tags: JSON.stringify([]),
-          createdAt: Date.now(),
-          updatedAt: Date.now()
+          createdAt: currentTimeMs(),
+          updatedAt: currentTimeMs()
         })
         const dock = (await window.electron.db.findById('projects', dockId)) as ProjectRecord | null
         await window.electron.db.update('projects', dockId, {
           boardIds: JSON.stringify([...new Set([...parseIds(dock?.boardIds), entity.id])]),
-          updatedAt: Date.now()
+          updatedAt: currentTimeMs()
         })
       } else if (type === 'manifest') {
-        if (!shipId) throw new Error('Select or create a ship.')
+        if (!shipId) throw new Error('Select or create a board.')
         entity = await window.electron.db.create('columns', {
           name: name.trim(),
           boardId: shipId,
           order: columns.filter((column) => column.boardId === shipId).length,
           color: selectedType?.color,
-          createdAt: Date.now(),
-          updatedAt: Date.now()
+          createdAt: currentTimeMs(),
+          updatedAt: currentTimeMs()
         })
       } else {
-        if (!manifestId || !shipId) throw new Error('Select or create a manifest.')
+        if (!manifestId || !shipId) throw new Error('Select or create a column.')
         entity = await window.electron.db.create('tasks', {
           title: name.trim(),
           description: '',
@@ -470,20 +482,25 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
           subtasks: JSON.stringify([]),
           connectedTaskIds: JSON.stringify([]),
           connectedColumnIds: JSON.stringify([]),
-          createdAt: Date.now(),
-          updatedAt: Date.now()
+          createdAt: currentTimeMs(),
+          updatedAt: currentTimeMs()
         })
       }
 
       window.dispatchEvent(new CustomEvent('reload-projects'))
       onCreated({
         type,
+        label: selectedType?.label || 'Item',
         entity,
         projectId: type === 'dock' ? entity.id : dockId || entity.projectId,
         boardId: type === 'ship' ? entity.id : shipId || entity.boardId
       })
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : `Failed to create ${type}.`)
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : `Failed to create ${selectedType?.label.toLowerCase() || 'item'}.`
+      )
     } finally {
       setSaving(false)
     }
@@ -572,14 +589,14 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 className="aero-input w-full px-3 py-2.5 text-sm font-bold outline-none"
-                placeholder={`Name this ${type}`}
+                placeholder={`Name this ${selectedType?.label.toLowerCase()}`}
               />
             </div>
 
             {type !== 'port' && (
               <EntityPicker
-                label="Ports"
-                singular="Port"
+                label="Workspaces"
+                singular="Workspace"
                 items={workspaces}
                 value={portId}
                 onChange={selectPort}
@@ -588,8 +605,8 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
             )}
             {needsDock && (
               <EntityPicker
-                label="Docks"
-                singular="Dock"
+                label="Projects"
+                singular="Project"
                 items={availableDocks}
                 value={dockId}
                 onChange={selectDock}
@@ -599,8 +616,8 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
             )}
             {needsShip && (
               <EntityPicker
-                label="Ships"
-                singular="Ship"
+                label="Boards"
+                singular="Board"
                 items={availableShips}
                 value={shipId}
                 onChange={selectShip}
@@ -610,8 +627,8 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
             )}
             {needsManifest && (
               <EntityPicker
-                label="Manifests"
-                singular="Manifest"
+                label="Columns"
+                singular="Column"
                 items={availableManifests}
                 value={manifestId}
                 onChange={selectManifest}
