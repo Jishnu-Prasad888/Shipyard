@@ -1,13 +1,13 @@
 import React from 'react'
 import { Grid, Calendar, ArrowRight } from 'lucide-react'
 
-interface DockCardProps {
+interface BoardCardProps {
   board: any
   onClick: () => void
   onContextMenu?: (e: React.MouseEvent) => void
 }
 
-export const DockCard: React.FC<DockCardProps> = ({ board, onClick, onContextMenu }) => {
+export const BoardCard: React.FC<BoardCardProps> = ({ board, onClick, onContextMenu }) => {
   const boardColor = board.color || '#2563eb'
 
   return (
@@ -19,11 +19,11 @@ export const DockCard: React.FC<DockCardProps> = ({ board, onClick, onContextMen
     >
       <div className="flex items-start justify-between mb-3">
         <div
-          className="w-10 h-10 border-2 flex items-center justify-center transition-all duration-150 group-hover:-translate-x-0.5 group-hover:-translate-y-0.5"
+          className="w-10 h-10 border flex items-center justify-center transition-all duration-150 rounded-sm"
           style={{
             backgroundColor: boardColor + '15',
             borderColor: boardColor,
-            boxShadow: `2px 2px 0 ${boardColor}`
+            boxShadow: `inset 0 1px 0 rgba(255,255,255,.7), 0 2px 5px ${boardColor}45`
           }}
         >
           <Grid className="w-5 h-5" style={{ color: boardColor }} />
@@ -35,7 +35,10 @@ export const DockCard: React.FC<DockCardProps> = ({ board, onClick, onContextMen
         />
       </div>
 
-      <h3 className="font-black text-sm uppercase tracking-tight" style={{ color: 'var(--color-text)' }}>
+      <h3
+        className="font-black text-sm uppercase tracking-tight"
+        style={{ color: 'var(--color-text)' }}
+      >
         {board.name}
       </h3>
 
@@ -57,7 +60,7 @@ export const DockCard: React.FC<DockCardProps> = ({ board, onClick, onContextMen
 
       {/* Footer */}
       <div
-        className="flex items-center justify-between mt-3 pt-3 border-t-2"
+        className="flex items-center justify-between mt-3 pt-3 border-t"
         style={{ borderColor: 'var(--color-border)' }}
       >
         <div className="meta">

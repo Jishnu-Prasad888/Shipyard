@@ -1,129 +1,112 @@
-   # ⚓ Shipyard
+# Shipyard
 
-   **Shipyard** is a premium, locally-first Kanban-style productivity application built with a distinctive maritime theme and a modern, glassmorphic design language. It is designed for users who want a powerful, standalone desktop application to manage complex projects, notes, and tasks without relying on a cloud service by default, but with the option to sync when needed.
+Shipyard is a local-first desktop application for project management, Kanban planning, notes, and task tracking. It works offline with an embedded SQLite database and supports optional Firebase or self-hosted server synchronization.
 
-   ---
+## Organization Model
 
-   ## 🌊 The Idea: A Maritime Approach to Project Management
+Shipyard uses standard project-management terminology throughout the application:
 
-   Traditional Kanban boards use terms like "Workspaces", "Folders", "Boards", "Lists", and "Cards". Shipyard fully embraces a nautical metaphor to make navigation and organization more intuitive and visually cohesive:
+- **Workspaces** organize related projects and can contain sub-workspaces.
+- **Projects** group one or more boards.
+- **Boards** provide Kanban views for a project.
+- **Columns** represent workflow stages such as To Do, In Progress, and Done.
+- **Tasks** contain descriptions, notes, deadlines, tags, statuses, links, and subtasks.
+- **Subtasks** track the individual steps required to complete a task.
 
-   *   **Ports (Folders):** The highest level of organization. A Port contains multiple Docks. Think of it as a workspace or a major client.
-   *   **Docks (Boards):** A specific project or area of focus within a Port. 
-   *   **Ships (Lists/Columns):** The stages of your workflow inside a Dock (e.g., "In Drydock" for To-Do, "Underway" for In Progress, "Completed Voyage" for Done).
-   *   **Cargo (Cards/Tasks):** The actual, actionable items inside a Ship. Each Cargo container holds all the details, notes, and sub-tasks required to get the job done.
+Projects that do not belong to a workspace remain available under **Unassigned Projects**.
 
-   ---
+## Features
 
-   ## ✨ Key Features
+- Workspace overview with recent boards and project grouping
+- Nested workspaces and drag-and-drop project organization
+- Kanban boards with reorderable columns and tasks
+- Project Calendar with month, week, and agenda views
+- Global search across workspaces, projects, and boards
+- Rich task notes powered by Tiptap
+- Markdown, task lists, tables, links, images, and code formatting
+- Tags, custom colors, deadlines, statuses, task connections, and subtasks
+- JSON, CSV, and Markdown exports
+- Canonical export schema v2 and legacy v1 export compatibility
+- Light and dark themes with a system font picker
+- Local SQLite storage with optional Firebase and server synchronization
 
-   ### 🛠️ Core Kanban & Organization
-*   **Rich Dock Customization:** Personalize your Docks (Boards) with custom descriptions, colors, and tags for better visual categorization.
-*   **Drag-and-Drop:** Seamlessly drag Cargo between Ships, reorganize Ships within a Dock, or move Docks between Ports.
-*   **Fleet Overview (Home):** A clear, Jira-style dashboard giving you a birds-eye view of your recently active Ships and a structured breakdown of all your Ports and Docks.
-   *   **Voyage Calendar:** A dedicated calendar view (Month, Week, and Agenda) that aggregates all Cargo deadlines across your entire fleet, complete with color-coded overdue and "due soon" indicators.
-   *   **Global Search:** A powerful omnipresent search bar in the header to instantly locate any Port, Dock, or Ship across your entire workspace.
-   *   **Infinite Nesting:** Break tasks down infinitely with sub-tasks inside your Cargo cards, complete with visual progress bars.
+## Technology
 
-   ### 📝 Obsidian-Class Markdown Editor
-   Every Cargo card features a powerful, fully-featured Markdown editor (powered by Tiptap) that rivals dedicated note-taking apps:
-   *   **Wikilinks (`[[...]`):** Instantly link to other Cargo cards or Ships by typing `[[`. Creates an interconnected web of knowledge.
-   *   **Rich Formatting:** Support for Headings (H1/H2/H3), Bold, Italic, Strikethrough, Underline, and Highlighted text.
-   *   **Developer Friendly:** Inline code formatting and full syntax-highlighted code blocks.
-   *   **Task Lists:** Create interactive `- [ ]` checkboxes directly within your notes.
-   *   **Edit / Preview Modes:** Switch between a raw writing experience and a beautiful, read-only rendered view.
+- Tauri 2 and Rust
+- React 18, TypeScript, and Vite
+- Tailwind CSS
+- Redux Toolkit
+- SQLite through `rusqlite`
+- Firebase Firestore
+- Optional Go sync server backed by PostgreSQL and Redis
+- Tiptap and dnd-kit
 
-   ### 🎨 Premium Glassmorphic Maritime Design
-The UI utilizes a striking, modern aesthetic defined by glassmorphism effects, refined visual hierarchy, and a carefully curated maritime color palette:
-*   **Deep Harbor Blue (`#0B2545`):** Grounding the sidebar and structural elements.
-*   **Port Blue (`#1F5F8B`):** Framing the header and structural borders.
-*   **Soft Ocean (`#E8F3FA`):** A calming background for your active boards.
-*   **Glassmorphic Elements:** Elegant, semi-transparent layers for a clean, sophisticated look.
-*   **Light / Dark Themes:** Full support for both bright daylight sailing and deep night harbor modes.
+## Requirements
 
-### ⚙️ Advanced Customization
-*   **System Font Picker:** Personalize your workspace with a built-in font picker. It uses canvas fingerprinting to detect available system fonts, providing a searchable, sortable list with live previews, and applies your choice globally.
-*   **Sample Data Generation:** Instantly populate your workspace with comprehensive sample data (ports, docks, ships, cargo with markdown, deadlines, subtasks, etc.) to fully explore and test the application's capabilities.
+- Node.js 20 or newer
+- npm
+- Rust stable toolchain
+- Platform dependencies required by [Tauri](https://v2.tauri.app/start/prerequisites/)
 
-   ### 💾 Local-First & Optional Cloud Sync
-   *   **SQLite Powered:** Your data is entirely yours. Shipyard stores everything locally on your machine using an embedded SQLite database, ensuring lightning-fast performance and total offline capability.
-   *   **Firebase Integration (Optional):** Want your Docks on multiple computers? Enter your own Firebase Web SDK credentials in the Settings to enable seamless, bidirectional cloud synchronization. 
-      *   Features manual Push/Pull controls and automatic 60-second background syncing.
-      *   Timestamp-based conflict resolution ensures you never lose data.
+## Development
 
-   ---
+```bash
+npm install
+npm run dev
+```
 
-   ## 🚀 Tech Stack
+Useful checks:
 
-   Shipyard is built using a modern desktop stack:
-   *   **Core:** Electron (Cross-platform desktop framework)
-   *   **Frontend:** React 18, TypeScript, Vite
-   *   **Styling:** TailwindCSS v4 with a custom Glassmorphic CSS configuration
-   *   **State Management:** Redux Toolkit
-   *   **Database:** `better-sqlite3` (Local Main Process)
-   *   **Sync:** Firebase Firestore Web SDK
-   *   **Editor:** TipTap (Headless ProseMirror wrapper)
-   *   **Drag & Drop:** `@dnd-kit`
+```bash
+npm run typecheck
+npm test
+npm run lint
+npm run build:renderer
+cargo test --manifest-path src-tauri/Cargo.toml
+```
 
-   ---
+Build the desktop application for the current platform:
 
-   ## 📦 Getting Started
+```bash
+npm run build
+```
 
-   ### Prerequisites
-   *   [Node.js](https://nodejs.org/) (v18+ recommended)
-   *   npm or yarn
+## Data Migration
 
-   ### Installation
+Existing installations are migrated automatically when the application starts. The migration:
 
-   1. **Clone the repository**
-      ```bash
-      git clone https://github.com/Jishnu-Prasad888/Shipyard.git
-      cd Shipyard
-      ```
+- Creates a SQLite backup before changing a legacy database.
+- Renames the legacy hierarchy to workspaces, projects, boards, columns, tasks, and subtasks.
+- Preserves IDs, timestamps, nested workspaces, unassigned projects, and relationships.
+- Converts pending synchronization operations to schema v2.
+- Retains the Shipyard application identifier and database filenames.
 
-   2. **Install dependencies**
-      ```bash
-      npm install
-      ```
+See [`MIGRATION_to_tauri.md`](MIGRATION_to_tauri.md) for migration and compatibility details.
 
-   3. **Run in development mode**
-      ```bash
-      npm run dev
-      ```
+## Firebase Sync
 
-   4. **Build for production**
-      ```bash
-      npm run build:win   # For Windows
-      npm run build:mac   # For MacOS
-      npm run build:linux # For Linux
-      ```
+Create a Firebase web application and Firestore database, then enter the Firebase Web SDK configuration under **Settings > Firebase Sync**.
 
-   ---
+During the schema transition, Shipyard reads and writes both canonical v2 collections and legacy v1 collection aliases. Canonical records win timestamp ties.
 
-## ☁️ Setting up Firebase Sync (Optional)
+## Self-Hosted Sync Server
 
-   1. Go to the [Firebase Console](https://console.firebase.google.com/).
-   2. Create a new project and add a "Web App".
-   3. Initialize a **Firestore Database** in Test Mode (or set up proper security rules).
-   4. Copy your Firebase SDK configuration.
-   5. Open **Shipyard > Settings > Firebase Sync**.
-6. Paste your credentials, save, and click "Test" to verify the connection.
+The optional server requires Go 1.22+, PostgreSQL, and Redis.
 
----
+```bash
+cd server
+go run .
+```
 
-## 🛰️ Go Sync Server (Postgres + Redis)
+Configure `DATABASE_URL`, `REDIS_ADDR`, `REDIS_PASSWORD`, `REDIS_DB`, and `PORT` as needed. Supported endpoints are:
 
-- Run locally: `cd server && go run .` (requires Go 1.22+, Postgres, and Redis). Configure `DATABASE_URL`, `REDIS_ADDR`, `REDIS_PASSWORD`, `REDIS_DB`, and `PORT` as needed.
-- Docker: `docker build -t shipyard-sync ./server` then `docker run -p 8080:8080 --env DATABASE_URL=... --env REDIS_ADDR=redis:6379 shipyard-sync`.
-- Endpoints: `GET /health`, `GET /sync/status`, `POST /sync` (accepts the local `sync_queue` payload).
-- Point the Tauri app to your server URL in **Settings → Server Sync**, check health, and use **Sync now** to push pending changes.
+- `GET /health`
+- `GET /sync/status`
+- `POST /sync`
+- `POST /sync/push`
 
----
+The server accepts legacy schema v1 and canonical schema v2 operations while storing canonical record state.
 
-## 🤝 Contributing
+## License
 
-   Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/Jishnu-Prasad888/Shipyard/issues).
-
-   ## 📄 License
-
-   This project is licensed under the MIT License.
+Shipyard is licensed under the MIT License.

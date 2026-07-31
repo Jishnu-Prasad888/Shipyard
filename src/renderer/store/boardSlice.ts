@@ -3,8 +3,8 @@ import { createSlice, PayloadAction } from '@reduxjs/toolkit'
 interface BoardState {
   currentBoardId: string | null
   boards: any[]
-  lists: any[]
-  cards: any[]
+  columns: any[]
+  tasks: any[]
   isLoading: boolean
   error: string | null
 }
@@ -12,8 +12,8 @@ interface BoardState {
 const initialState: BoardState = {
   currentBoardId: null,
   boards: [],
-  lists: [],
-  cards: [],
+  columns: [],
+  tasks: [],
   isLoading: false,
   error: null
 }
@@ -28,11 +28,11 @@ const boardSlice = createSlice({
     setBoards: (state, action: PayloadAction<any[]>) => {
       state.boards = action.payload
     },
-    setLists: (state, action: PayloadAction<any[]>) => {
-      state.lists = action.payload
+    setColumns: (state, action: PayloadAction<any[]>) => {
+      state.columns = action.payload
     },
-    setCards: (state, action: PayloadAction<any[]>) => {
-      state.cards = action.payload
+    setTasks: (state, action: PayloadAction<any[]>) => {
+      state.tasks = action.payload
     },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.isLoading = action.payload
@@ -43,7 +43,7 @@ const boardSlice = createSlice({
   }
 })
 
-export const { setCurrentBoard, setBoards, setLists, setCards, setLoading, setError } =
+export const { setCurrentBoard, setBoards, setColumns, setTasks, setLoading, setError } =
   boardSlice.actions
 
 export default boardSlice.reducer

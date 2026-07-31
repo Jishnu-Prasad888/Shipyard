@@ -6,12 +6,22 @@ interface FirebaseConfigProps {
 }
 
 const FIELDS = [
-  { key: 'apiKey',            label: 'API Key',             placeholder: 'AIzaSy...',               type: 'text' },
-  { key: 'authDomain',        label: 'Auth Domain',          placeholder: 'project.firebaseapp.com',  type: 'text' },
-  { key: 'projectId',         label: 'Project ID',           placeholder: 'my-project-id',            type: 'text' },
-  { key: 'storageBucket',     label: 'Storage Bucket',       placeholder: 'project.appspot.com',      type: 'text' },
-  { key: 'messagingSenderId', label: 'Messaging Sender ID',  placeholder: '123456789',                type: 'text' },
-  { key: 'appId',             label: 'App ID',               placeholder: '1:123456:web:abc',         type: 'text' }
+  { key: 'apiKey', label: 'API Key', placeholder: 'AIzaSy...', type: 'text' },
+  { key: 'authDomain', label: 'Auth Domain', placeholder: 'project.firebaseapp.com', type: 'text' },
+  { key: 'projectId', label: 'Project ID', placeholder: 'my-project-id', type: 'text' },
+  {
+    key: 'storageBucket',
+    label: 'Storage Bucket',
+    placeholder: 'project.appspot.com',
+    type: 'text'
+  },
+  {
+    key: 'messagingSenderId',
+    label: 'Messaging Sender ID',
+    placeholder: '123456789',
+    type: 'text'
+  },
+  { key: 'appId', label: 'App ID', placeholder: '1:123456:web:abc', type: 'text' }
 ]
 
 export const FirebaseConfig: React.FC<FirebaseConfigProps> = ({ config, onConfigChange }) => {
@@ -21,12 +31,15 @@ export const FirebaseConfig: React.FC<FirebaseConfigProps> = ({ config, onConfig
     onConfigChange({ ...currentConfig, [key]: value })
   }
 
-  const hasConfig = FIELDS.slice(0, 3).every(f => !!currentConfig[f.key])
+  const hasConfig = FIELDS.slice(0, 3).every((f) => !!currentConfig[f.key])
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between mb-1">
-        <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: 'var(--color-muted)' }}>
+        <p
+          className="text-[9px] font-black uppercase tracking-widest"
+          style={{ color: 'var(--color-muted)' }}
+        >
           Firebase Web SDK Config
         </p>
         {hasConfig && (
@@ -59,15 +72,20 @@ export const FirebaseConfig: React.FC<FirebaseConfigProps> = ({ config, onConfig
                 onChange={(e) => handleChange(field.key, e.target.value)}
                 placeholder={field.placeholder}
                 spellCheck={false}
-                className="w-full px-2 py-1.5 border-2 bg-transparent text-xs font-mono focus:outline-none transition-all"
+                className="aero-input w-full px-2 py-1.5 bg-transparent text-xs font-mono focus:outline-none transition-all"
                 style={{
                   borderColor: filled ? 'var(--color-primary)' : 'var(--color-border)',
                   color: 'var(--color-text)',
-                  boxShadow: filled ? 'inset 2px 2px 0 var(--color-primary-soft)' : 'none'
+                  boxShadow: filled ? 'inset 0 1px 3px var(--color-primary-soft)' : 'none'
                 }}
-                onFocus={e => { e.currentTarget.style.borderColor = 'var(--color-primary)'; e.currentTarget.style.boxShadow = '2px 2px 0 var(--color-primary)' }}
-                onBlur={e => {
-                  e.currentTarget.style.borderColor = filled ? 'var(--color-primary)' : 'var(--color-border)'
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--color-primary)'
+                  e.currentTarget.style.boxShadow = '0 0 4px var(--color-secondary)'
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = filled
+                    ? 'var(--color-primary)'
+                    : 'var(--color-border)'
                   e.currentTarget.style.boxShadow = 'none'
                 }}
               />

@@ -10,11 +10,26 @@ import Highlight from '@tiptap/extension-highlight'
 import Typography from '@tiptap/extension-typography'
 import { InputRule } from '@tiptap/core'
 import {
-  Bold, Italic, Underline as UnderlineIcon, Strikethrough,
-  Heading1, Heading2, Heading3,
-  List, ListOrdered, CheckSquare, Code, Quote,
-  Link2, Highlighter, Type, Eye, Edit3, Minus,
-  RotateCcw, RotateCw
+  Bold,
+  Italic,
+  Underline as UnderlineIcon,
+  Strikethrough,
+  Heading1,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  CheckSquare,
+  Code,
+  Quote,
+  Link2,
+  Highlighter,
+  Type,
+  Eye,
+  Edit3,
+  Minus,
+  RotateCcw,
+  RotateCw
 } from 'lucide-react'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 
@@ -94,7 +109,11 @@ const WikiLinkMark = Mark.create({
 
 // ── Toolbar Button ───────────────────────────────────────────────────
 const ToolBtn = ({
-  onClick, active, title, children, disabled = false
+  onClick,
+  active,
+  title,
+  children,
+  disabled = false
 }: {
   onClick: () => void
   active?: boolean
@@ -112,15 +131,15 @@ const ToolBtn = ({
       borderColor: active ? 'var(--color-primary)' : 'transparent',
       background: active ? 'var(--color-primary)' : 'transparent',
       color: active ? 'white' : 'var(--color-text)',
-      boxShadow: active ? '2px 2px 0 var(--color-border-strong)' : 'none'
+      boxShadow: active ? 'var(--shadow-control)' : 'none'
     }}
-    onMouseOver={e => {
+    onMouseOver={(e) => {
       if (!active && !disabled) {
         e.currentTarget.style.background = 'var(--color-primary-soft)'
         e.currentTarget.style.borderColor = 'var(--color-primary)'
       }
     }}
-    onMouseOut={e => {
+    onMouseOut={(e) => {
       if (!active) {
         e.currentTarget.style.background = 'transparent'
         e.currentTarget.style.borderColor = 'transparent'
@@ -158,10 +177,10 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
 
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ 
+      StarterKit.configure({
         heading: { levels: [1, 2, 3] },
         link: false,
-        underline: false 
+        underline: false
       }),
       Placeholder.configure({ placeholder }),
       Link.configure({
@@ -229,8 +248,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
 
   if (!editor) return null
 
-  const isActive = (type: string, attrs?: Record<string, unknown>) =>
-    editor.isActive(type, attrs)
+  const isActive = (type: string, attrs?: Record<string, unknown>) => editor.isActive(type, attrs)
 
   return (
     <div
@@ -238,7 +256,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       style={{
         borderColor: 'var(--color-border-strong)',
         background: 'var(--color-surface)',
-        boxShadow: '3px 3px 0 var(--color-border)'
+        boxShadow: 'var(--shadow-panel)'
       }}
     >
       {/* ── TOOLBAR ── */}
@@ -246,59 +264,126 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b-2 shrink-0"
         style={{ borderColor: 'var(--color-border-strong)', background: 'var(--color-background)' }}
       >
-        <ToolBtn onClick={() => editor.chain().focus().undo().run()} title="Undo (Ctrl+Z)" disabled={!editor.can().undo()}>
+        <ToolBtn
+          onClick={() => editor.chain().focus().undo().run()}
+          title="Undo (Ctrl+Z)"
+          disabled={!editor.can().undo()}
+        >
           <RotateCcw className="w-3.5 h-3.5" />
         </ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().redo().run()} title="Redo (Ctrl+Y)" disabled={!editor.can().redo()}>
+        <ToolBtn
+          onClick={() => editor.chain().focus().redo().run()}
+          title="Redo (Ctrl+Y)"
+          disabled={!editor.can().redo()}
+        >
           <RotateCw className="w-3.5 h-3.5" />
         </ToolBtn>
         <Divider />
-        <ToolBtn onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={isActive('heading', { level: 1 })} title="Heading 1">
+        <ToolBtn
+          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+          active={isActive('heading', { level: 1 })}
+          title="Heading 1"
+        >
           <Heading1 className="w-3.5 h-3.5" />
         </ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={isActive('heading', { level: 2 })} title="Heading 2">
+        <ToolBtn
+          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+          active={isActive('heading', { level: 2 })}
+          title="Heading 2"
+        >
           <Heading2 className="w-3.5 h-3.5" />
         </ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()} active={isActive('heading', { level: 3 })} title="Heading 3">
+        <ToolBtn
+          onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+          active={isActive('heading', { level: 3 })}
+          title="Heading 3"
+        >
           <Heading3 className="w-3.5 h-3.5" />
         </ToolBtn>
         <Divider />
-        <ToolBtn onClick={() => editor.chain().focus().toggleBold().run()} active={isActive('bold')} title="Bold (Ctrl+B)">
+        <ToolBtn
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          active={isActive('bold')}
+          title="Bold (Ctrl+B)"
+        >
           <Bold className="w-3.5 h-3.5" />
         </ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().toggleItalic().run()} active={isActive('italic')} title="Italic (Ctrl+I)">
+        <ToolBtn
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          active={isActive('italic')}
+          title="Italic (Ctrl+I)"
+        >
           <Italic className="w-3.5 h-3.5" />
         </ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().toggleUnderline().run()} active={isActive('underline')} title="Underline (Ctrl+U)">
+        <ToolBtn
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+          active={isActive('underline')}
+          title="Underline (Ctrl+U)"
+        >
           <UnderlineIcon className="w-3.5 h-3.5" />
         </ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().toggleStrike().run()} active={isActive('strike')} title="Strikethrough">
+        <ToolBtn
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+          active={isActive('strike')}
+          title="Strikethrough"
+        >
           <Strikethrough className="w-3.5 h-3.5" />
         </ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().toggleHighlight().run()} active={isActive('highlight')} title="Highlight">
+        <ToolBtn
+          onClick={() => editor.chain().focus().toggleHighlight().run()}
+          active={isActive('highlight')}
+          title="Highlight"
+        >
           <Highlighter className="w-3.5 h-3.5" />
         </ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().toggleCode().run()} active={isActive('code')} title="Inline Code">
+        <ToolBtn
+          onClick={() => editor.chain().focus().toggleCode().run()}
+          active={isActive('code')}
+          title="Inline Code"
+        >
           <Code className="w-3.5 h-3.5" />
         </ToolBtn>
         <Divider />
-        <ToolBtn onClick={() => editor.chain().focus().toggleBulletList().run()} active={isActive('bulletList')} title="Bullet List">
+        <ToolBtn
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          active={isActive('bulletList')}
+          title="Bullet List"
+        >
           <List className="w-3.5 h-3.5" />
         </ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={isActive('orderedList')} title="Ordered List">
+        <ToolBtn
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          active={isActive('orderedList')}
+          title="Ordered List"
+        >
           <ListOrdered className="w-3.5 h-3.5" />
         </ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().toggleTaskList().run()} active={isActive('taskList')} title="Task List (Ctrl+shift+9)">
+        <ToolBtn
+          onClick={() => editor.chain().focus().toggleTaskList().run()}
+          active={isActive('taskList')}
+          title="Task List (Ctrl+shift+9)"
+        >
           <CheckSquare className="w-3.5 h-3.5" />
         </ToolBtn>
         <Divider />
-        <ToolBtn onClick={() => editor.chain().focus().toggleBlockquote().run()} active={isActive('blockquote')} title="Blockquote">
+        <ToolBtn
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          active={isActive('blockquote')}
+          title="Blockquote"
+        >
           <Quote className="w-3.5 h-3.5" />
         </ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={isActive('codeBlock')} title="Code Block">
+        <ToolBtn
+          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          active={isActive('codeBlock')}
+          title="Code Block"
+        >
           <Type className="w-3.5 h-3.5" />
         </ToolBtn>
-        <ToolBtn onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Horizontal Rule">
+        <ToolBtn
+          onClick={() => editor.chain().focus().setHorizontalRule().run()}
+          title="Horizontal Rule"
+        >
           <Minus className="w-3.5 h-3.5" />
         </ToolBtn>
         <Divider />
@@ -371,7 +456,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
           <input
             type="text"
             value={linkText}
-            onChange={e => setLinkText(e.target.value)}
+            onChange={(e) => setLinkText(e.target.value)}
             placeholder="Link text (optional)"
             className="flex-1 px-2 py-1 border-2 text-xs font-mono focus:outline-none"
             style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
@@ -380,18 +465,26 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
           <input
             type="text"
             value={linkUrl}
-            onChange={e => setLinkUrl(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleInsertLink()}
+            onChange={(e) => setLinkUrl(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleInsertLink()}
             placeholder="https://..."
             className="flex-1 px-2 py-1 border-2 text-xs font-mono focus:outline-none"
             style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
           />
-          <button type="button" onClick={handleInsertLink} className="btn-primary text-xs px-3 py-1">
+          <button
+            type="button"
+            onClick={handleInsertLink}
+            className="btn-primary text-xs px-3 py-1"
+          >
             Insert
           </button>
           <button
             type="button"
-            onClick={() => { setShowLinkDialog(false); setLinkUrl(''); setLinkText('') }}
+            onClick={() => {
+              setShowLinkDialog(false)
+              setLinkUrl('')
+              setLinkText('')
+            }}
             className="text-xs font-bold px-2 py-1 border-2"
             style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)' }}
           >
@@ -407,12 +500,21 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       {mode === 'edit' && (
         <div
           className="px-3 py-1.5 text-[9px] font-bold border-t-2 shrink-0"
-          style={{ borderColor: 'var(--color-border)', color: 'var(--color-muted)', background: 'var(--color-background)' }}
+          style={{
+            borderColor: 'var(--color-border)',
+            color: 'var(--color-muted)',
+            background: 'var(--color-background)'
+          }}
         >
           💡{' '}
-          <code className="px-1 border" style={{ borderColor: 'var(--color-border)' }}>[[Card Name]]</code>{' '}
+          <code className="px-1 border" style={{ borderColor: 'var(--color-border)' }}>
+            [[Task Name]]
+          </code>{' '}
           wikilink · <kbd>Ctrl+B</kbd> bold · <kbd>Ctrl+I</kbd> italic ·{' '}
-          <code className="px-1 border" style={{ borderColor: 'var(--color-border)' }}>- [ ]</code>{' '}task
+          <code className="px-1 border" style={{ borderColor: 'var(--color-border)' }}>
+            - [ ]
+          </code>{' '}
+          task
         </div>
       )}
     </div>

@@ -6,24 +6,19 @@ import {
   Sun,
   Anchor,
   Folder,
-  Grid,
-  Ship,
+  FolderKanban,
+  KanbanSquare,
   X,
-  ArrowRight,
-  Cloud,
-  CloudOff,
-  RefreshCw,
-  AlertTriangle
+  ArrowRight
 } from 'lucide-react'
 
 interface SearchResult {
   id: string
-  type: 'dock' | 'board' | 'folder'
+  type: 'project' | 'board' | 'workspace'
   name: string
   subtitle?: string
   color?: string
-  dockId?: string   // for boards: the dock they belong to
-  folderId?: string // for docks: the folder they're in
+  projectId?: string
 }
 
 interface HeaderProps {
@@ -31,8 +26,8 @@ interface HeaderProps {
   onToggleTheme: () => void
   isDarkMode: boolean
   onSearch: (query: string) => void
-  onSelectDock: (dockId: string) => void
-  onSelectBoard: (boardId: string, dockId: string) => void
+  onSelectProject: (projectId: string) => void
+  onSelectBoard: (boardId: string, projectId: string) => void
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -40,7 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleTheme,
   isDarkMode,
   onSearch,
-  onSelectDock,
+  onSelectProject,
   onSelectBoard
 }) => {
   const [query, setQuery] = useState('')
@@ -48,12 +43,9 @@ export const Header: React.FC<HeaderProps> = ({
   const [isOpen, setIsOpen] = useState(false)
   const [highlighted, setHighlighted] = useState(0)
   const [isLoading, setIsLoading] = useState(false)
-  const [syncStatus, setSyncStatus] = useState<any>(null)
-  const [syncLoading, setSyncLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const syncIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const runSearch = useCallback(async (q: string) => {
     if (!q.trim()) {
@@ -65,39 +57,37 @@ export const Header: React.FC<HeaderProps> = ({
     setIsLoading(true)
     try {
       const lower = q.toLowerCase()
-      const [docks, boards, folders] = await Promise.all([
-        window.electron.db.findAll('docks'),
+      const [projects, boards, workspaces] = await Promise.all([
+        window.electron.db.findAll('projects'),
         window.electron.db.findAll('boards'),
-        window.electron.db.findAll('folders')
+        window.electron.db.findAll('workspaces')
       ])
 
       const matched: SearchResult[] = []
 
-      // Folders
-      folders
+      workspaces
         .filter((f: any) => f.name?.toLowerCase().includes(lower))
         .slice(0, 3)
         .forEach((f: any) => {
           matched.push({
             id: f.id,
-            type: 'folder',
+            type: 'workspace',
             name: f.name,
-            subtitle: 'Folder',
+            subtitle: 'Workspace',
             color: f.color || '#2563eb'
           })
         })
 
-      // Docks
-      docks
+      projects
         .filter((d: any) => d.name?.toLowerCase().includes(lower))
         .slice(0, 5)
         .forEach((d: any) => {
-          const folder = folders.find((f: any) => f.id === d.folderId)
+          const workspace = workspaces.find((candidate: any) => candidate.id === d.workspaceId)
           matched.push({
             id: d.id,
-            type: 'dock',
+            type: 'project',
             name: d.name,
-            subtitle: folder ? `in ${folder.name}` : 'Dock',
+            subtitle: workspace ? `in ${workspace.name}` : 'Unassigned Project',
             color: d.color || '#2563eb'
           })
         })
@@ -107,14 +97,14 @@ export const Header: React.FC<HeaderProps> = ({
         .filter((b: any) => b.name?.toLowerCase().includes(lower))
         .slice(0, 6)
         .forEach((b: any) => {
-          const dock = docks.find((d: any) => d.id === b.dockId)
+          const project = projects.find((candidate: any) => candidate.id === b.projectId)
           matched.push({
             id: b.id,
             type: 'board',
             name: b.name,
-            subtitle: dock ? `Board in ${dock.name}` : 'Kanban Board',
+            subtitle: project ? `Board in ${project.name}` : 'Board',
             color: b.color || '#0891b2',
-            dockId: b.dockId
+            projectId: b.projectId
           })
         })
 
@@ -141,8 +131,10 @@ export const Header: React.FC<HeaderProps> = ({
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
       if (
-        dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
-        inputRef.current && !inputRef.current.contains(e.target as Node)
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node) &&
+        inputRef.current &&
+        !inputRef.current.contains(e.target as Node)
       ) {
         setIsOpen(false)
       }
@@ -151,44 +143,20 @@ export const Header: React.FC<HeaderProps> = ({
     return () => window.removeEventListener('mousedown', handleClick)
   }, [])
 
-  const loadSyncStatus = useCallback(async () => {
-    setSyncLoading(true)
-    try {
-      const status = await window.electron.sync.status()
-      setSyncStatus(status)
-    } catch (err) {
-      console.error('Sync status error', err)
-      setSyncStatus(null)
-    } finally {
-      setSyncLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    loadSyncStatus()
-    if (syncIntervalRef.current) clearInterval(syncIntervalRef.current)
-    syncIntervalRef.current = setInterval(loadSyncStatus, 30000)
-    return () => {
-      if (syncIntervalRef.current) clearInterval(syncIntervalRef.current)
-    }
-  }, [loadSyncStatus])
-
   const handleSelect = (result: SearchResult) => {
     setIsOpen(false)
     setQuery('')
     onSearch('')
 
-    if (result.type === 'dock') {
-      onSelectDock(result.id)
+    if (result.type === 'project') {
+      onSelectProject(result.id)
     } else if (result.type === 'board') {
-      if (result.dockId) {
-        onSelectDock(result.dockId)
-        // Brief delay so dock is selected first, then navigate to board
-        setTimeout(() => onSelectBoard(result.id, result.dockId!), 50)
+      if (result.projectId) {
+        onSelectProject(result.projectId)
+        setTimeout(() => onSelectBoard(result.id, result.projectId!), 50)
       }
-    } else if (result.type === 'folder') {
-      // Folders aren't directly navigable, but we can show a hint
-      // For now just clear search — could expand folder in sidebar
+    } else if (result.type === 'workspace') {
+      // Workspaces are represented by their projects in navigation.
     }
   }
 
@@ -213,15 +181,15 @@ export const Header: React.FC<HeaderProps> = ({
   }
 
   const typeIcon = (type: SearchResult['type']) => {
-    if (type === 'folder') return <Folder className="w-4 h-4" />
-    if (type === 'dock') return <Grid className="w-4 h-4" />
-    return <Ship className="w-4 h-4" />
+    if (type === 'workspace') return <Folder className="w-4 h-4" />
+    if (type === 'project') return <FolderKanban className="w-4 h-4" />
+    return <KanbanSquare className="w-4 h-4" />
   }
 
   const typeLabel = (type: SearchResult['type']) => {
-    if (type === 'folder') return 'PORT'
-    if (type === 'dock') return 'DOCK'
-    return 'SHIP'
+    if (type === 'workspace') return 'WORKSPACE'
+    if (type === 'project') return 'PROJECT'
+    return 'BOARD'
   }
 
   // Group results by type
@@ -230,11 +198,11 @@ export const Header: React.FC<HeaderProps> = ({
     if (!grouped[r.type]) grouped[r.type] = []
     grouped[r.type].push(r)
   })
-  const typeOrder: SearchResult['type'][] = ['folder', 'dock', 'board']
+  const typeOrder: SearchResult['type'][] = ['workspace', 'project', 'board']
 
   return (
     <header
-      className="h-16 flex items-center justify-between px-6 z-40 border-b-4"
+      className="aero-toolbar h-16 flex items-center justify-between px-6 z-40 border-b"
       style={{
         background: 'var(--color-header)',
         borderColor: 'var(--color-border-strong)',
@@ -245,41 +213,36 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Logo */}
         <div className="flex items-center gap-3 shrink-0">
           <div
-            className="w-10 h-10 flex items-center justify-center border-2"
+            className="w-10 h-10 flex items-center justify-center border border-white/60 rounded-md"
             style={{
-              background: 'var(--color-border-strong)',
-              borderColor: 'var(--color-header-button-border)',
-              boxShadow: 'var(--shadow-brutal-sm)',
-              color: 'var(--color-header-foreground)'
+              background:
+                'linear-gradient(180deg, var(--color-secondary), var(--color-primary-hover))',
+              boxShadow: 'inset 0 1px 0 rgba(255,255,255,.65), 0 2px 5px rgba(0,0,0,.35)'
             }}
           >
-            <Anchor className="w-5 h-5" strokeWidth={2.5} />
+            <Anchor className="w-5 h-5 text-white" strokeWidth={2.5} />
           </div>
-          <div className="leading-tight" style={{ color: 'var(--color-header-foreground)' }}>
-            <span className="block text-xs font-black uppercase tracking-[0.2em] opacity-80">Shipyard</span>
-            <span className="block text-lg font-black uppercase tracking-tight">Fleet Workspace</span>
+          <div className="leading-tight text-white">
+            <span className="block text-xs font-black uppercase tracking-[0.2em] opacity-80">
+              Shipyard
+            </span>
+            <span className="block text-lg font-black uppercase tracking-tight">Workspace</span>
           </div>
         </div>
 
         {/* Search with dropdown */}
-        <div className="flex-1 max-w-2xl relative header-search">
+        <div className="flex-1 max-w-2xl relative">
           <div className="relative">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
-              style={{ color: 'var(--color-header-muted)' }}
-            />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/70 pointer-events-none" />
             <input
               ref={inputRef}
               type="text"
               value={query}
-              placeholder="Search ships, docks, ports…"
-              className="w-full pl-10 pr-10 py-2 text-sm font-bold uppercase tracking-wide border-2 focus:outline-none transition-all"
+              placeholder="Search workspaces, projects, boards..."
+              className="w-full pl-10 pr-10 py-2 text-sm font-semibold border bg-white/10 text-white placeholder:text-white/60 focus:outline-none transition-all rounded-sm"
               style={{
-                borderColor: 'var(--color-header-button-border)',
-                boxShadow: 'var(--shadow-brutal-sm)',
-                background: 'var(--color-surface)',
-                color: 'var(--color-header-foreground)',
-                caretColor: 'var(--color-primary)'
+                borderColor: 'white',
+                boxShadow: 'inset 0 1px 4px rgba(0,0,0,.32), 0 1px 0 rgba(255,255,255,.22)'
               }}
               onChange={(e) => setQuery(e.target.value)}
               onFocus={() => query && results.length > 0 && setIsOpen(true)}
@@ -287,11 +250,12 @@ export const Header: React.FC<HeaderProps> = ({
             />
             {query && (
               <button
-                className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-                style={{ color: 'var(--color-header-muted)' }}
-                onClick={() => { setQuery(''); setIsOpen(false); onSearch('') }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-header-foreground)')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-header-muted)')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                onClick={() => {
+                  setQuery('')
+                  setIsOpen(false)
+                  onSearch('')
+                }}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -302,22 +266,28 @@ export const Header: React.FC<HeaderProps> = ({
           {isOpen && (
             <div
               ref={dropdownRef}
-              className="absolute top-full left-0 right-0 mt-3 z-50 overflow-hidden animate-brutal-in"
+              className="aero-window absolute top-full left-0 right-0 mt-2 z-50 overflow-hidden animate-brutal-in"
               style={{
                 background: 'var(--color-surface)',
-                border: '3px solid var(--color-border-strong)',
-                boxShadow: 'var(--shadow-brutal)',
+                border: '1px solid var(--color-border-strong)',
+                boxShadow: 'var(--shadow-window)',
                 maxHeight: '420px',
                 overflowY: 'auto',
-                borderRadius: '12px'
+                borderRadius: '6px'
               }}
             >
               {isLoading ? (
-                <div className="px-4 py-3 text-xs font-black uppercase tracking-wider" style={{ color: 'var(--color-muted)' }}>
+                <div
+                  className="px-4 py-3 text-xs font-black uppercase tracking-wider"
+                  style={{ color: 'var(--color-muted)' }}
+                >
                   Searching...
                 </div>
               ) : results.length === 0 ? (
-                <div className="px-4 py-3 text-xs font-black uppercase tracking-wider" style={{ color: 'var(--color-muted)' }}>
+                <div
+                  className="px-4 py-3 text-xs font-black uppercase tracking-wider"
+                  style={{ color: 'var(--color-muted)' }}
+                >
                   No results for "{query}"
                 </div>
               ) : (
@@ -328,12 +298,17 @@ export const Header: React.FC<HeaderProps> = ({
                     return (
                       <div key={type}>
                         {/* Group header */}
-                      <div
+                        <div
                           className="px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.22em] border-b-2 flex items-center gap-2"
                           style={{
                             background: 'var(--color-surface-3)',
                             borderColor: 'var(--color-border-strong)',
-                            color: type === 'folder' ? '#1b4f82' : type === 'dock' ? '#0b6c90' : '#1f7acb'
+                            color:
+                              type === 'workspace'
+                                ? '#1b4f82'
+                                : type === 'project'
+                                  ? '#0b6c90'
+                                  : '#1f7acb'
                           }}
                         >
                           {typeIcon(type)}
@@ -345,14 +320,16 @@ export const Header: React.FC<HeaderProps> = ({
                           const globalIdx = results.indexOf(result)
                           const isHot = highlighted === globalIdx
                           return (
-                          <button
-                            key={result.id}
-                            className="w-full text-left px-4 py-3 flex items-center gap-3 border-b-2 transition-all duration-100 group"
-                            style={{
-                              borderColor: 'var(--color-border)',
-                              background: isHot ? (result.color || 'var(--color-primary)') : 'transparent',
-                              color: isHot ? '#041020' : 'var(--color-text)'
-                            }}
+                            <button
+                              key={result.id}
+                              className="w-full text-left px-4 py-3 flex items-center gap-3 border-b-2 transition-all duration-100 group"
+                              style={{
+                                borderColor: 'var(--color-border)',
+                                background: isHot
+                                  ? result.color || 'var(--color-primary)'
+                                  : 'transparent',
+                                color: isHot ? '#041020' : 'var(--color-text)'
+                              }}
                               onClick={() => handleSelect(result)}
                               onMouseEnter={() => setHighlighted(globalIdx)}
                             >
@@ -360,10 +337,16 @@ export const Header: React.FC<HeaderProps> = ({
                               <div
                                 className="w-9 h-9 border-2 flex items-center justify-center shrink-0 transition-all"
                                 style={{
-                                  borderColor: isHot ? '#041020' : result.color || 'var(--color-primary)',
-                                  background: isHot ? 'rgba(255,255,255,0.8)' : (result.color || '#2563eb') + '12',
+                                  borderColor: isHot
+                                    ? '#041020'
+                                    : result.color || 'var(--color-primary)',
+                                  background: isHot
+                                    ? 'rgba(255,255,255,0.8)'
+                                    : (result.color || '#2563eb') + '12',
                                   color: isHot ? '#041020' : result.color || 'var(--color-primary)',
-                                  boxShadow: isHot ? 'var(--shadow-brutal-sm)' : `3px 3px 0 ${(result.color || '#2563eb')}`
+                                  boxShadow: isHot
+                                    ? 'var(--shadow-control)'
+                                    : `0 2px 6px ${result.color || '#2563eb'}45`
                                 }}
                               >
                                 {typeIcon(result.type)}
@@ -374,21 +357,23 @@ export const Header: React.FC<HeaderProps> = ({
                                 {result.subtitle && (
                                   <div
                                     className="text-[11px] font-medium tracking-wide truncate mt-0.5"
-                                    style={{ color: isHot ? 'rgba(3,16,31,0.65)' : 'var(--color-muted)' }}
+                                    style={{
+                                      color: isHot ? 'rgba(3,16,31,0.65)' : 'var(--color-muted)'
+                                    }}
                                   >
                                     {result.subtitle}
                                   </div>
                                 )}
                               </div>
 
-                              {result.type !== 'folder' && (
+                              {result.type !== 'workspace' && (
                                 <ArrowRight
                                   className="w-4 h-4 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                                   style={{ color: isHot ? '#041020' : 'var(--color-primary)' }}
                                 />
                               )}
 
-                              {result.type === 'folder' && (
+                              {result.type === 'workspace' && (
                                 <span
                                   className="text-[10px] font-semibold uppercase px-2 py-0.5 border rounded-full shrink-0"
                                   style={{
@@ -409,7 +394,11 @@ export const Header: React.FC<HeaderProps> = ({
                   {/* Footer hint */}
                   <div
                     className="px-4 py-2 text-[10px] font-black uppercase tracking-[0.22em] flex items-center gap-3"
-                    style={{ background: 'var(--color-surface-2)', color: 'var(--color-muted)', borderTop: '2px solid var(--color-border-strong)' }}
+                    style={{
+                      background: 'var(--color-surface-2)',
+                      color: 'var(--color-muted)',
+                      borderTop: '2px solid var(--color-border-strong)'
+                    }}
                   >
                     <span>↑↓ Navigate</span>
                     <span>↵ Select</span>
@@ -424,72 +413,15 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={loadSyncStatus}
-            className="flex items-center gap-1 px-3 py-1.5 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100"
-            style={{
-              borderColor:
-                syncStatus?.syncEnabled
-                  ? (syncStatus?.unsyncedCount || 0) > 0
-                    ? '#d97706'
-                    : '#10b981'
-                  : 'var(--color-header-button-border)',
-              color:
-                syncStatus?.syncEnabled
-                  ? (syncStatus?.unsyncedCount || 0) > 0
-                    ? '#d97706'
-                    : '#10b981'
-                  : 'var(--color-header-muted)',
-              background:
-                syncStatus?.syncEnabled
-                  ? (syncStatus?.unsyncedCount || 0) > 0
-                    ? 'rgba(217,119,6,0.15)'
-                    : 'rgba(16,185,129,0.15)'
-                  : 'var(--color-header-button-bg)',
-              boxShadow: 'var(--shadow-brutal-sm)'
-            }}
-            title="Server sync status"
-          >
-            {syncLoading ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : syncStatus?.syncEnabled ? (
-              (syncStatus?.unsyncedCount || 0) > 0 ? (
-                <AlertTriangle className="w-4 h-4" />
-              ) : (
-                <Cloud className="w-4 h-4" />
-              )
-            ) : (
-              <CloudOff className="w-4 h-4" />
-            )}
-            <span>
-              {syncStatus?.syncEnabled
-                ? (syncStatus?.unsyncedCount || 0) > 0
-                  ? `${syncStatus.unsyncedCount} Pending`
-                  : 'Synced'
-                : 'Sync Off'}
-            </span>
-          </button>
-          <button
             onClick={onToggleTheme}
-            className="p-2.5 border-2 font-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5"
-            style={{
-              borderColor: 'var(--color-header-button-border)',
-              color: 'var(--color-header-foreground)',
-              background: 'var(--color-header-button-bg)',
-              boxShadow: 'var(--shadow-brutal-sm)'
-            }}
+            className="aero-icon-button p-2.5 text-white transition-all duration-150"
             title={isDarkMode ? 'Light Mode' : 'Dark Mode'}
           >
             {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
           <button
             onClick={onOpenSettings}
-            className="p-2.5 border-2 font-black transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5"
-            style={{
-              borderColor: 'var(--color-header-button-border)',
-              color: 'var(--color-header-foreground)',
-              background: 'var(--color-header-button-bg)',
-              boxShadow: 'var(--shadow-brutal-sm)'
-            }}
+            className="aero-icon-button p-2.5 text-white transition-all duration-150"
             title="Settings"
           >
             <Settings className="w-4 h-4" />

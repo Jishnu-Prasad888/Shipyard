@@ -1,7 +1,7 @@
 use tauri::{
-    AppHandle, Manager, WindowEvent,
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Manager, WindowEvent,
 };
 
 mod commands;
@@ -21,16 +21,21 @@ pub fn run() {
                 .app_data_dir()
                 .expect("Failed to get app data dir");
 
-            std::fs::create_dir_all(&app_data_dir)
-                .expect("Failed to create app data directory");
+            std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data directory");
 
             let is_dev = cfg!(debug_assertions);
-            let db_name = if is_dev { "shipyard-dev.db" } else { "shipyard.db" };
+            let db_name = if is_dev {
+                "shipyard-dev.db"
+            } else {
+                "shipyard.db"
+            };
             let db_path = app_data_dir.join(db_name);
 
-            let database = Database::new(db_path.to_str().unwrap())
-                .expect("Failed to initialize database");
-            database.initialize().expect("Failed to run schema migrations");
+            let database =
+                Database::new(db_path.to_str().unwrap()).expect("Failed to initialize database");
+            database
+                .initialize()
+                .expect("Failed to run schema migrations");
 
             // Seed a demo database when running `npm run tauri dev`
             if is_dev {

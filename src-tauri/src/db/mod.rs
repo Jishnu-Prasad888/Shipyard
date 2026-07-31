@@ -1,5 +1,5 @@
-use rusqlite::{Connection, Result, params};
-use serde_json::{Value, json};
+use rusqlite::{params, Connection, Result, Transaction};
+use serde_json::{json, Value};
 use std::sync::Mutex;
 use uuid::Uuid;
 
@@ -20,61 +20,24 @@ impl Database {
 
     pub fn initialize(&self) -> Result<()> {
         let mut conn = self.conn.lock().unwrap();
-        conn.execute_batch(SCHEMA)?;
-
-        // Migration: add parentId to folders if missing
-        let has_parent: bool = conn
-            .query_row(
-                "SELECT COUNT(*) FROM pragma_table_info('folders') WHERE name='parentId'",
-                [],
-                |r| r.get::<_, i64>(0),
-            )
-            .map(|c| c > 0)
-            .unwrap_or(false);
-        if !has_parent {
-            let _ = conn.execute_batch(
-                "ALTER TABLE folders ADD COLUMN parentId TEXT REFERENCES folders(id) ON DELETE CASCADE",
-            );
+        let current_version: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        if current_version < SCHEMA_VERSION && raw_table_exists(&conn, "folders")? {
+            backup_legacy_database(&conn)?;
         }
 
-        // Migration: boards columns
-        for col in &["description", "color", "tags"] {
-            let has_col: bool = conn
-                .query_row(
-                    &format!(
-                        "SELECT COUNT(*) FROM pragma_table_info('boards') WHERE name='{col}'"
-                    ),
-                    [],
-                    |r| r.get::<_, i64>(0),
-                )
-                .map(|c| c > 0)
-                .unwrap_or(false);
-            if !has_col {
-                let _ = conn.execute_batch(&format!("ALTER TABLE boards ADD COLUMN \"{col}\" TEXT"));
-            }
+        let tx = conn.transaction()?;
+        let version: i64 = tx.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+
+        if version > SCHEMA_VERSION {
+            return Err(rusqlite::Error::InvalidQuery);
+        }
+        if version < 1 {
+            migrate_to_v1(&tx)?;
+            tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
         }
 
-        // Migration: docks columns
-        for col in &["description", "tags", "color"] {
-            let has_col: bool = conn
-                .query_row(
-                    &format!(
-                        "SELECT COUNT(*) FROM pragma_table_info('docks') WHERE name='{col}'"
-                    ),
-                    [],
-                    |r| r.get::<_, i64>(0),
-                )
-                .map(|c| c > 0)
-                .unwrap_or(false);
-            if !has_col {
-                let _ = conn.execute_batch(&format!("ALTER TABLE docks ADD COLUMN \"{col}\" TEXT"));
-            }
-        }
-
-        migrate_legacy_schema(&mut conn)?;
-
-        // Seed default settings if missing
-        let settings_count: i64 = conn
+        tx.execute_batch(SCHEMA)?;
+        let settings_count: i64 = tx
             .query_row(
                 "SELECT COUNT(*) FROM settings WHERE key = 'app_settings'",
                 [],
@@ -83,18 +46,12 @@ impl Database {
             .unwrap_or(0);
         if settings_count == 0 {
             let default_settings = default_settings();
-            conn.execute(
+            tx.execute(
                 "INSERT INTO settings (key, value, updatedAt) VALUES (?1, ?2, ?3)",
-                params![
-                    "app_settings",
-                    default_settings.to_string(),
-                    now_ms()
-                ],
+                params!["app_settings", default_settings.to_string(), now_ms()],
             )?;
         }
-
-        conn.execute_batch(INDEXES)?;
-
+        tx.commit()?;
         Ok(())
     }
 
@@ -107,11 +64,7 @@ impl Database {
     pub fn find_all(&self, table: &str) -> Result<Vec<Value>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(&format!("SELECT * FROM \"{table}\""))?;
-        let cols: Vec<String> = stmt
-            .column_names()
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+        let cols: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
         let rows = stmt.query_map([], |row| {
             let mut obj = serde_json::Map::new();
             for (i, col) in cols.iter().enumerate() {
@@ -125,13 +78,8 @@ impl Database {
 
     pub fn find_by_id(&self, table: &str, id: &str) -> Result<Option<Value>> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt =
-            conn.prepare(&format!("SELECT * FROM \"{table}\" WHERE id = ?1"))?;
-        let cols: Vec<String> = stmt
-            .column_names()
-            .iter()
-            .map(|s| s.to_string())
-            .collect();
+        let mut stmt = conn.prepare(&format!("SELECT * FROM \"{table}\" WHERE id = ?1"))?;
+        let cols: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
         let mut rows = stmt.query_map(params![id], |row| {
             let mut obj = serde_json::Map::new();
             for (i, col) in cols.iter().enumerate() {
@@ -157,7 +105,10 @@ impl Database {
         record.insert("id".into(), json!(id));
 
         let no_created_at = matches!(table, "connections" | "sync_queue" | "settings");
-        let no_updated_at = matches!(table, "folders" | "subcards" | "tags" | "connections" | "sync_queue" | "settings");
+        let no_updated_at = matches!(
+            table,
+            "workspaces" | "subtasks" | "tags" | "connections" | "sync_queue" | "settings"
+        );
 
         for (key, value) in &obj {
             if key == "id" {
@@ -186,9 +137,9 @@ impl Database {
             placeholders.join(", ")
         );
 
-        let values: Vec<String> = columns
+        let values: Vec<Option<String>> = columns
             .iter()
-            .map(|col| json_to_sql_string(record.get(col).unwrap()))
+            .map(|col| json_to_sql_value(record.get(col).unwrap()))
             .collect();
 
         conn.execute(
@@ -199,14 +150,18 @@ impl Database {
         self.add_to_sync_queue(&conn, "CREATE", table, &id, data)?;
 
         drop(conn);
-        self.find_by_id(table, &id).map(|opt| opt.unwrap_or(json!(null)))
+        self.find_by_id(table, &id)
+            .map(|opt| opt.unwrap_or(json!(null)))
     }
 
     pub fn update(&self, table: &str, id: &str, data: &Value) -> Result<Value> {
         let conn = self.conn.lock().unwrap();
         let obj = data.as_object().cloned().unwrap_or_default();
         let now = now_ms();
-        let no_updated_at = matches!(table, "folders" | "subcards" | "tags" | "connections" | "sync_queue" | "settings");
+        let no_updated_at = matches!(
+            table,
+            "workspaces" | "subtasks" | "tags" | "connections" | "sync_queue" | "settings"
+        );
 
         let mut updates: serde_json::Map<String, Value> = serde_json::Map::new();
         for (key, value) in &obj {
@@ -222,15 +177,9 @@ impl Database {
             updates.remove("updatedAt");
         }
 
-        let set_clauses: Vec<String> = updates
-            .keys()
-            .map(|k| format!("\"{k}\" = ?"))
-            .collect();
-        let mut values: Vec<String> = updates
-            .values()
-            .map(json_to_sql_string)
-            .collect();
-        values.push(id.to_string());
+        let set_clauses: Vec<String> = updates.keys().map(|k| format!("\"{k}\" = ?")).collect();
+        let mut values: Vec<Option<String>> = updates.values().map(json_to_sql_value).collect();
+        values.push(Some(id.to_string()));
 
         let sql = format!(
             "UPDATE \"{table}\" SET {} WHERE id = ?",
@@ -245,12 +194,16 @@ impl Database {
         self.add_to_sync_queue(&conn, "UPDATE", table, id, data)?;
 
         drop(conn);
-        self.find_by_id(table, id).map(|opt| opt.unwrap_or(json!(null)))
+        self.find_by_id(table, id)
+            .map(|opt| opt.unwrap_or(json!(null)))
     }
 
     pub fn delete(&self, table: &str, id: &str) -> Result<bool> {
         let conn = self.conn.lock().unwrap();
-        conn.execute(&format!("DELETE FROM \"{table}\" WHERE id = ?1"), params![id])?;
+        conn.execute(
+            &format!("DELETE FROM \"{table}\" WHERE id = ?1"),
+            params![id],
+        )?;
         self.add_to_sync_queue(&conn, "DELETE", table, id, &json!(null))?;
         Ok(true)
     }
@@ -281,13 +234,13 @@ impl Database {
 
     // ── Custom queries ──
 
-    pub fn get_docks_with_folders(&self) -> Result<Vec<Value>> {
+    pub fn get_projects_with_workspaces(&self) -> Result<Vec<Value>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT d.*, f.name as folderName, f.color as folderColor
-             FROM docks d
-             LEFT JOIN folders f ON d.folderId = f.id
-             ORDER BY d.updatedAt DESC",
+            "SELECT p.*, w.name as workspaceName, w.color as workspaceColor
+             FROM projects p
+             LEFT JOIN workspaces w ON p.workspaceId = w.id
+             ORDER BY p.updatedAt DESC",
         )?;
         let cols: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
         let rows = stmt.query_map([], |row| {
@@ -321,11 +274,9 @@ impl Database {
             Some(b) => b,
         };
 
-        // Lists
-        let mut lists: Vec<Value> = {
-            let mut stmt = conn.prepare(
-                "SELECT * FROM lists WHERE boardId = ?1 ORDER BY \"order\" ASC",
-            )?;
+        let mut columns: Vec<Value> = {
+            let mut stmt =
+                conn.prepare("SELECT * FROM columns WHERE boardId = ?1 ORDER BY \"order\" ASC")?;
             let cols: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
             let mapped_rows = stmt.query_map(params![board_id], |row| {
                 let mut obj = serde_json::Map::new();
@@ -337,16 +288,13 @@ impl Database {
             mapped_rows.filter_map(|r| r.ok()).collect()
         };
 
-        // Cards + SubCards per list
-        for list in &mut lists {
-            let list_id = list["id"].as_str().unwrap_or("").to_string();
-            let mut cards: Vec<Value> = {
-                let mut stmt = conn.prepare(
-                    "SELECT * FROM cards WHERE listId = ?1 ORDER BY \"order\" ASC",
-                )?;
-                let cols: Vec<String> =
-                    stmt.column_names().iter().map(|s| s.to_string()).collect();
-                let mapped_rows = stmt.query_map(params![list_id], |row| {
+        for column in &mut columns {
+            let column_id = column["id"].as_str().unwrap_or("").to_string();
+            let mut tasks: Vec<Value> = {
+                let mut stmt =
+                    conn.prepare("SELECT * FROM tasks WHERE columnId = ?1 ORDER BY \"order\" ASC")?;
+                let cols: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
+                let mapped_rows = stmt.query_map(params![column_id], |row| {
                     let mut obj = serde_json::Map::new();
                     for (i, col) in cols.iter().enumerate() {
                         obj.insert(col.clone(), row_value_to_json(row, i));
@@ -356,15 +304,15 @@ impl Database {
                 mapped_rows.filter_map(|r| r.ok()).collect()
             };
 
-            for card in &mut cards {
-                let card_id = card["id"].as_str().unwrap_or("").to_string();
-                let subcards: Vec<Value> = {
+            for task in &mut tasks {
+                let task_id = task["id"].as_str().unwrap_or("").to_string();
+                let subtasks: Vec<Value> = {
                     let mut stmt = conn.prepare(
-                        "SELECT * FROM subcards WHERE cardId = ?1 ORDER BY createdAt ASC",
+                        "SELECT * FROM subtasks WHERE taskId = ?1 ORDER BY createdAt ASC",
                     )?;
                     let cols: Vec<String> =
                         stmt.column_names().iter().map(|s| s.to_string()).collect();
-                    let mapped_rows = stmt.query_map(params![card_id], |row| {
+                    let mapped_rows = stmt.query_map(params![task_id], |row| {
                         let mut obj = serde_json::Map::new();
                         for (i, col) in cols.iter().enumerate() {
                             obj.insert(col.clone(), row_value_to_json(row, i));
@@ -373,10 +321,10 @@ impl Database {
                     })?;
                     mapped_rows.filter_map(|r| r.ok()).collect()
                 };
-                if let Some(obj) = card.as_object_mut() {
-                    obj.insert("subCards".into(), json!(subcards));
+                if let Some(obj) = task.as_object_mut() {
+                    obj.insert("subtasks".into(), json!(subtasks));
                     // Parse JSON string fields
-                    for field in &["tags", "connectedCardIds", "connectedListIds"] {
+                    for field in &["tags", "connectedTaskIds", "connectedColumnIds"] {
                         if let Some(Value::String(s)) = obj.get(*field) {
                             if let Ok(parsed) = serde_json::from_str::<Value>(s) {
                                 obj.insert(field.to_string(), parsed);
@@ -386,15 +334,14 @@ impl Database {
                 }
             }
 
-            if let Some(list_obj) = list.as_object_mut() {
-                list_obj.insert("cards".into(), json!(cards));
+            if let Some(column_obj) = column.as_object_mut() {
+                column_obj.insert("tasks".into(), json!(tasks));
             }
         }
 
         // Connections
         let connections: Vec<Value> = {
-            let mut stmt =
-                conn.prepare("SELECT * FROM connections WHERE boardId = ?1")?;
+            let mut stmt = conn.prepare("SELECT * FROM connections WHERE boardId = ?1")?;
             let cols: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
             let mut conns: Vec<Value> = stmt
                 .query_map(params![board_id], |row| {
@@ -420,7 +367,7 @@ impl Database {
         };
 
         if let Some(obj) = board.as_object_mut() {
-            obj.insert("lists".into(), json!(lists));
+            obj.insert("columns".into(), json!(columns));
             obj.insert("connections".into(), json!(connections));
         }
 
@@ -453,9 +400,8 @@ impl Database {
 
     pub fn get_unsynced_records(&self) -> Result<Vec<Value>> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT * FROM sync_queue WHERE synced = 0 ORDER BY timestamp ASC",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT * FROM sync_queue WHERE synced = 0 ORDER BY timestamp ASC")?;
         let cols: Vec<String> = stmt.column_names().iter().map(|s| s.to_string()).collect();
         let rows = stmt.query_map([], |row| {
             let mut obj = serde_json::Map::new();
@@ -529,182 +475,311 @@ fn row_value_to_json(row: &rusqlite::Row, i: usize) -> Value {
     Value::Null
 }
 
-fn json_to_sql_string(value: &Value) -> String {
-    match value {
-        Value::String(s) => s.clone(),
-        Value::Null => String::new(),
-        Value::Number(n) => n.to_string(),
-        Value::Bool(b) => if *b { "1".into() } else { "0".into() },
-        other => other.to_string(),
-    }
-}
-
-fn table_exists(conn: &Connection, table: &str) -> Result<bool> {
+fn raw_table_exists(conn: &Connection, table: &str) -> Result<bool> {
     conn.query_row(
         "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
-        params![table],
+        [table],
         |row| row.get(0),
     )
 }
 
-fn column_exists(conn: &Connection, table: &str, column: &str) -> Result<bool> {
-    conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM pragma_table_info(?1) WHERE name = ?2)",
-        params![table, column],
-        |row| row.get(0),
-    )
-}
-
-fn migrate_legacy_schema(conn: &mut Connection) -> Result<()> {
-    let already_migrated: bool = conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE name = 'legacy_naming')",
+fn backup_legacy_database(conn: &Connection) -> Result<()> {
+    let database_path: String = conn.query_row(
+        "SELECT file FROM pragma_database_list WHERE name = 'main'",
         [],
         |row| row.get(0),
     )?;
-    if already_migrated {
+    if database_path.is_empty() {
         return Ok(());
     }
 
-    let has_legacy_boards = column_exists(conn, "boards", "projectId")?
-        && !column_exists(conn, "boards", "dockId")?;
-    let has_legacy_tables = ["workspaces", "projects", "columns", "tasks", "subtasks"]
-        .iter()
-        .try_fold(false, |found, table| {
-            table_exists(conn, table).map(|exists| found || exists)
-        })?;
+    let backup_path = format!("{database_path}.v0-backup-{}.db", now_ms());
+    conn.execute("VACUUM INTO ?1", [backup_path])?;
+    Ok(())
+}
 
-    if !has_legacy_boards && !has_legacy_tables {
-        return Ok(());
+fn json_to_sql_value(value: &Value) -> Option<String> {
+    match value {
+        Value::String(s) => Some(s.clone()),
+        Value::Null => None,
+        Value::Number(n) => Some(n.to_string()),
+        Value::Bool(b) => {
+            if *b {
+                Some("1".into())
+            } else {
+                Some("0".into())
+            }
+        }
+        other => Some(other.to_string()),
+    }
+}
+
+const SCHEMA_VERSION: i64 = 1;
+
+fn migrate_to_v1(tx: &Transaction<'_>) -> Result<()> {
+    for (legacy, canonical) in [
+        ("folders", "workspaces"),
+        ("docks", "projects"),
+        ("lists", "columns"),
+        ("cards", "tasks"),
+        ("subcards", "subtasks"),
+    ] {
+        rename_table(tx, legacy, canonical)?;
     }
 
-    conn.pragma_update(None, "foreign_keys", false)?;
-    let migration = (|| -> Result<()> {
-        let tx = conn.transaction()?;
+    for (table, legacy, canonical) in [
+        ("workspaces", "parentId", "parentWorkspaceId"),
+        ("projects", "folderId", "workspaceId"),
+        ("boards", "dockId", "projectId"),
+        ("tasks", "listId", "columnId"),
+        ("tasks", "connectedCardIds", "connectedTaskIds"),
+        ("tasks", "connectedListIds", "connectedColumnIds"),
+        ("tasks", "subCards", "subtasks"),
+        ("subtasks", "cardId", "taskId"),
+    ] {
+        rename_column(tx, table, legacy, canonical)?;
+    }
 
-        if table_exists(&tx, "workspaces")? {
-            tx.execute_batch(
-                r#"
-                INSERT OR IGNORE INTO folders (id, name, color, parentId, createdAt)
-                SELECT id, name, color, parentWorkspaceId, createdAt FROM workspaces;
-                "#,
-            )?;
+    // Older databases may predate these optional fields.
+    add_column_if_missing(tx, "workspaces", "parentWorkspaceId", "TEXT")?;
+    for column in ["description", "tags", "color"] {
+        add_column_if_missing(tx, "projects", column, "TEXT")?;
+    }
+    for column in ["description", "color", "tags"] {
+        add_column_if_missing(tx, "boards", column, "TEXT")?;
+    }
+
+    tx.execute_batch(
+        "DROP INDEX IF EXISTS idx_cards_list;
+         DROP INDEX IF EXISTS idx_cards_board;
+         DROP INDEX IF EXISTS idx_lists_board;
+         DROP INDEX IF EXISTS idx_boards_dock;
+         DROP INDEX IF EXISTS idx_subcards_card;
+         DROP INDEX IF EXISTS idx_docks_folder;",
+    )?;
+    tx.execute_batch(SCHEMA)?;
+    migrate_pending_sync_queue(tx)?;
+    tx.execute(
+        "UPDATE connections SET type = CASE type
+           WHEN 'card-to-card' THEN 'task-to-task'
+           WHEN 'list-to-list' THEN 'column-to-column'
+           ELSE type END",
+        [],
+    )?;
+    migrate_legacy_default_labels(tx)?;
+    Ok(())
+}
+
+fn migrate_legacy_default_labels(tx: &Transaction<'_>) -> Result<()> {
+    tx.execute(
+        "UPDATE columns SET name = 'Done' WHERE id = 'list-release-shipped'",
+        [],
+    )?;
+    tx.execute(
+        "UPDATE statuses SET name = 'Done'
+         WHERE id IN ('status-roadmap-ready', 'status-release-shipped')",
+        [],
+    )?;
+
+    let mut stmt = tx.prepare("SELECT id, status FROM tasks WHERE status IS NOT NULL")?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<Result<Vec<_>>>()?;
+    drop(stmt);
+
+    for (task_id, raw_status) in rows {
+        let Ok(mut status) = serde_json::from_str::<Value>(&raw_status) else {
+            continue;
+        };
+        let status_id = status.get("id").and_then(Value::as_str).unwrap_or_default();
+        if !matches!(status_id, "status-roadmap-ready" | "status-release-shipped") {
+            continue;
         }
-
-        if table_exists(&tx, "projects")? {
-            tx.execute_batch(
-                r#"
-                INSERT OR IGNORE INTO docks
-                  (id, name, description, folderId, tags, color, createdAt, updatedAt, boardIds)
-                SELECT id, name, description, workspaceId, tags, color, createdAt, updatedAt, boardIds
-                FROM projects;
-                "#,
-            )?;
+        if let Some(object) = status.as_object_mut() {
+            object.insert("name".into(), json!("Done"));
         }
-
-        if has_legacy_boards {
-            tx.execute_batch(
-                r#"
-                CREATE TABLE boards_migration (
-                  id TEXT PRIMARY KEY,
-                  name TEXT NOT NULL,
-                  description TEXT,
-                  dockId TEXT NOT NULL,
-                  color TEXT,
-                  tags TEXT,
-                  createdAt INTEGER NOT NULL,
-                  updatedAt INTEGER NOT NULL,
-                  FOREIGN KEY (dockId) REFERENCES docks(id) ON DELETE CASCADE
-                );
-                INSERT INTO boards_migration
-                  (id, name, description, dockId, color, tags, createdAt, updatedAt)
-                SELECT id, name, description, projectId, color, tags, createdAt, updatedAt
-                FROM boards;
-                DROP TABLE boards;
-                ALTER TABLE boards_migration RENAME TO boards;
-                "#,
-            )?;
-        }
-
-        if table_exists(&tx, "columns")? {
-            tx.execute_batch(
-                r#"
-                INSERT OR IGNORE INTO lists (id, name, boardId, "order", color, createdAt, updatedAt)
-                SELECT id, name, boardId, "order", color, createdAt, updatedAt FROM columns;
-                "#,
-            )?;
-        }
-
-        if table_exists(&tx, "tasks")? {
-            tx.execute_batch(
-                r#"
-                INSERT OR IGNORE INTO cards
-                  (id, title, description, listId, boardId, "order", color, deadline, status,
-                   notes, tags, connectedCardIds, connectedListIds, subCards, createdAt, updatedAt)
-                SELECT id, title, description, columnId, boardId, "order", color, deadline, status,
-                       notes, tags, connectedTaskIds, connectedColumnIds, subtasks, createdAt, updatedAt
-                FROM tasks;
-                "#,
-            )?;
-        }
-
-        if table_exists(&tx, "subtasks")? {
-            tx.execute_batch(
-                r#"
-                INSERT OR IGNORE INTO subcards (id, title, completed, cardId, createdAt)
-                SELECT id, title, completed, taskId, createdAt FROM subtasks;
-                "#,
-            )?;
-        }
-
         tx.execute(
-            "INSERT INTO schema_migrations (name) VALUES ('legacy_naming')",
-            [],
+            "UPDATE tasks SET status = ?1 WHERE id = ?2",
+            params![status.to_string(), task_id],
         )?;
+    }
+    Ok(())
+}
 
-        tx.commit()
-    })();
-    let foreign_keys = conn.pragma_update(None, "foreign_keys", true);
+fn rename_table(tx: &Transaction<'_>, legacy: &str, canonical: &str) -> Result<()> {
+    if table_exists(tx, legacy)? && !table_exists(tx, canonical)? {
+        tx.execute_batch(&format!(
+            "ALTER TABLE \"{legacy}\" RENAME TO \"{canonical}\""
+        ))?;
+    }
+    Ok(())
+}
 
-    migration?;
-    foreign_keys
+fn rename_column(tx: &Transaction<'_>, table: &str, legacy: &str, canonical: &str) -> Result<()> {
+    if table_exists(tx, table)?
+        && column_exists(tx, table, legacy)?
+        && !column_exists(tx, table, canonical)?
+    {
+        tx.execute_batch(&format!(
+            "ALTER TABLE \"{table}\" RENAME COLUMN \"{legacy}\" TO \"{canonical}\""
+        ))?;
+    }
+    Ok(())
+}
+
+fn add_column_if_missing(
+    tx: &Transaction<'_>,
+    table: &str,
+    column: &str,
+    definition: &str,
+) -> Result<()> {
+    if table_exists(tx, table)? && !column_exists(tx, table, column)? {
+        tx.execute_batch(&format!(
+            "ALTER TABLE \"{table}\" ADD COLUMN \"{column}\" {definition}"
+        ))?;
+    }
+    Ok(())
+}
+
+fn table_exists(tx: &Transaction<'_>, table: &str) -> Result<bool> {
+    tx.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
+        [table],
+        |row| row.get(0),
+    )
+}
+
+fn column_exists(tx: &Transaction<'_>, table: &str, column: &str) -> Result<bool> {
+    let mut stmt = tx.prepare(&format!("PRAGMA table_info(\"{table}\")"))?;
+    let mut rows = stmt.query([])?;
+    while let Some(row) = rows.next()? {
+        if row.get::<_, String>(1)? == column {
+            return Ok(true);
+        }
+    }
+    Ok(false)
+}
+
+fn migrate_pending_sync_queue(tx: &Transaction<'_>) -> Result<()> {
+    if !table_exists(tx, "sync_queue")? {
+        return Ok(());
+    }
+
+    let mut stmt = tx.prepare("SELECT id, \"table\", data FROM sync_queue WHERE synced = 0")?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, Option<String>>(2)?,
+            ))
+        })?
+        .collect::<Result<Vec<_>>>()?;
+    drop(stmt);
+
+    for (id, table, data) in rows {
+        let canonical_table = canonical_table_name(&table);
+        let canonical_data = data.map(|raw| match serde_json::from_str::<Value>(&raw) {
+            Ok(mut value) => {
+                canonicalize_payload(&mut value);
+                value.to_string()
+            }
+            Err(_) => raw,
+        });
+        tx.execute(
+            "UPDATE sync_queue SET \"table\" = ?1, data = ?2 WHERE id = ?3",
+            params![canonical_table, canonical_data, id],
+        )?;
+    }
+    Ok(())
+}
+
+fn canonical_table_name(table: &str) -> &str {
+    match table {
+        "folders" => "workspaces",
+        "docks" => "projects",
+        "lists" => "columns",
+        "cards" => "tasks",
+        "subcards" => "subtasks",
+        canonical => canonical,
+    }
+}
+
+fn canonicalize_payload(value: &mut Value) {
+    match value {
+        Value::Array(values) => values.iter_mut().for_each(canonicalize_payload),
+        Value::Object(object) => {
+            let old = std::mem::take(object);
+            for (key, mut value) in old {
+                canonicalize_payload(&mut value);
+                object.insert(canonical_field_name(&key).to_string(), value);
+            }
+        }
+        Value::String(value) => match value.as_str() {
+            "card-to-card" => *value = "task-to-task".into(),
+            "list-to-list" => *value = "column-to-column".into(),
+            _ => {}
+        },
+        _ => {}
+    }
+}
+
+fn canonical_field_name(field: &str) -> &str {
+    match field {
+        "parentId" => "parentWorkspaceId",
+        "folderId" => "workspaceId",
+        "dockId" => "projectId",
+        "listId" => "columnId",
+        "cardId" => "taskId",
+        "connectedCardIds" => "connectedTaskIds",
+        "connectedListIds" => "connectedColumnIds",
+        "folders" => "workspaces",
+        "docks" => "projects",
+        "lists" => "columns",
+        "cards" => "tasks",
+        "subCards" | "subcards" => "subtasks",
+        canonical => canonical,
+    }
 }
 
 const SCHEMA: &str = r#"
-CREATE TABLE IF NOT EXISTS folders (
+CREATE TABLE IF NOT EXISTS workspaces (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   color TEXT,
-  parentId TEXT,
+  parentWorkspaceId TEXT,
   createdAt INTEGER NOT NULL,
-  FOREIGN KEY (parentId) REFERENCES folders(id) ON DELETE CASCADE
+  FOREIGN KEY (parentWorkspaceId) REFERENCES workspaces(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS docks (
+CREATE TABLE IF NOT EXISTS projects (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
-  folderId TEXT,
+  workspaceId TEXT,
   tags TEXT,
   color TEXT,
   createdAt INTEGER NOT NULL,
   updatedAt INTEGER NOT NULL,
   boardIds TEXT,
-  FOREIGN KEY (folderId) REFERENCES folders(id) ON DELETE SET NULL
+  FOREIGN KEY (workspaceId) REFERENCES workspaces(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS boards (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   description TEXT,
-  dockId TEXT NOT NULL,
+  projectId TEXT NOT NULL,
   color TEXT,
   tags TEXT,
   createdAt INTEGER NOT NULL,
   updatedAt INTEGER NOT NULL,
-  FOREIGN KEY (dockId) REFERENCES docks(id) ON DELETE CASCADE
+  FOREIGN KEY (projectId) REFERENCES projects(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS lists (
+CREATE TABLE IF NOT EXISTS columns (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   boardId TEXT NOT NULL,
@@ -715,11 +790,11 @@ CREATE TABLE IF NOT EXISTS lists (
   FOREIGN KEY (boardId) REFERENCES boards(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS cards (
+CREATE TABLE IF NOT EXISTS tasks (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   description TEXT,
-  listId TEXT NOT NULL,
+  columnId TEXT NOT NULL,
   boardId TEXT,
   "order" INTEGER NOT NULL DEFAULT 0,
   color TEXT,
@@ -727,21 +802,21 @@ CREATE TABLE IF NOT EXISTS cards (
   status TEXT,
   notes TEXT,
   tags TEXT,
-  connectedCardIds TEXT,
-  connectedListIds TEXT,
-  subCards TEXT,
+  connectedTaskIds TEXT,
+  connectedColumnIds TEXT,
+  subtasks TEXT,
   createdAt INTEGER NOT NULL,
   updatedAt INTEGER NOT NULL,
-  FOREIGN KEY (listId) REFERENCES lists(id) ON DELETE CASCADE
+  FOREIGN KEY (columnId) REFERENCES columns(id) ON DELETE CASCADE
 );
 
-CREATE TABLE IF NOT EXISTS subcards (
+CREATE TABLE IF NOT EXISTS subtasks (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   completed INTEGER DEFAULT 0,
-  cardId TEXT NOT NULL,
+  taskId TEXT NOT NULL,
   createdAt INTEGER NOT NULL,
-  FOREIGN KEY (cardId) REFERENCES cards(id) ON DELETE CASCADE
+  FOREIGN KEY (taskId) REFERENCES tasks(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS statuses (
@@ -777,10 +852,6 @@ CREATE TABLE IF NOT EXISTS settings (
   updatedAt INTEGER NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS schema_migrations (
-  name TEXT PRIMARY KEY
-);
-
 CREATE TABLE IF NOT EXISTS sync_queue (
   id TEXT PRIMARY KEY,
   operation TEXT NOT NULL,
@@ -791,16 +862,13 @@ CREATE TABLE IF NOT EXISTS sync_queue (
   synced INTEGER DEFAULT 0
 );
 
-"#;
-
-const INDEXES: &str = r#"
-CREATE INDEX IF NOT EXISTS idx_cards_list ON cards(listId);
-CREATE INDEX IF NOT EXISTS idx_cards_board ON cards(boardId);
-CREATE INDEX IF NOT EXISTS idx_lists_board ON lists(boardId);
-CREATE INDEX IF NOT EXISTS idx_boards_dock ON boards(dockId);
-CREATE INDEX IF NOT EXISTS idx_subcards_card ON subcards(cardId);
+CREATE INDEX IF NOT EXISTS idx_tasks_column ON tasks(columnId);
+CREATE INDEX IF NOT EXISTS idx_tasks_board ON tasks(boardId);
+CREATE INDEX IF NOT EXISTS idx_columns_board ON columns(boardId);
+CREATE INDEX IF NOT EXISTS idx_boards_project ON boards(projectId);
+CREATE INDEX IF NOT EXISTS idx_subtasks_task ON subtasks(taskId);
 CREATE INDEX IF NOT EXISTS idx_sync_queue_synced ON sync_queue(synced);
-CREATE INDEX IF NOT EXISTS idx_docks_folder ON docks(folderId);
+CREATE INDEX IF NOT EXISTS idx_projects_workspace ON projects(workspaceId);
 "#;
 
 #[cfg(test)]
@@ -808,86 +876,303 @@ mod tests {
     use super::*;
 
     #[test]
-    fn migrates_legacy_naming_and_relationships() -> Result<()> {
-        let database = Database::new(":memory:")?;
+    fn fresh_database_has_only_the_canonical_schema() -> Result<()> {
+        let db = Database::new(":memory:")?;
+        db.initialize()?;
+
         {
-            let conn = database.conn.lock().unwrap();
+            let conn = db.conn.lock().unwrap();
+            let version: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+            assert_eq!(version, SCHEMA_VERSION);
+
+            for table in [
+                "workspaces",
+                "projects",
+                "boards",
+                "columns",
+                "tasks",
+                "subtasks",
+                "statuses",
+                "connections",
+                "tags",
+                "settings",
+                "sync_queue",
+            ] {
+                assert!(raw_table_exists(&conn, table)?);
+            }
+            for table in ["folders", "docks", "lists", "cards", "subcards"] {
+                assert!(!raw_table_exists(&conn, table)?);
+            }
+
+            assert_eq!(
+                raw_columns(&conn, "workspaces")?,
+                ["id", "name", "color", "parentWorkspaceId", "createdAt"]
+            );
+            assert!(raw_columns(&conn, "projects")?.contains(&"workspaceId".to_string()));
+            assert!(raw_columns(&conn, "boards")?.contains(&"projectId".to_string()));
+            assert!(raw_columns(&conn, "tasks")?.contains(&"columnId".to_string()));
+            assert!(raw_columns(&conn, "subtasks")?.contains(&"taskId".to_string()));
+        }
+
+        db.create(
+            "projects",
+            &json!({"id": "unassigned", "name": "Unassigned", "workspaceId": null}),
+        )?;
+        let conn = db.conn.lock().unwrap();
+        let workspace_id: Option<String> = conn.query_row(
+            "SELECT workspaceId FROM projects WHERE id = 'unassigned'",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(workspace_id, None);
+        Ok(())
+    }
+
+    #[test]
+    fn migrates_legacy_database_transactionally_and_idempotently() -> Result<()> {
+        let db = Database::new(":memory:")?;
+        {
+            let conn = db.conn.lock().unwrap();
+            conn.execute_batch(LEGACY_SCHEMA)?;
             conn.execute_batch(
                 r#"
-                CREATE TABLE workspaces (
-                  id TEXT PRIMARY KEY, name TEXT NOT NULL, color TEXT,
-                  parentWorkspaceId TEXT, createdAt INTEGER NOT NULL
-                );
-                CREATE TABLE projects (
-                  id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT,
-                  workspaceId TEXT, tags TEXT, color TEXT, createdAt INTEGER NOT NULL,
-                  updatedAt INTEGER NOT NULL, boardIds TEXT
-                );
-                CREATE TABLE boards (
-                  id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT,
-                  projectId TEXT NOT NULL, color TEXT, tags TEXT,
-                  createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL
-                );
-                CREATE TABLE columns (
-                  id TEXT PRIMARY KEY, name TEXT NOT NULL, boardId TEXT NOT NULL,
-                  "order" INTEGER NOT NULL, color TEXT, createdAt INTEGER NOT NULL,
-                  updatedAt INTEGER NOT NULL
-                );
-                CREATE TABLE tasks (
-                  id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT,
-                  columnId TEXT NOT NULL, boardId TEXT, "order" INTEGER NOT NULL,
-                  color TEXT, deadline INTEGER, status TEXT, notes TEXT, tags TEXT,
-                  connectedTaskIds TEXT, connectedColumnIds TEXT, subtasks TEXT,
-                  createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL
-                );
-                CREATE TABLE subtasks (
-                  id TEXT PRIMARY KEY, title TEXT NOT NULL, completed INTEGER,
-                  taskId TEXT NOT NULL, createdAt INTEGER NOT NULL
-                );
-
-                INSERT INTO workspaces VALUES ('workspace-1', 'Workspace', '#fff', NULL, 1);
-                INSERT INTO projects VALUES
-                  ('project-1', 'Project', 'Description', 'workspace-1', '[]', '#fff', 1, 2, '["board-1"]');
-                INSERT INTO boards VALUES
-                  ('board-1', 'Board', 'Description', 'project-1', '#fff', '[]', 1, 2);
-                INSERT INTO columns VALUES ('list-1', 'List', 'board-1', 0, '#fff', 1, 2);
-                INSERT INTO tasks VALUES
-                  ('card-1', 'Card', 'Description', 'list-1', 'board-1', 0, '#fff', NULL,
-                   NULL, NULL, '[]', '[]', '[]', '[]', 1, 2);
-                INSERT INTO subtasks VALUES ('subcard-1', 'Subcard', 0, 'card-1', 1);
+                INSERT INTO folders VALUES ('root', 'Root', '#111111', NULL, 100);
+                INSERT INTO folders VALUES ('child', 'Child', '#222222', 'root', 101);
+                INSERT INTO docks VALUES ('assigned', 'Assigned', 'Description', 'child', '["a"]', '#333333', 102, 202, '["board-1"]');
+                INSERT INTO docks VALUES ('unassigned', 'Unassigned', NULL, NULL, NULL, NULL, 103, 203, '[]');
+                INSERT INTO boards VALUES ('board-1', 'Board', 'Board description', 'assigned', '#444444', '["b"]', 104, 204);
+                INSERT INTO lists VALUES ('list-1', 'Todo', 'board-1', 0, '#555555', 105, 205);
+                INSERT INTO cards VALUES ('card-1', 'Task', 'Task description', 'list-1', 'board-1', 0, '#666666', 999, '{"id":"status-release-shipped","name":"Shipped"}', 'Notes', '["tag"]', '["card-2"]', '["list-1"]', '[]', 106, 206);
+                INSERT INTO subcards VALUES ('subcard-1', 'Step', 1, 'card-1', 107);
+                INSERT INTO statuses VALUES ('status-release-shipped', 'Shipped', '#777777', 'board-1', 108, 208);
+                INSERT INTO connections VALUES ('connection-1', 'card-1', 'card-2', 'card-to-card', '[]', 'board-1');
+                INSERT INTO sync_queue VALUES ('pending', 'UPDATE', 'cards', 'card-1', '{"listId":"list-1","connectedCardIds":["card-2"],"subCards":[{"cardId":"card-1"}],"type":"card-to-card"}', 109, 0);
+                INSERT INTO sync_queue VALUES ('synced', 'UPDATE', 'cards', 'card-1', '{"listId":"list-1"}', 110, 1);
                 "#,
             )?;
         }
 
-        database.initialize()?;
-        database.initialize()?;
+        db.initialize()?;
+        db.initialize()?;
 
-        let conn = database.conn.lock().unwrap();
-        let dock_id: String =
-            conn.query_row("SELECT dockId FROM boards WHERE id = 'board-1'", [], |row| {
-                row.get(0)
-            })?;
-        assert_eq!(dock_id, "project-1");
+        {
+            let conn = db.conn.lock().unwrap();
+            for table in ["folders", "docks", "lists", "cards", "subcards"] {
+                assert!(!raw_table_exists(&conn, table)?);
+            }
 
-        for table in ["folders", "docks", "boards", "lists", "cards", "subcards"] {
-            let count: i64 = conn.query_row(
-                &format!("SELECT COUNT(*) FROM {table}"),
+            let parent: Option<String> = conn.query_row(
+                "SELECT parentWorkspaceId FROM workspaces WHERE id = 'child'",
                 [],
                 |row| row.get(0),
             )?;
-            assert_eq!(count, 1, "unexpected row count in {table}");
+            assert_eq!(parent.as_deref(), Some("root"));
+
+            let unassigned: Option<String> = conn.query_row(
+                "SELECT workspaceId FROM projects WHERE id = 'unassigned'",
+                [],
+                |row| row.get(0),
+            )?;
+            assert_eq!(unassigned, None);
+
+            let timestamps: (i64, i64) = conn.query_row(
+                "SELECT createdAt, updatedAt FROM tasks WHERE id = 'card-1'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+            assert_eq!(timestamps, (106, 206));
+            assert_eq!(
+                conn.query_row(
+                    "SELECT projectId FROM boards WHERE id = 'board-1'",
+                    [],
+                    |row| row.get::<_, String>(0)
+                )?,
+                "assigned"
+            );
+            assert_eq!(
+                conn.query_row(
+                    "SELECT taskId FROM subtasks WHERE id = 'subcard-1'",
+                    [],
+                    |row| row.get::<_, String>(0)
+                )?,
+                "card-1"
+            );
+            assert_eq!(
+                conn.query_row(
+                    "SELECT type FROM connections WHERE id = 'connection-1'",
+                    [],
+                    |row| row.get::<_, String>(0)
+                )?,
+                "task-to-task"
+            );
+            assert_eq!(
+                conn.query_row(
+                    "SELECT name FROM statuses WHERE id = 'status-release-shipped'",
+                    [],
+                    |row| row.get::<_, String>(0)
+                )?,
+                "Done"
+            );
+            let migrated_status: String =
+                conn.query_row("SELECT status FROM tasks WHERE id = 'card-1'", [], |row| {
+                    row.get(0)
+                })?;
+            assert_eq!(
+                serde_json::from_str::<Value>(&migrated_status).unwrap()["name"],
+                "Done"
+            );
+            let foreign_key_errors: i64 =
+                conn.query_row("SELECT COUNT(*) FROM pragma_foreign_key_check", [], |row| {
+                    row.get(0)
+                })?;
+            assert_eq!(foreign_key_errors, 0);
+
+            let pending: (String, String) = conn.query_row(
+                "SELECT \"table\", data FROM sync_queue WHERE id = 'pending'",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )?;
+            assert_eq!(pending.0, "tasks");
+            let payload: Value = serde_json::from_str(&pending.1).unwrap();
+            assert_eq!(payload["columnId"], "list-1");
+            assert_eq!(payload["connectedTaskIds"][0], "card-2");
+            assert_eq!(payload["subtasks"][0]["taskId"], "card-1");
+            assert_eq!(payload["type"], "task-to-task");
+            assert!(payload.get("listId").is_none());
+
+            let synced_table: String = conn.query_row(
+                "SELECT \"table\" FROM sync_queue WHERE id = 'synced'",
+                [],
+                |row| row.get(0),
+            )?;
+            assert_eq!(synced_table, "cards");
         }
 
-        conn.execute("DELETE FROM docks WHERE id = 'project-1'", [])?;
-        for table in ["boards", "lists", "cards", "subcards"] {
-            let count: i64 = conn.query_row(
-                &format!("SELECT COUNT(*) FROM {table}"),
-                [],
-                |row| row.get(0),
-            )?;
+        let projects = db.get_projects_with_workspaces()?;
+        let assigned = projects
+            .iter()
+            .find(|project| project["id"] == "assigned")
+            .unwrap();
+        assert_eq!(assigned["workspaceName"], "Child");
+
+        let board = db.get_board_with_details("board-1")?.unwrap();
+        assert_eq!(board["columns"][0]["id"], "list-1");
+        assert_eq!(board["columns"][0]["tasks"][0]["id"], "card-1");
+        assert_eq!(
+            board["columns"][0]["tasks"][0]["subtasks"][0]["id"],
+            "subcard-1"
+        );
+        assert!(board.get("lists").is_none());
+
+        let conn = db.conn.lock().unwrap();
+        conn.execute("DELETE FROM projects WHERE id = 'assigned'", [])?;
+        for table in ["boards", "columns", "tasks", "subtasks"] {
+            let count: i64 =
+                conn.query_row(&format!("SELECT COUNT(*) FROM {table}"), [], |row| {
+                    row.get(0)
+                })?;
             assert_eq!(count, 0, "cascade did not reach {table}");
         }
-
         Ok(())
     }
+
+    #[test]
+    fn development_seed_uses_canonical_records() -> Result<()> {
+        let db = Database::new(":memory:")?;
+        db.initialize()?;
+        db.seed_demo_data(true)?;
+
+        let conn = db.conn.lock().unwrap();
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM projects", [], |row| row
+                .get::<_, i64>(0))?,
+            3
+        );
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM tasks", [], |row| row.get::<_, i64>(0))?,
+            13
+        );
+        assert_eq!(
+            conn.query_row("SELECT COUNT(*) FROM sync_queue", [], |row| row
+                .get::<_, i64>(0))?,
+            0
+        );
+        let unassigned: Option<String> = conn.query_row(
+            "SELECT workspaceId FROM projects WHERE id = 'project-operations'",
+            [],
+            |row| row.get(0),
+        )?;
+        assert_eq!(unassigned, None);
+        Ok(())
+    }
+
+    #[test]
+    fn creates_a_consistent_backup_before_file_migration(
+    ) -> std::result::Result<(), Box<dyn std::error::Error>> {
+        let database_path =
+            std::env::temp_dir().join(format!("shipyard-legacy-migration-{}.db", Uuid::new_v4()));
+        {
+            let connection = Connection::open(&database_path)?;
+            connection.execute_batch(
+                "CREATE TABLE folders (
+                    id TEXT PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    color TEXT,
+                    parentId TEXT,
+                    createdAt INTEGER NOT NULL
+                );
+                INSERT INTO folders VALUES ('workspace-1', 'Original Workspace', NULL, NULL, 100);",
+            )?;
+        }
+
+        let database = Database::new(database_path.to_str().unwrap())?;
+        database.initialize()?;
+
+        let file_name = database_path.file_name().unwrap().to_string_lossy();
+        let backup_prefix = format!("{file_name}.v0-backup-");
+        let backup_path = std::fs::read_dir(database_path.parent().unwrap())?
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.path())
+            .find(|path| {
+                path.file_name()
+                    .map(|name| name.to_string_lossy().starts_with(&backup_prefix))
+                    .unwrap_or(false)
+            })
+            .expect("migration backup was not created");
+
+        let backup = Connection::open(&backup_path)?;
+        assert!(raw_table_exists(&backup, "folders")?);
+        assert_eq!(
+            backup.query_row(
+                "SELECT name FROM folders WHERE id = 'workspace-1'",
+                [],
+                |row| row.get::<_, String>(0)
+            )?,
+            "Original Workspace"
+        );
+
+        drop(backup);
+        drop(database);
+        let _ = std::fs::remove_file(backup_path);
+        let _ = std::fs::remove_file(database_path);
+        Ok(())
+    }
+
+    fn raw_columns(conn: &Connection, table: &str) -> Result<Vec<String>> {
+        let mut stmt = conn.prepare(&format!("PRAGMA table_info(\"{table}\")"))?;
+        let columns = stmt.query_map([], |row| row.get(1))?.collect();
+        columns
+    }
+
+    const LEGACY_SCHEMA: &str = r#"
+        CREATE TABLE folders (id TEXT PRIMARY KEY, name TEXT NOT NULL, color TEXT, parentId TEXT, createdAt INTEGER NOT NULL, FOREIGN KEY (parentId) REFERENCES folders(id) ON DELETE CASCADE);
+        CREATE TABLE docks (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, folderId TEXT, tags TEXT, color TEXT, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, boardIds TEXT, FOREIGN KEY (folderId) REFERENCES folders(id) ON DELETE SET NULL);
+        CREATE TABLE boards (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, dockId TEXT NOT NULL, color TEXT, tags TEXT, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, FOREIGN KEY (dockId) REFERENCES docks(id) ON DELETE CASCADE);
+        CREATE TABLE lists (id TEXT PRIMARY KEY, name TEXT NOT NULL, boardId TEXT NOT NULL, "order" INTEGER NOT NULL DEFAULT 0, color TEXT, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, FOREIGN KEY (boardId) REFERENCES boards(id) ON DELETE CASCADE);
+        CREATE TABLE cards (id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT, listId TEXT NOT NULL, boardId TEXT, "order" INTEGER NOT NULL DEFAULT 0, color TEXT, deadline INTEGER, status TEXT, notes TEXT, tags TEXT, connectedCardIds TEXT, connectedListIds TEXT, subCards TEXT, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, FOREIGN KEY (listId) REFERENCES lists(id) ON DELETE CASCADE);
+        CREATE TABLE subcards (id TEXT PRIMARY KEY, title TEXT NOT NULL, completed INTEGER DEFAULT 0, cardId TEXT NOT NULL, createdAt INTEGER NOT NULL, FOREIGN KEY (cardId) REFERENCES cards(id) ON DELETE CASCADE);
+        CREATE TABLE statuses (id TEXT PRIMARY KEY, name TEXT NOT NULL, color TEXT, boardId TEXT NOT NULL, createdAt INTEGER, updatedAt INTEGER, FOREIGN KEY (boardId) REFERENCES boards(id) ON DELETE CASCADE);
+        CREATE TABLE connections (id TEXT PRIMARY KEY, fromId TEXT NOT NULL, toId TEXT NOT NULL, type TEXT NOT NULL, points TEXT, boardId TEXT NOT NULL, FOREIGN KEY (boardId) REFERENCES boards(id) ON DELETE CASCADE);
+        CREATE TABLE sync_queue (id TEXT PRIMARY KEY, operation TEXT NOT NULL, "table" TEXT NOT NULL, recordId TEXT NOT NULL, data TEXT, timestamp INTEGER NOT NULL, synced INTEGER DEFAULT 0);
+    "#;
 }

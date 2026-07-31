@@ -2,22 +2,22 @@ import React, { useEffect, useRef, useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Calendar, CheckSquare, Link2, FileText } from 'lucide-react'
-import { CardDetailsModal } from './CardDetailsModal'
+import { TaskDetailsModal } from './TaskDetailsModal'
 
-interface CardProps {
-  card: any
+interface TaskProps {
+  task: any
   onUpdate: () => void
   autoOpenId?: string | null
   onAutoOpenComplete?: () => void
 }
 
-export const Card: React.FC<CardProps> = ({ card, onUpdate, autoOpenId, onAutoOpenComplete }) => {
+export const Task: React.FC<TaskProps> = ({ task, onUpdate, autoOpenId, onAutoOpenComplete }) => {
   const [showDetails, setShowDetails] = useState(false)
   const autoOpenedRef = useRef(false)
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: card.id,
-    data: { type: 'card' }
+    id: task.id,
+    data: { type: 'task' }
   })
 
   const style = {
@@ -26,29 +26,33 @@ export const Card: React.FC<CardProps> = ({ card, onUpdate, autoOpenId, onAutoOp
     opacity: isDragging ? 0.4 : 1
   }
 
-  const completedSubCards = card.subCards?.filter((sc: any) => sc.completed)?.length || 0
-  const totalSubCards = card.subCards?.length || 0
-  const tags = typeof card.tags === 'string' ? JSON.parse(card.tags || '[]') : card.tags || []
+  const completedSubtasks = task.subtasks?.filter((subtask: any) => subtask.completed)?.length || 0
+  const totalSubtasks = task.subtasks?.length || 0
+  const tags = typeof task.tags === 'string' ? JSON.parse(task.tags || '[]') : task.tags || []
   const connectedIds =
-    typeof card.connectedCardIds === 'string'
-      ? JSON.parse(card.connectedCardIds || '[]')
-      : card.connectedCardIds || []
+    typeof task.connectedTaskIds === 'string'
+      ? JSON.parse(task.connectedTaskIds || '[]')
+      : task.connectedTaskIds || []
   const status =
-    typeof card.status === 'string' && card.status.startsWith('{')
-      ? JSON.parse(card.status)
-      : card.status
+    typeof task.status === 'string' && task.status.startsWith('{')
+      ? JSON.parse(task.status)
+      : task.status
 
-  const isOverdue = card.deadline && card.deadline < Date.now()
-  const cardColor = card.color || '#2563eb'
+  const isOverdue = task.deadline && task.deadline < Date.now()
+  const taskColor = task.color || '#2563eb'
 
   useEffect(() => {
-    if (!autoOpenId || autoOpenedRef.current) return
-    if (autoOpenId === card.id) {
+    if (!autoOpenId) {
+      autoOpenedRef.current = false
+      return
+    }
+    if (autoOpenedRef.current) return
+    if (autoOpenId === task.id) {
       autoOpenedRef.current = true
       setShowDetails(true)
       onAutoOpenComplete?.()
     }
-  }, [autoOpenId, card.id, onAutoOpenComplete])
+  }, [autoOpenId, task.id, onAutoOpenComplete])
 
   return (
     <>
@@ -56,7 +60,7 @@ export const Card: React.FC<CardProps> = ({ card, onUpdate, autoOpenId, onAutoOp
         ref={setNodeRef}
         style={{
           ...style,
-          borderLeftColor: cardColor,
+          borderLeftColor: taskColor,
           borderLeftWidth: '4px'
         }}
         className="card group"
@@ -65,10 +69,10 @@ export const Card: React.FC<CardProps> = ({ card, onUpdate, autoOpenId, onAutoOp
         {...listeners}
       >
         {/* Top accent line */}
-        {card.color && (
+        {task.color && (
           <div
             className="absolute top-0 left-0 right-0 h-0.5"
-            style={{ background: `linear-gradient(90deg, ${card.color}, transparent)` }}
+            style={{ background: `linear-gradient(90deg, ${task.color}, transparent)` }}
           />
         )}
 
@@ -93,17 +97,17 @@ export const Card: React.FC<CardProps> = ({ card, onUpdate, autoOpenId, onAutoOp
           className="font-black text-sm leading-tight break-words whitespace-pre-wrap"
           style={{
             color: 'var(--color-text)',
-            textDecoration: status?.name === 'Completed' ? 'line-through' : 'none',
-            opacity: status?.name === 'Completed' ? 0.65 : 1
+            textDecoration: status?.name === 'Done' ? 'line-through' : 'none',
+            opacity: status?.name === 'Done' ? 0.65 : 1
           }}
         >
-          {card.title}
+          {task.title}
         </h4>
 
         {/* Description preview */}
-        {card.description && (
+        {task.description && (
           <p className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--color-muted)' }}>
-            {card.description}
+            {task.description}
           </p>
         )}
 
@@ -134,14 +138,14 @@ export const Card: React.FC<CardProps> = ({ card, onUpdate, autoOpenId, onAutoOp
           className="flex items-center gap-3 mt-2 pt-2 border-t"
           style={{ borderColor: 'var(--color-border)' }}
         >
-          {card.deadline && (
+          {task.deadline && (
             <div
               className={`flex items-center gap-1 text-[10px] font-black ${isOverdue ? 'text-red-600' : ''}`}
               style={!isOverdue ? { color: 'var(--color-muted)' } : {}}
             >
               <Calendar className="w-3 h-3" />
               <span>
-                {new Date(card.deadline).toLocaleDateString('en-US', {
+                {new Date(task.deadline).toLocaleDateString('en-US', {
                   month: 'short',
                   day: 'numeric'
                 })}
@@ -149,24 +153,34 @@ export const Card: React.FC<CardProps> = ({ card, onUpdate, autoOpenId, onAutoOp
             </div>
           )}
 
-          {totalSubCards > 0 && (
+          {totalSubtasks > 0 && (
             <div
               className="flex items-center gap-1 text-[10px] font-black"
-              style={{ color: completedSubCards === totalSubCards ? 'var(--color-primary)' : 'var(--color-muted)' }}
+              style={{
+                color:
+                  completedSubtasks === totalSubtasks
+                    ? 'var(--color-primary)'
+                    : 'var(--color-muted)'
+              }}
             >
               <CheckSquare className="w-3 h-3" />
-              <span>{completedSubCards}/{totalSubCards}</span>
+              <span>
+                {completedSubtasks}/{totalSubtasks}
+              </span>
             </div>
           )}
 
           {connectedIds.length > 0 && (
-            <div className="flex items-center gap-1 text-[10px] font-black" style={{ color: 'var(--color-muted)' }}>
+            <div
+              className="flex items-center gap-1 text-[10px] font-black"
+              style={{ color: 'var(--color-muted)' }}
+            >
               <Link2 className="w-3 h-3" />
               <span>{connectedIds.length}</span>
             </div>
           )}
 
-          {card.notes && (
+          {task.notes && (
             <div className="flex items-center text-[10px]" style={{ color: 'var(--color-muted)' }}>
               <FileText className="w-3 h-3" />
             </div>
@@ -175,11 +189,7 @@ export const Card: React.FC<CardProps> = ({ card, onUpdate, autoOpenId, onAutoOp
       </div>
 
       {showDetails && (
-        <CardDetailsModal
-          card={card}
-          onClose={() => setShowDetails(false)}
-          onUpdate={onUpdate}
-        />
+        <TaskDetailsModal task={task} onClose={() => setShowDetails(false)} onUpdate={onUpdate} />
       )}
     </>
   )

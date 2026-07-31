@@ -1,59 +1,64 @@
 import React, { useEffect, useState } from 'react'
 import { Plus, Edit2, Tag, LayoutGrid, Trash2 } from 'lucide-react'
-import { DockCard } from './DockCard'
-import { CreateDockModal } from './CreateDockModel'
-import { Board, Dock } from '@shared/types'
-import { getBoardsByDockId, getDockById } from '../../lib/data'
+import { BoardCard } from './BoardCard'
+import { ProjectModal } from './ProjectModal'
+import { Board, Project } from '@shared/types'
+import { getBoardsByProjectId, getProjectById } from '../../lib/data'
 
-interface DocksListProps {
-  dockId: string
+interface ProjectViewProps {
+  projectId: string
   onSelectBoard: (boardId: string) => void
   searchQuery: string
 }
 
-export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, searchQuery }) => {
-  const [dock, setDock] = useState<Dock | null>(null)
+export const ProjectView: React.FC<ProjectViewProps> = ({
+  projectId,
+  onSelectBoard,
+  searchQuery
+}) => {
+  const [project, setProject] = useState<Project | null>(null)
   const [boards, setBoards] = useState<Board[]>([])
   const [filteredBoards, setFilteredBoards] = useState<Board[]>([])
   const [showCreateBoard, setShowCreateBoard] = useState(false)
-  const [showEditDock, setShowEditDock] = useState(false)
+  const [showEditProject, setShowEditProject] = useState(false)
   const [editingBoard, setEditingBoard] = useState<any>(null)
-  const [contextMenu, setContextMenu] = useState<{ x: number, y: number, boardId: string } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; boardId: string } | null>(
+    null
+  )
 
   useEffect(() => {
     const handleReload = () => loadData()
-    window.addEventListener('reload-docks', handleReload)
+    window.addEventListener('reload-projects', handleReload)
     const handleClick = () => setContextMenu(null)
     const handleContextClick = (e: MouseEvent) => {
       if (e.target instanceof Element && e.target.closest('.context-menu')) return
       setContextMenu(null)
     }
-    
+
     window.addEventListener('click', handleClick)
     window.addEventListener('contextmenu', handleContextClick, { capture: true })
-    
+
     return () => {
-      window.removeEventListener('reload-docks', handleReload)
+      window.removeEventListener('reload-projects', handleReload)
       window.removeEventListener('click', handleClick)
       window.removeEventListener('contextmenu', handleContextClick, { capture: true })
     }
-  }, [dockId]) // dockId isn't really needed for these global listeners but safe to re-bind
+  }, [projectId])
 
   useEffect(() => {
     loadData()
-  }, [dockId])
+  }, [projectId])
 
   useEffect(() => {
     filterBoards()
   }, [boards, searchQuery])
 
   const loadData = async () => {
-    const dockData = await getDockById(dockId)
-    setDock(dockData)
+    const projectData = await getProjectById(projectId)
+    setProject(projectData)
 
-    if (dockData) {
-      const dockBoards = await getBoardsByDockId(dockId)
-      setBoards(dockBoards)
+    if (projectData) {
+      setBoards(await getBoardsByProjectId(projectId))
     }
   }
 
@@ -70,7 +75,7 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
   const handleCreateBoard = async (boardData: any) => {
     const newBoard = {
       ...boardData,
-      dockId,
+      projectId,
       createdAt: Date.now(),
       updatedAt: Date.now()
     }
@@ -78,12 +83,12 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
     try {
       const created = await window.electron.db.create('boards', newBoard)
 
-      if (dock && created && created.id) {
-       const boardIds = Array.isArray(dock.boardIds) ? [...dock.boardIds] : []
-       boardIds.push(created.id)
-       await window.electron.db.update('docks', dockId, {
-         boardIds: JSON.stringify(boardIds),
-         updatedAt: Date.now()
+      if (project && created && created.id) {
+        const boardIds = Array.isArray(project.boardIds) ? [...project.boardIds] : []
+        boardIds.push(created.id)
+        await window.electron.db.update('projects', projectId, {
+          boardIds: JSON.stringify(boardIds),
+          updatedAt: Date.now()
         })
       }
 
@@ -95,13 +100,13 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
     }
   }
 
-  const handleUpdateDock = async (dockData: any) => {
-    await window.electron.db.update('docks', dockId, {
-      ...dockData,
+  const handleUpdateProject = async (projectData: any) => {
+    await window.electron.db.update('projects', projectId, {
+      ...projectData,
       updatedAt: Date.now()
     })
     loadData()
-    setShowEditDock(false)
+    setShowEditProject(false)
   }
 
   const handleUpdateBoard = async (boardData: any) => {
@@ -119,23 +124,26 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
     const boardSnapshot = await window.electron.db.findById('boards', boardIdToDelete)
     if (!boardSnapshot) return
 
-    const allCards = await window.electron.db.findAll('cards')
-    const boardCards = allCards.filter((c: any) => c.boardId === boardIdToDelete)
-    const allSubCards = await window.electron.db.findAll('subcards')
-    const boardSubCards = allSubCards.filter((sc: any) => boardCards.some((c: any) => c.id === sc.cardId))
-    const allLists = await window.electron.db.findAll('lists')
-    const boardLists = allLists.filter((l: any) => l.boardId === boardIdToDelete)
+    const allTasks = await window.electron.db.findAll('tasks')
+    const boardTasks = allTasks.filter((task: any) => task.boardId === boardIdToDelete)
+    const allSubtasks = await window.electron.db.findAll('subtasks')
+    const boardSubtasks = allSubtasks.filter((subtask: any) =>
+      boardTasks.some((task: any) => task.id === subtask.taskId)
+    )
+    const allColumns = await window.electron.db.findAll('columns')
+    const boardColumns = allColumns.filter((column: any) => column.boardId === boardIdToDelete)
 
     // Delete everything
-    for (const card of boardCards) await window.electron.db.delete('cards', card.id)
-    for (const list of boardLists) await window.electron.db.delete('lists', list.id)
+    for (const task of boardTasks) await window.electron.db.delete('tasks', task.id)
+    for (const column of boardColumns) await window.electron.db.delete('columns', column.id)
     await window.electron.db.delete('boards', boardIdToDelete)
 
-    // Also remove from dock.boardIds
-    if (dock) {
-      const boardIds = Array.isArray(dock.boardIds) ? dock.boardIds : []
+    if (project) {
+      const boardIds = Array.isArray(project.boardIds) ? project.boardIds : []
       const newBoardIds = boardIds.filter((id: string) => id !== boardIdToDelete)
-      await window.electron.db.update('docks', dock.id, { boardIds: JSON.stringify(newBoardIds) })
+      await window.electron.db.update('projects', project.id, {
+        boardIds: JSON.stringify(newBoardIds)
+      })
     }
 
     loadData()
@@ -143,16 +151,19 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
     window.dispatchEvent(
       new CustomEvent('show-toast', {
         detail: {
-          message: `Ship "${boardSnapshot.name}" jettisoned`,
+          message: `Board "${boardSnapshot.name}" deleted`,
           onUndo: async () => {
             await window.electron.db.create('boards', boardSnapshot)
-            for (const list of boardLists) await window.electron.db.create('lists', list)
-            for (const card of boardCards) await window.electron.db.create('cards', card)
-            for (const sc of boardSubCards) await window.electron.db.create('subcards', sc)
-            if (dock) {
-              const bIds = Array.isArray(dock.boardIds) ? [...dock.boardIds] : []
+            for (const column of boardColumns) await window.electron.db.create('columns', column)
+            for (const task of boardTasks) await window.electron.db.create('tasks', task)
+            for (const subtask of boardSubtasks)
+              await window.electron.db.create('subtasks', subtask)
+            if (project) {
+              const bIds = Array.isArray(project.boardIds) ? [...project.boardIds] : []
               bIds.push(boardIdToDelete)
-              await window.electron.db.update('docks', dock.id, { boardIds: JSON.stringify(bIds) })
+              await window.electron.db.update('projects', project.id, {
+                boardIds: JSON.stringify(bIds)
+              })
             }
             loadData()
           }
@@ -161,20 +172,20 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
     )
   }
 
-  if (!dock) return null
+  if (!project) return null
 
-  const dockColor = dock.color || '#2563eb'
+  const projectColor = project.color || '#2563eb'
 
-  const tags = dock?.tags || []
+  const tags = project.tags || []
 
   return (
     <div className="space-y-6">
-      {/* Dock header */}
+      {/* Project header */}
       <div
-        className="p-5 border-4"
+        className="surface p-5"
         style={{
-          borderColor: dockColor,
-          boxShadow: `6px 6px 0 ${dockColor}`,
+          borderColor: projectColor,
+          boxShadow: `0 3px 14px ${projectColor}35`,
           background: 'var(--color-surface)'
         }}
       >
@@ -183,31 +194,34 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
             <div className="flex items-center gap-3">
               <div
                 className="w-5 h-5 border-2"
-                style={{ backgroundColor: dockColor, borderColor: 'var(--color-border-strong)' }}
+                style={{ backgroundColor: projectColor, borderColor: 'var(--color-border-strong)' }}
               />
-              <h1 className="text-2xl font-black uppercase tracking-tight" style={{ color: 'var(--color-text)' }}>
-                {dock.name}
+              <h1
+                className="text-2xl font-black uppercase tracking-tight"
+                style={{ color: 'var(--color-text)' }}
+              >
+                {project.name}
               </h1>
               <button
-                onClick={() => setShowEditDock(true)}
-                className="p-1.5 border-2 transition-all duration-100 hover:-translate-x-0.5 hover:-translate-y-0.5"
+                onClick={() => setShowEditProject(true)}
+                className="btn-secondary p-1.5 transition-all duration-150"
                 style={{
                   borderColor: 'var(--color-border)',
                   color: 'var(--color-muted)',
                   boxShadow: 'var(--shadow-brutal-sm)'
                 }}
-                title="Edit dock properties"
+                title="Edit project"
               >
                 <Edit2 className="w-3.5 h-3.5" />
               </button>
             </div>
 
-            {dock.description && (
+            {project.description && (
               <p
                 className="mt-2 text-sm font-bold max-w-2xl"
                 style={{ color: 'var(--color-muted)' }}
               >
-                {dock.description}
+                {project.description}
               </p>
             )}
 
@@ -218,9 +232,9 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
                     key={tag}
                     className="flex items-center gap-1 px-2 py-1 text-xs font-black uppercase tracking-wider border-2"
                     style={{
-                      borderColor: dockColor,
-                      color: dockColor,
-                      background: dockColor + '15'
+                      borderColor: projectColor,
+                      color: projectColor,
+                      background: projectColor + '15'
                     }}
                   >
                     <Tag className="w-2.5 h-2.5" />
@@ -236,17 +250,24 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
             className="btn-primary text-xs uppercase tracking-wider shrink-0"
           >
             <Plus className="w-4 h-4 stroke-[3px]" />
-            Launch Ship
+            Create Board
           </button>
         </div>
 
-        <div className="mt-3 pt-3 border-t-2 flex items-center gap-4" style={{ borderColor: 'var(--color-border)' }}>
+        <div
+          className="mt-3 pt-3 border-t-2 flex items-center gap-4"
+          style={{ borderColor: 'var(--color-border)' }}
+        >
           <span
             className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider px-2 py-1 border-2"
-            style={{ borderColor: dockColor, color: dockColor, background: dockColor + '10' }}
+            style={{
+              borderColor: projectColor,
+              color: projectColor,
+              background: projectColor + '10'
+            }}
           >
             <LayoutGrid className="w-3 h-3" />
-            {filteredBoards.length} Ships
+            {filteredBoards.length} Boards
           </span>
         </div>
       </div>
@@ -254,7 +275,7 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
       {/* Board Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
         {filteredBoards.map((board) => (
-          <DockCard
+          <BoardCard
             key={board.id}
             board={board}
             onClick={() => onSelectBoard(board.id)}
@@ -268,56 +289,59 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
 
         {filteredBoards.length === 0 && (
           <div
-            className="col-span-full py-20 text-center border-4 border-dashed flex flex-col items-center justify-center"
+            className="aero-panel col-span-full py-20 text-center border border-dashed flex flex-col items-center justify-center"
             style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}
           >
             <div
-              className="w-16 h-16 border-4 flex items-center justify-center mb-4"
+              className="w-16 h-16 border flex items-center justify-center mb-4 rounded-md"
               style={{
-                borderColor: dockColor,
-                color: dockColor,
-                boxShadow: `4px 4px 0 ${dockColor}`
+                borderColor: projectColor,
+                color: projectColor,
+                boxShadow: `0 3px 12px ${projectColor}45`
               }}
             >
               <Plus className="w-8 h-8 stroke-[3px]" />
             </div>
-            <h3 className="text-xl font-black uppercase tracking-tight mb-1" style={{ color: 'var(--color-text)' }}>
-              No Ships Docked
+            <h3
+              className="text-xl font-black uppercase tracking-tight mb-1"
+              style={{ color: 'var(--color-text)' }}
+            >
+              No Boards
             </h3>
             <p className="text-sm font-bold" style={{ color: 'var(--color-muted)' }}>
-              Create your first Ship to set sail in this dock
+              Create the first board in this project
             </p>
             <button
               onClick={() => setShowCreateBoard(true)}
               className="btn-primary mt-6 text-xs uppercase tracking-wider"
             >
               <Plus className="w-4 h-4 stroke-[3px]" />
-              Launch Ship
+              Create Board
             </button>
           </div>
         )}
       </div>
 
       {showCreateBoard && (
-        <CreateDockModal
-          title="Launch New Ship"
+        <ProjectModal
+          title="Create Board"
           onClose={() => setShowCreateBoard(false)}
           onCreate={handleCreateBoard}
         />
       )}
 
-      {showEditDock && (
-        <CreateDockModal
-          title="Edit Dock Properties"
-          initialData={dock}
-          onClose={() => setShowEditDock(false)}
-          onCreate={handleUpdateDock}
+      {showEditProject && (
+        <ProjectModal
+          title="Edit Project"
+          initialData={project}
+          onClose={() => setShowEditProject(false)}
+          onCreate={handleUpdateProject}
         />
       )}
 
       {editingBoard && (
-        <CreateDockModal
-          title="Edit Ship Properties"
+        <ProjectModal
+          title="Edit Board"
           initialData={editingBoard}
           onClose={() => setEditingBoard(null)}
           onCreate={handleUpdateBoard}
@@ -332,28 +356,31 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
             top: Math.min(contextMenu.y, window.innerHeight - 150),
             left: Math.min(contextMenu.x, window.innerWidth - 200),
             background: 'var(--color-surface)',
-            border: '3px solid var(--color-border-strong)',
-            boxShadow: '4px 4px 0 var(--color-border-strong)'
+            border: '1px solid var(--color-border-strong)',
+            boxShadow: 'var(--shadow-window)'
           }}
           onClick={(e) => e.stopPropagation()}
         >
           <div
             className="px-4 py-2 text-xs font-black uppercase tracking-widest text-white border-b-2 truncate"
-            style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
+            style={{
+              background: 'var(--color-primary)',
+              borderColor: 'var(--color-border-strong)'
+            }}
           >
-            {boards.find(b => b.id === contextMenu.boardId)?.name || 'Ship'}
+            {boards.find((b) => b.id === contextMenu.boardId)?.name || 'Board'}
           </div>
           <button
             className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold transition hover:bg-primary-soft border-b-2"
             style={{ borderColor: 'var(--color-border)', color: 'var(--color-text)' }}
             onClick={() => {
-              const b = boards.find(b => b.id === contextMenu.boardId)
+              const b = boards.find((b) => b.id === contextMenu.boardId)
               if (b) setEditingBoard(b)
               setContextMenu(null)
             }}
           >
             <Edit2 className="w-4 h-4" />
-            Edit Ship Properties
+            Edit Board
           </button>
           <button
             className="w-full flex items-center gap-2 px-4 py-2 text-xs font-bold transition duration-100 hover:bg-red-50"
@@ -361,7 +388,7 @@ export const DocksList: React.FC<DocksListProps> = ({ dockId, onSelectBoard, sea
             onClick={() => handleDeleteBoard(contextMenu.boardId)}
           >
             <Trash2 className="w-4 h-4" />
-            Jettison Ship
+            Delete Board
           </button>
         </div>
       )}

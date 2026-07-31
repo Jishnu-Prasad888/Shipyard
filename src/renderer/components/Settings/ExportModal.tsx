@@ -1,9 +1,32 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import {
-  X, ChevronRight, ChevronDown, Download, Loader,
-  CheckCircle, XCircle, FileJson, FileText, FileCode,
-  Anchor, Package, Ship, LayoutGrid, Layers
+  CheckCircle,
+  CheckSquare,
+  ChevronDown,
+  ChevronRight,
+  Columns3,
+  Download,
+  FileCode,
+  FileJson,
+  FileText,
+  Folder,
+  FolderKanban,
+  KanbanSquare,
+  Loader,
+  X,
+  XCircle
 } from 'lucide-react'
+import {
+  buildExportContent,
+  ExportData,
+  ExportFormat,
+  ExportSchema,
+  ProjectExportRecord,
+  BoardExportRecord,
+  ColumnExportRecord,
+  TaskExportRecord,
+  WorkspaceExportRecord
+} from '../../lib/export'
 import { useResizableDialog } from '../../hooks/useResizableDialog'
 import { ResizeHandle } from '../common/ResizeHandle'
 
@@ -11,61 +34,20 @@ interface ExportModalProps {
   onClose: () => void
 }
 
-type ExportFormat = 'json' | 'csv' | 'md'
-
-// ── Tri-state for indeterminate checkboxes ──
 type Check = 'all' | 'none' | 'partial'
+type Selection = Record<string, boolean>
 
-interface Port   { id: string; name: string; color: string }
-interface Dock   { id: string; name: string; color: string; folderId?: string | null }
-interface Board  { id: string; name: string; dockId: string }
-interface List   { id: string; name: string; boardId: string }
+const slugify = (value: string): string => value.replace(/[^a-z0-9]/gi, '_').toLowerCase()
+const selectionFor = (rows: Array<{ id: string }>, selected: boolean): Selection =>
+  Object.fromEntries(rows.map((row) => [row.id, selected]))
 
-// ────────────────────────────────────────────
-// Helpers
-// ────────────────────────────────────────────
-const escCsv = (v: any) => {
-  const s = v == null ? '' : String(v)
-  return s.includes(',') || s.includes('"') || s.includes('\n')
-    ? `"${s.replace(/"/g, '""')}"` : s
+const childCheck = (states: Check[], fallback: boolean): Check => {
+  if (!states.length) return fallback ? 'all' : 'none'
+  if (states.every((state) => state === 'all')) return 'all'
+  if (states.every((state) => state === 'none')) return 'none'
+  return 'partial'
 }
 
-const toCSV = (rows: any[]) => {
-  if (!rows.length) return ''
-  const keys = Object.keys(rows[0])
-  return [keys.join(','), ...rows.map(r => keys.map(k => escCsv(r[k])).join(','))].join('\n')
-}
-
-const toMarkdown = (title: string, rows: any[]) => {
-  if (!rows.length) return `## ${title}\n_No data_\n`
-  const keys = Object.keys(rows[0])
-  return [
-    `## ${title}`,
-    `| ${keys.join(' | ')} |`,
-    `| ${keys.map(() => '---').join(' | ')} |`,
-    ...rows.map(r => `| ${keys.map(k => String(r[k] ?? '')).join(' | ')} |`)
-  ].join('\n') + '\n'
-}
-
-const safeParse = (v: any) => {
-  if (!v || typeof v !== 'string') return v
-  try { return JSON.parse(v) } catch { return v }
-}
-
-const slugify = (s: string) => s.replace(/[^a-z0-9]/gi, '_').toLowerCase()
-
-const cleanExportItem = (item: any) => {
-  if (!item) return item
-  const {
-    id, createdAt, updatedAt, folderId, dockId, boardId, listId,
-    boardIds, connectedCardIds, order, _boardName, ...rest
-  } = item
-  return rest
-}
-
-// ────────────────────────────────────────────
-// Tri-state Checkbox component
-// ────────────────────────────────────────────
 const TriCheck: React.FC<{
   state: Check
   onChange: () => void
@@ -75,42 +57,59 @@ const TriCheck: React.FC<{
   expanded?: boolean
   onToggleExpand?: () => void
   count?: string
-}> = ({ state, onChange, label, indent = 0, color, expanded, onToggleExpand, count }) => {
-  const ref = React.useRef<HTMLInputElement>(null)
+  icon?: React.ReactNode
+}> = ({ state, onChange, label, indent = 0, color, expanded, onToggleExpand, count, icon }) => {
+  const inputRef = useRef<HTMLInputElement>(null)
+
   useEffect(() => {
-    if (ref.current) {
-      ref.current.indeterminate = state === 'partial'
-      ref.current.checked = state === 'all'
-    }
+    if (!inputRef.current) return
+    inputRef.current.indeterminate = state === 'partial'
+    inputRef.current.checked = state === 'all'
   }, [state])
 
   return (
     <div
-      className="flex items-center gap-2 py-1.5 px-2 rounded transition-all"
+      className="flex items-center gap-2 px-2 py-1.5 rounded transition-all"
       style={{ paddingLeft: `${8 + indent * 16}px` }}
     >
       {onToggleExpand ? (
-        <button onClick={onToggleExpand} className="w-4 h-4 flex items-center justify-center shrink-0" style={{ color: 'var(--color-muted)' }}>
+        <button
+          onClick={onToggleExpand}
+          className="w-4 h-4 flex items-center justify-center shrink-0"
+          style={{ color: 'var(--color-muted)' }}
+        >
           {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
         </button>
       ) : (
         <span className="w-4 shrink-0" />
       )}
       <input
-        ref={ref}
+        ref={inputRef}
         type="checkbox"
         className="w-3.5 h-3.5 shrink-0 cursor-pointer"
         style={{ accentColor: color || 'var(--color-primary)' }}
         onChange={onChange}
       />
-      {color && (
-        <span className="w-2.5 h-2.5 border shrink-0" style={{ background: color, borderColor: 'var(--color-border-strong)' }} />
+      {color ? (
+        <span
+          className="w-2.5 h-2.5 border shrink-0"
+          style={{ background: color, borderColor: 'var(--color-border-strong)' }}
+        />
+      ) : (
+        icon
       )}
       <span className="text-xs font-bold flex-1 truncate" style={{ color: 'var(--color-text)' }}>
         {label}
       </span>
       {count && (
-        <span className="text-[10px] font-black px-1.5 py-0.5 shrink-0" style={{ color: 'var(--color-muted)', background: 'var(--color-background)', border: '1px solid var(--color-border)' }}>
+        <span
+          className="text-[10px] font-black px-1.5 py-0.5 shrink-0"
+          style={{
+            color: 'var(--color-muted)',
+            background: 'var(--color-background)',
+            border: '1px solid var(--color-border)'
+          }}
+        >
           {count}
         </span>
       )}
@@ -118,351 +117,496 @@ const TriCheck: React.FC<{
   )
 }
 
-// ────────────────────────────────────────────
-// Main ExportModal
-// ────────────────────────────────────────────
 export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
-  const { modalStyle, handleResizeStart, resetSize, shouldIgnoreOverlayClick } = useResizableDialog({
-    storageKey: 'shipyard:modal:export',
-    defaultWidth: 1100,
-    defaultHeight: 760,
-    minWidth: 900,
-    minHeight: 600
+  const { modalStyle, handleResizeStart, resetSize, shouldIgnoreOverlayClick } = useResizableDialog(
+    {
+      storageKey: 'shipyard:modal:export',
+      defaultWidth: 1100,
+      defaultHeight: 760,
+      minWidth: 760,
+      minHeight: 560
+    }
+  )
+
+  const [data, setData] = useState<ExportData>({
+    workspaces: [],
+    projects: [],
+    boards: [],
+    columns: [],
+    tasks: [],
+    subtasks: [],
+    statuses: [],
+    connections: [],
+    tags: []
   })
-
-  // Raw data
-  const [ports,  setPorts]  = useState<Port[]>([])
-  const [docks,  setDocks]  = useState<Dock[]>([])
-  const [boards, setBoards] = useState<Board[]>([])
-  const [lists,  setLists]  = useState<List[]>([])
-  const [allCards, setAllCards] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-
-  // Selection maps  (id → boolean)
-  const [selPorts,  setSelPorts]  = useState<Record<string, boolean>>({})
-  const [selDocks,  setSelDocks]  = useState<Record<string, boolean>>({})
-  const [selBoards, setSelBoards] = useState<Record<string, boolean>>({})
-  const [selLists,  setSelLists]  = useState<Record<string, boolean>>({})
-
-  // Expand state
-  const [expPorts, setExpPorts]   = useState<Record<string, boolean>>({})
-  const [expDocks, setExpDocks]   = useState<Record<string, boolean>>({})
-  const [expBoards, setExpBoards] = useState<Record<string, boolean>>({})
-
-  // Export options
+  const [selectedWorkspaces, setSelectedWorkspaces] = useState<Selection>({})
+  const [selectedProjects, setSelectedProjects] = useState<Selection>({})
+  const [selectedBoards, setSelectedBoards] = useState<Selection>({})
+  const [selectedColumns, setSelectedColumns] = useState<Selection>({})
+  const [selectedTasks, setSelectedTasks] = useState<Selection>({})
+  const [expandedWorkspaces, setExpandedWorkspaces] = useState<Selection>({})
+  const [expandedProjects, setExpandedProjects] = useState<Selection>({})
+  const [expandedBoards, setExpandedBoards] = useState<Selection>({})
+  const [expandedColumns, setExpandedColumns] = useState<Selection>({})
   const [format, setFormat] = useState<ExportFormat>('json')
-  const [splitPerDock, setSplitPerDock] = useState(false)
+  const [schemaVersion, setSchemaVersion] = useState<ExportSchema>(2)
+  const [splitPerProject, setSplitPerProject] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
-  const [result, setResult] = useState<{ ok: boolean; msg: string; path?: string } | null>(null)
+  const [result, setResult] = useState<{ ok: boolean; message: string; path?: string } | null>(null)
 
-  // ── Load data ──
-  const loadAll = useCallback(async () => {
-    setLoading(true)
-    const [f, d, b, l, c] = await Promise.all([
-      window.electron.db.findAll('folders'),
-      window.electron.db.findAll('docks'),
+  useEffect(() => {
+    let active = true
+    void Promise.all([
+      window.electron.db.findAll('workspaces'),
+      window.electron.db.findAll('projects'),
       window.electron.db.findAll('boards'),
-      window.electron.db.findAll('lists'),
-      window.electron.db.findAll('cards')
-    ])
-    setPorts(f);  setDocks(d);  setBoards(b);  setLists(l);  setAllCards(c)
-
-    // Default: select everything
-    const allTrue = (arr: any[]) => Object.fromEntries(arr.map((x: any) => [x.id, true]))
-    setSelPorts(allTrue(f))
-    setSelDocks(allTrue(d))
-    setSelBoards(allTrue(b))
-    setSelLists(allTrue(l))
-
-    // Expand ports & docks by default
-    setExpPorts(allTrue(f))
-    setExpDocks(allTrue(d))
-    setExpBoards(allTrue(b))
-
-    setLoading(false)
+      window.electron.db.findAll('columns'),
+      window.electron.db.findAll('tasks'),
+      window.electron.db.findAll('subtasks'),
+      window.electron.db.findAll('statuses'),
+      window.electron.db.findAll('connections'),
+      window.electron.db.findAll('tags')
+    ]).then(
+      ([workspaces, projects, boards, columns, tasks, subtasks, statuses, connections, tags]) => {
+        if (!active) return
+        setData({
+          workspaces,
+          projects,
+          boards,
+          columns,
+          tasks,
+          subtasks,
+          statuses,
+          connections,
+          tags
+        })
+        setSelectedWorkspaces(selectionFor(workspaces, true))
+        setSelectedProjects(selectionFor(projects, true))
+        setSelectedBoards(selectionFor(boards, true))
+        setSelectedColumns(selectionFor(columns, true))
+        setSelectedTasks(selectionFor(tasks, true))
+        setExpandedWorkspaces(selectionFor(workspaces, true))
+        setExpandedProjects(selectionFor(projects, true))
+        setExpandedBoards(selectionFor(boards, true))
+        setExpandedColumns(selectionFor(columns, true))
+        setLoading(false)
+      }
+    )
+    return () => {
+      active = false
+    }
   }, [])
 
-  useEffect(() => { loadAll() }, [loadAll])
-
-  // ── Propagation helpers ──
-  const docksForPort   = (portId: string | null)   => docks.filter(d => (portId === null ? !d.folderId : d.folderId === portId))
-  const boardsForDock  = (dockId: string)           => boards.filter(b => b.dockId === dockId)
-  const listsForBoard  = (boardId: string)          => lists.filter(l => l.boardId === boardId)
-
-  // Port check state
-  const portCheck = (portId: string | null): Check => {
-    const portDocks = docksForPort(portId)
-    if (!portDocks.length) return selPorts[portId ?? '_uncat'] ? 'all' : 'none'
-    const docksSelected = portDocks.filter(d => dockCheck(d.id) === 'all').length
-    const docksPartial  = portDocks.filter(d => dockCheck(d.id) === 'partial').length
-    if (docksSelected === portDocks.length) return 'all'
-    if (docksSelected === 0 && docksPartial === 0) return 'none'
-    return 'partial'
-  }
-
-  const dockCheck = (dockId: string): Check => {
-    const dockBoards = boardsForDock(dockId)
-    if (!dockBoards.length) return selDocks[dockId] ? 'all' : 'none'
-    const sel = dockBoards.filter(b => boardCheck(b.id) === 'all').length
-    const par = dockBoards.filter(b => boardCheck(b.id) === 'partial').length
-    if (sel === dockBoards.length) return 'all'
-    if (sel === 0 && par === 0) return 'none'
-    return 'partial'
-  }
-
-  const boardCheck = (boardId: string): Check => {
-    const boardLists = listsForBoard(boardId)
-    if (!boardLists.length) return selBoards[boardId] ? 'all' : 'none'
-    const sel = boardLists.filter(l => selLists[l.id]).length
-    if (sel === boardLists.length) return 'all'
-    if (sel === 0) return 'none'
-    return 'partial'
-  }
-
-  // ── Toggle handlers (cascade down) ──
-  const toggleList = (listId: string) =>
-    setSelLists(p => ({ ...p, [listId]: !p[listId] }))
-
-  const toggleBoard = (boardId: string) => {
-    const boardLists = listsForBoard(boardId)
-    const current = boardCheck(boardId)
-    const next = current !== 'all'
-    setSelBoards(p => ({ ...p, [boardId]: next }))
-    setSelLists(p => ({ ...p, ...Object.fromEntries(boardLists.map(l => [l.id, next])) }))
-  }
-
-  const toggleDock = (dockId: string) => {
-    const dockBoards = boardsForDock(dockId)
-    const current = dockCheck(dockId)
-    const next = current !== 'all'
-    setSelDocks(p => ({ ...p, [dockId]: next }))
-    dockBoards.forEach(b => {
-      setSelBoards(p => ({ ...p, [b.id]: next }))
-      const bLists = listsForBoard(b.id)
-      setSelLists(p => ({ ...p, ...Object.fromEntries(bLists.map(l => [l.id, next])) }))
-    })
-  }
-
-  const togglePort = (portId: string | null) => {
-    const portDocks = docksForPort(portId)
-    const current = portCheck(portId)
-    const next = current !== 'all'
-    if (portId) setSelPorts(p => ({ ...p, [portId]: next }))
-    portDocks.forEach(d => toggleDockVal(d.id, next))
-  }
-
-  const toggleDockVal = (dockId: string, next: boolean) => {
-    setSelDocks(p => ({ ...p, [dockId]: next }))
-    boardsForDock(dockId).forEach(b => {
-      setSelBoards(p => ({ ...p, [b.id]: next }))
-      listsForBoard(b.id).forEach(l => {
-        setSelLists(p => ({ ...p, [l.id]: next }))
-      })
-    })
-  }
-
-  // ── Select All / None ──
-  const selectAll = (val: boolean) => {
-    const allTrue = (arr: any[]) => Object.fromEntries(arr.map((x: any) => [x.id, val]))
-    setSelPorts(allTrue(ports))
-    setSelDocks(allTrue(docks))
-    setSelBoards(allTrue(boards))
-    setSelLists(allTrue(lists))
-  }
-
-  // ── Overall check state for header ──
-  const overallCheck = (): Check => {
-    const allSel = lists.every(l => selLists[l.id]) && boards.every(b => selBoards[b.id]) && docks.every(d => selDocks[d.id])
-    const noneSel = lists.every(l => !selLists[l.id]) && boards.every(b => !selBoards[b.id]) && docks.every(d => !selDocks[d.id])
-    if (allSel) return 'all'
-    if (noneSel) return 'none'
-    return 'partial'
-  }
-
-  // ── Build export content ──
-  const buildContent = (
-    dockIds: string[], ext: ExportFormat,
-    listIdsAllowed: Set<string>
-  ) => {
-    const exportDocks = docks.filter(d => dockIds.includes(d.id))
-    const exportBoardIds = new Set(
-      boards.filter(b => dockIds.includes(b.dockId) && selBoards[b.id]).map(b => b.id)
+  const projectsForWorkspace = (workspaceId: string | null): ProjectExportRecord[] =>
+    data.projects.filter((project) =>
+      workspaceId ? project.workspaceId === workspaceId : !project.workspaceId
     )
-    const exportBoards = boards.filter(b => exportBoardIds.has(b.id))
-    const exportLists = lists.filter(l => exportBoardIds.has(l.boardId) && listIdsAllowed.has(l.id))
-    const exportListIds = new Set(exportLists.map(l => l.id))
-    const exportCards = allCards.filter((c: any) => exportListIds.has(c.listId))
+  const boardsForProject = (projectId: string): BoardExportRecord[] =>
+    data.boards.filter((board) => board.projectId === projectId)
+  const columnsForBoard = (boardId: string): ColumnExportRecord[] =>
+    data.columns.filter((column) => column.boardId === boardId)
+  const tasksForColumn = (columnId: string): TaskExportRecord[] =>
+    data.tasks.filter((task) => task.columnId === columnId)
 
-    const cleanedDocks = exportDocks.map(cleanExportItem)
-    const cleanedBoards = exportBoards.map(cleanExportItem)
-    const cleanedLists = exportLists.map(cleanExportItem)
-    
-    const cleanedCards = exportCards.map(c => {
-      const cleaned = cleanExportItem(c)
-      const tags = safeParse(c.tags)
-      if (Array.isArray(tags)) cleaned.tags = tags.map((t: any) => ({ name: t.name, color: t.color }))
-      
-      const subCards = safeParse(c.subCards)
-      if (Array.isArray(subCards)) cleaned.subCards = subCards.map((sc: any) => ({ title: sc.title, completed: sc.completed }))
-      
-      const status = safeParse(c.status)
-      if (status && status.name) cleaned.status = status.name
-      
-      return cleaned
-    })
+  const columnCheck = (columnId: string): Check =>
+    childCheck(
+      tasksForColumn(columnId).map((task) => (selectedTasks[task.id] ? 'all' : 'none')),
+      !!selectedColumns[columnId]
+    )
+  const boardCheck = (boardId: string): Check =>
+    childCheck(
+      columnsForBoard(boardId).map((column) => columnCheck(column.id)),
+      !!selectedBoards[boardId]
+    )
+  const projectCheck = (projectId: string): Check =>
+    childCheck(
+      boardsForProject(projectId).map((board) => boardCheck(board.id)),
+      !!selectedProjects[projectId]
+    )
 
-    if (ext === 'json') {
-      return JSON.stringify({
-        docks: cleanedDocks,
-        ships: cleanedBoards,
-        manifests: cleanedLists.map((l, i) => ({
-          ...l,
-          cargo: cleanedCards.filter((_, idx) => exportCards[idx].listId === exportLists[i].id)
-        }))
-      }, null, 2)
-    }
-    
-    // Format arrays into strings for CSV / Markdown
-    const textCards = cleanedCards.map((c: any) => ({
-      ...c,
-      tags: Array.isArray(c.tags) ? c.tags.map((t: any) => t.name).join(', ') : (c.tags || ''),
-      subCards: Array.isArray(c.subCards) ? c.subCards.map((sc: any) => `${sc.completed ? '[x]' : '[ ]'} ${sc.title}`).join('; ') : (c.subCards || '')
+  const descendantWorkspaces = (workspaceId: string): WorkspaceExportRecord[] => {
+    const children = data.workspaces.filter(
+      (workspace) => workspace.parentWorkspaceId === workspaceId
+    )
+    return children.flatMap((workspace) => [workspace, ...descendantWorkspaces(workspace.id)])
+  }
+
+  const workspaceCheck = (workspaceId: string): Check => {
+    const projectStates = projectsForWorkspace(workspaceId).map((project) =>
+      projectCheck(project.id)
+    )
+    const childStates = data.workspaces
+      .filter((workspace) => workspace.parentWorkspaceId === workspaceId)
+      .map((workspace) => workspaceCheck(workspace.id))
+    return childCheck([...projectStates, ...childStates], !!selectedWorkspaces[workspaceId])
+  }
+
+  const setColumnValue = (columnId: string, value: boolean): void => {
+    setSelectedColumns((previous) => ({ ...previous, [columnId]: value }))
+    setSelectedTasks((previous) => ({
+      ...previous,
+      ...Object.fromEntries(tasksForColumn(columnId).map((task) => [task.id, value]))
     }))
+  }
 
-    if (ext === 'csv') {
-      return [
-        '# DOCKS', toCSV(cleanedDocks), '',
-        '# SHIPS (BOARDS)', toCSV(cleanedBoards), '',
-        '# MANIFESTS (LISTS)', toCSV(cleanedLists), '',
-        '# CARGO (CARDS)', toCSV(textCards)
-      ].join('\n')
-    } else {
-      return [
-        toMarkdown('Docks', cleanedDocks),
-        toMarkdown('Ships (Boards)', cleanedBoards),
-        toMarkdown('Manifests (Lists)', cleanedLists),
-        toMarkdown('Cargo (Cards)', textCards)
-      ].join('\n')
+  const setBoardValue = (boardId: string, value: boolean): void => {
+    setSelectedBoards((previous) => ({ ...previous, [boardId]: value }))
+    const columns = columnsForBoard(boardId)
+    setSelectedColumns((previous) => ({
+      ...previous,
+      ...Object.fromEntries(columns.map((column) => [column.id, value]))
+    }))
+    const columnIds = new Set(columns.map((column) => column.id))
+    setSelectedTasks((previous) => ({
+      ...previous,
+      ...Object.fromEntries(
+        data.tasks.filter((task) => columnIds.has(task.columnId)).map((task) => [task.id, value])
+      )
+    }))
+  }
+
+  const setProjectValue = (projectId: string, value: boolean): void => {
+    setSelectedProjects((previous) => ({ ...previous, [projectId]: value }))
+    const boards = boardsForProject(projectId)
+    const boardIds = new Set(boards.map((board) => board.id))
+    const columns = data.columns.filter((column) => boardIds.has(column.boardId))
+    const columnIds = new Set(columns.map((column) => column.id))
+    setSelectedBoards((previous) => ({
+      ...previous,
+      ...Object.fromEntries(boards.map((board) => [board.id, value]))
+    }))
+    setSelectedColumns((previous) => ({
+      ...previous,
+      ...Object.fromEntries(columns.map((column) => [column.id, value]))
+    }))
+    setSelectedTasks((previous) => ({
+      ...previous,
+      ...Object.fromEntries(
+        data.tasks.filter((task) => columnIds.has(task.columnId)).map((task) => [task.id, value])
+      )
+    }))
+  }
+
+  const setWorkspaceValue = (workspaceId: string, value: boolean): void => {
+    const workspaces = [
+      data.workspaces.find((workspace) => workspace.id === workspaceId),
+      ...descendantWorkspaces(workspaceId)
+    ].filter((workspace): workspace is WorkspaceExportRecord => Boolean(workspace))
+    const workspaceIds = new Set(workspaces.map((workspace) => workspace.id))
+    const projects = data.projects.filter(
+      (project) => !!project.workspaceId && workspaceIds.has(project.workspaceId)
+    )
+    setSelectedWorkspaces((previous) => ({
+      ...previous,
+      ...Object.fromEntries(workspaces.map((workspace) => [workspace.id, value]))
+    }))
+    projects.forEach((project) => setProjectValue(project.id, value))
+  }
+
+  const selectAll = (value: boolean): void => {
+    setSelectedWorkspaces(selectionFor(data.workspaces, value))
+    setSelectedProjects(selectionFor(data.projects, value))
+    setSelectedBoards(selectionFor(data.boards, value))
+    setSelectedColumns(selectionFor(data.columns, value))
+    setSelectedTasks(selectionFor(data.tasks, value))
+  }
+
+  const overallCheck = (): Check =>
+    childCheck(
+      [
+        ...data.workspaces
+          .filter((workspace) => !workspace.parentWorkspaceId)
+          .map((workspace) => workspaceCheck(workspace.id)),
+        ...projectsForWorkspace(null).map((project) => projectCheck(project.id))
+      ],
+      false
+    )
+
+  const selectData = (allowedProjectIds?: Set<string>): ExportData => {
+    const projects = data.projects.filter(
+      (project) =>
+        (!allowedProjectIds || allowedProjectIds.has(project.id)) &&
+        projectCheck(project.id) !== 'none'
+    )
+    const projectIds = new Set(projects.map((project) => project.id))
+    const boards = data.boards.filter(
+      (board) => projectIds.has(board.projectId) && boardCheck(board.id) !== 'none'
+    )
+    const boardIds = new Set(boards.map((board) => board.id))
+    const columns = data.columns.filter(
+      (column) => boardIds.has(column.boardId) && columnCheck(column.id) !== 'none'
+    )
+    const columnIds = new Set(columns.map((column) => column.id))
+    const tasks = data.tasks.filter(
+      (task) => columnIds.has(task.columnId) && selectedTasks[task.id]
+    )
+    const taskIds = new Set(tasks.map((task) => task.id))
+    const subtasks = data.subtasks.filter((subtask) => taskIds.has(subtask.taskId))
+    const workspaceIds = new Set<string>()
+    const includeWorkspaceAncestors = (workspaceId?: string | null): void => {
+      if (!workspaceId || workspaceIds.has(workspaceId)) return
+      workspaceIds.add(workspaceId)
+      includeWorkspaceAncestors(
+        data.workspaces.find((workspace) => workspace.id === workspaceId)?.parentWorkspaceId
+      )
+    }
+    projects.forEach((project) => includeWorkspaceAncestors(project.workspaceId))
+    if (!allowedProjectIds) {
+      data.workspaces
+        .filter(
+          (workspace) => selectedWorkspaces[workspace.id] && workspaceCheck(workspace.id) !== 'none'
+        )
+        .forEach((workspace) => includeWorkspaceAncestors(workspace.id))
+    }
+
+    return {
+      workspaces: data.workspaces.filter((workspace) => workspaceIds.has(workspace.id)),
+      projects: projects.map((project) => ({
+        ...project,
+        boardIds: boards.filter((board) => board.projectId === project.id).map((board) => board.id)
+      })),
+      boards,
+      columns,
+      tasks: tasks.map((task) => ({
+        ...task,
+        connectedTaskIds: parseIds(task.connectedTaskIds).filter((id) => taskIds.has(id)),
+        connectedColumnIds: parseIds(task.connectedColumnIds).filter((id) => columnIds.has(id)),
+        subtasks: subtasks.filter((subtask) => subtask.taskId === task.id)
+      })),
+      subtasks,
+      statuses: data.statuses.filter((status) => boardIds.has(status.boardId)),
+      connections: data.connections.filter(
+        (connection) =>
+          boardIds.has(connection.boardId) &&
+          ((connection.type === 'task-to-task' &&
+            taskIds.has(connection.fromId) &&
+            taskIds.has(connection.toId)) ||
+            (connection.type === 'column-to-column' &&
+              columnIds.has(connection.fromId) &&
+              columnIds.has(connection.toId)))
+      ),
+      tags: data.tags
     }
   }
 
-  // ── Export ──
-  const handleExport = async () => {
+  const handleExport = async (): Promise<void> => {
+    const projectIds = new Set(
+      data.projects
+        .filter((project) => projectCheck(project.id) !== 'none')
+        .map((project) => project.id)
+    )
+    if (!projectIds.size) return
     setExporting(true)
     setResult(null)
     try {
-      const allowedListIds = new Set(lists.filter(l => selLists[l.id]).map(l => l.id))
-      const selectedDockIds = docks.filter(d => selDocks[d.id] || dockCheck(d.id) !== 'none').map(d => d.id)
-
-      if (splitPerDock) {
-        const files = selectedDockIds.map(dockId => {
-          const dock = docks.find(d => d.id === dockId)!
-          return {
-            name: `shipyard-${slugify(dock.name)}`,
+      if (splitPerProject) {
+        const files = data.projects
+          .filter((project) => projectIds.has(project.id))
+          .map((project) => ({
+            name: `shipyard-${slugify(project.name)}`,
             ext: format,
-            content: buildContent([dockId], format, allowedListIds)
-          }
-        })
-        const res = await (window.electron as any).export.saveFolder(files)
-        if (res?.success) {
-          setResult({ ok: true, msg: `Exported ${res.count} file(s) to ${res.folder}`, path: res.folder })
-        } else if (!res?.error) {
-          setResult(null)
-        } else {
-          setResult({ ok: false, msg: res.error })
+            content: buildExportContent(selectData(new Set([project.id])), format, schemaVersion)
+          }))
+        const response = await window.electron.export.saveFolder(files)
+        if (response?.success) {
+          setResult({
+            ok: true,
+            message: `Exported ${response.count} project file(s) to ${response.folder}`,
+            path: response.folder
+          })
+        } else if (response?.error) {
+          setResult({ ok: false, message: response.error })
         }
       } else {
-        const selectedPorts = ports.filter(p => selPorts[p.id])
-        const cleanedPorts = selectedPorts.map(cleanExportItem)
-        const portSection = selectedPorts.length && format === 'json'
-          ? { ports: cleanedPorts } : {}
-
-        const content = JSON.stringify(portSection, null, 2) === '{}'
-          ? buildContent(selectedDockIds, format, allowedListIds)
-          : (() => {
-              const base = JSON.parse(buildContent(selectedDockIds, format, allowedListIds))
-              return JSON.stringify({ ...portSection, ...base }, null, 2)
-            })()
-
-        // For non-JSON, prepend ports section
-        let finalContent = content
-        if (format === 'md' && selectedPorts.length) {
-          finalContent = toMarkdown('Ports', cleanedPorts) + '\n' + content
-        } else if (format === 'csv' && selectedPorts.length) {
-          finalContent = '# PORTS\n' + toCSV(cleanedPorts) + '\n\n' + content
-        }
-
-        const res = await (window.electron as any).export.saveFile({
-          defaultName: 'shipyard-export',
-          content: finalContent,
+        const response = await window.electron.export.saveFile({
+          defaultName: schemaVersion === 2 ? 'shipyard-export' : 'shipyard-export-legacy-v1',
+          content: buildExportContent(selectData(), format, schemaVersion),
           ext: format
         })
-        if (res?.success) {
-          setResult({ ok: true, msg: `Saved to ${res.filePath}`, path: res.filePath })
-        } else if (!res?.error) {
-          setResult(null)
-        } else {
-          setResult({ ok: false, msg: res.error })
+        if (response?.success) {
+          setResult({ ok: true, message: `Saved to ${response.filePath}`, path: response.filePath })
+        } else if (response?.error) {
+          setResult({ ok: false, message: response.error })
         }
       }
-    } catch (err: any) {
-      setResult({ ok: false, msg: err?.message || 'Export failed' })
+    } catch (error) {
+      setResult({ ok: false, message: error instanceof Error ? error.message : 'Export failed' })
     } finally {
       setExporting(false)
     }
   }
 
-  // ── Derived counts ──
-  const selectedDockCount  = docks.filter(d => selDocks[d.id] || dockCheck(d.id) !== 'none').length
-  const selectedBoardCount = boards.filter(b => selBoards[b.id] || boardCheck(b.id) !== 'none').length
-  const selectedListCount  = lists.filter(l => selLists[l.id]).length
-  const selectedCardCount  = allCards.filter((c: any) => selLists[c.listId]).length
+  const selectedProjectCount = data.projects.filter(
+    (project) => projectCheck(project.id) !== 'none'
+  ).length
+  const selectedBoardCount = data.boards.filter((board) => boardCheck(board.id) !== 'none').length
+  const selectedColumnCount = data.columns.filter(
+    (column) => columnCheck(column.id) !== 'none'
+  ).length
+  const selectedTaskCount = data.tasks.filter((task) => selectedTasks[task.id]).length
 
-  // Uncategorized docks (no folder)
-  const uncatDocks = docks.filter(d => !d.folderId)
+  const renderProject = (project: ProjectExportRecord, indent: number): React.ReactNode => {
+    const boards = boardsForProject(project.id)
+    const isExpanded = !!expandedProjects[project.id]
+    return (
+      <div key={project.id}>
+        <TriCheck
+          state={projectCheck(project.id)}
+          onChange={() => setProjectValue(project.id, projectCheck(project.id) !== 'all')}
+          label={project.name}
+          color={project.color}
+          indent={indent}
+          expanded={isExpanded}
+          onToggleExpand={() =>
+            setExpandedProjects((previous) => ({ ...previous, [project.id]: !isExpanded }))
+          }
+          count={`${boards.length} boards`}
+        />
+        {isExpanded &&
+          boards.map((board) => {
+            const columns = columnsForBoard(board.id)
+            const boardExpanded = !!expandedBoards[board.id]
+            return (
+              <div key={board.id}>
+                <TriCheck
+                  state={boardCheck(board.id)}
+                  onChange={() => setBoardValue(board.id, boardCheck(board.id) !== 'all')}
+                  label={board.name}
+                  indent={indent + 1}
+                  icon={<KanbanSquare className="w-3 h-3" />}
+                  expanded={boardExpanded}
+                  onToggleExpand={() =>
+                    setExpandedBoards((previous) => ({ ...previous, [board.id]: !boardExpanded }))
+                  }
+                  count={`${columns.length} columns`}
+                />
+                {boardExpanded &&
+                  columns.map((column) => {
+                    const tasks = tasksForColumn(column.id)
+                    const columnExpanded = !!expandedColumns[column.id]
+                    return (
+                      <div key={column.id}>
+                        <TriCheck
+                          state={columnCheck(column.id)}
+                          onChange={() =>
+                            setColumnValue(column.id, columnCheck(column.id) !== 'all')
+                          }
+                          label={column.name}
+                          indent={indent + 2}
+                          icon={<Columns3 className="w-3 h-3" />}
+                          expanded={columnExpanded}
+                          onToggleExpand={() =>
+                            setExpandedColumns((previous) => ({
+                              ...previous,
+                              [column.id]: !columnExpanded
+                            }))
+                          }
+                          count={`${tasks.length} tasks`}
+                        />
+                        {columnExpanded &&
+                          tasks.map((task) => (
+                            <TriCheck
+                              key={task.id}
+                              state={selectedTasks[task.id] ? 'all' : 'none'}
+                              onChange={() =>
+                                setSelectedTasks((previous) => ({
+                                  ...previous,
+                                  [task.id]: !previous[task.id]
+                                }))
+                              }
+                              label={task.title}
+                              indent={indent + 3}
+                              icon={<CheckSquare className="w-3 h-3" />}
+                            />
+                          ))}
+                      </div>
+                    )
+                  })}
+              </div>
+            )
+          })}
+      </div>
+    )
+  }
 
-  // ────────────────────────────────────────────
-  // Render
-  // ────────────────────────────────────────────
+  const renderWorkspaces = (parentWorkspaceId: string | null = null, indent = 0): React.ReactNode =>
+    data.workspaces
+      .filter((workspace) => (workspace.parentWorkspaceId || null) === parentWorkspaceId)
+      .map((workspace) => {
+        const projects = projectsForWorkspace(workspace.id)
+        const isExpanded = !!expandedWorkspaces[workspace.id]
+        const childCount = data.workspaces.filter(
+          (child) => child.parentWorkspaceId === workspace.id
+        ).length
+        return (
+          <div key={workspace.id}>
+            <TriCheck
+              state={workspaceCheck(workspace.id)}
+              onChange={() =>
+                setWorkspaceValue(workspace.id, workspaceCheck(workspace.id) !== 'all')
+              }
+              label={<span className="font-black">{workspace.name}</span>}
+              color={workspace.color}
+              indent={indent}
+              expanded={isExpanded}
+              onToggleExpand={() =>
+                setExpandedWorkspaces((previous) => ({ ...previous, [workspace.id]: !isExpanded }))
+              }
+              count={`${projects.length} projects`}
+            />
+            {isExpanded && (
+              <>
+                {renderWorkspaces(workspace.id, indent + 1)}
+                {projects.map((project) => renderProject(project, indent + 1))}
+                {!childCount && !projects.length && (
+                  <p className="px-8 py-1 text-[10px] font-bold uppercase text-muted">Empty</p>
+                )}
+              </>
+            )}
+          </div>
+        )
+      })
+
+  const unassignedProjects = projectsForWorkspace(null)
+
   return (
     <div
       className="fixed inset-0 bg-black/70 flex items-center justify-center z-[55]"
       onClick={() => {
-        if (shouldIgnoreOverlayClick()) return
-        onClose()
+        if (!shouldIgnoreOverlayClick()) onClose()
       }}
     >
       <div
-        className="relative w-full flex flex-col animate-brutal-in overflow-hidden"
-        onClick={e => e.stopPropagation()}
+        className="aero-window relative w-full flex flex-col animate-brutal-in overflow-hidden"
+        onClick={(event) => event.stopPropagation()}
         style={{
           ...modalStyle,
           background: 'var(--color-surface)',
-          border: '4px solid var(--color-border-strong)',
-          boxShadow: 'var(--shadow-brutal-lg)'
+          border: '1px solid var(--color-border-strong)',
+          boxShadow: 'var(--shadow-window)'
         }}
       >
-        {/* Header */}
         <div
-          className="flex items-center justify-between px-5 py-3 border-b-4 shrink-0"
+          className="aero-titlebar flex items-center justify-between px-5 py-3 border-b shrink-0"
           style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
         >
-          <div className="flex items-center gap-2">
-            <Download className="w-4 h-4 text-white" />
-            <h2 className="text-base font-black text-white uppercase tracking-wider">Export Data</h2>
-          </div>
-          <button onClick={onClose} className="w-7 h-7 border-2 border-white text-white flex items-center justify-center hover:bg-white/20 transition">
+          <h2 className="flex items-center gap-2 text-base font-black text-white uppercase tracking-wider">
+            <Download className="w-4 h-4" /> Export Data
+          </h2>
+          <button
+            onClick={onClose}
+            className="aero-icon-button w-7 h-7 text-white flex items-center justify-center"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          {/* ── LEFT: tree picker ── */}
           <div
             className="flex-1 overflow-auto border-r-2 flex flex-col"
             style={{ borderColor: 'var(--color-border)' }}
           >
-            {/* Select all bar */}
             <div
               className="flex items-center justify-between px-3 py-2 border-b-2 shrink-0"
               style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)' }}
@@ -470,208 +614,152 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
               <TriCheck
                 state={overallCheck()}
                 onChange={() => selectAll(overallCheck() !== 'all')}
-                label={<span className="font-black uppercase tracking-widest text-[10px]">Select All</span>}
+                label={
+                  <span className="font-black uppercase tracking-widest text-[10px]">
+                    Select All
+                  </span>
+                }
               />
-              <div className="flex gap-2 text-[10px] font-black uppercase tracking-wider" style={{ color: 'var(--color-muted)' }}>
-                <span>{selectedDockCount} docks</span>
-                <span>·</span>
-                <span>{selectedBoardCount} ships</span>
-                <span>·</span>
-                <span>{selectedListCount} manifests</span>
-                <span>·</span>
-                <span>{selectedCardCount} cargo</span>
+              <div
+                className="flex gap-2 text-[10px] font-black uppercase"
+                style={{ color: 'var(--color-muted)' }}
+              >
+                <span>{selectedProjectCount} projects</span>
+                <span>{selectedBoardCount} boards</span>
+                <span>{selectedColumnCount} columns</span>
+                <span>{selectedTaskCount} tasks</span>
               </div>
             </div>
-
             {loading ? (
               <div className="flex-1 flex items-center justify-center">
-                <Loader className="w-6 h-6 animate-spin" style={{ color: 'var(--color-primary)' }} />
+                <Loader className="w-6 h-6 animate-spin" />
               </div>
             ) : (
               <div className="flex-1 overflow-auto py-1">
-
-                {/* ── Ports ── */}
-                {ports.map(port => {
-                  const portDocks = docksForPort(port.id)
-                  const isExpanded = expPorts[port.id]
-                  return (
-                    <div key={port.id}>
-                      <TriCheck
-                        state={portCheck(port.id)}
-                        onChange={() => togglePort(port.id)}
-                        label={<span className="font-black">{port.name}</span>}
-                        color={port.color}
-                        expanded={isExpanded}
-                        onToggleExpand={() => setExpPorts(p => ({ ...p, [port.id]: !p[port.id] }))}
-                        count={`${portDocks.length} docks`}
-                      />
-                      {isExpanded && portDocks.map(dock => (
-                        <DockTree
-                          key={dock.id}
-                          dock={dock}
-                          boards={boardsForDock(dock.id)}
-                          listsForBoard={listsForBoard}
-                          dockCheck={dockCheck}
-                          boardCheck={boardCheck}
-                          selBoards={selBoards}
-                          selLists={selLists}
-                          expDocks={expDocks}
-                          expBoards={expBoards}
-                          setExpDocks={setExpDocks}
-                          setExpBoards={setExpBoards}
-                          toggleDock={toggleDock}
-                          toggleBoard={toggleBoard}
-                          toggleList={toggleList}
-                          indent={1}
-                        />
-                      ))}
-                    </div>
-                  )
-                })}
-
-                {/* ── Uncategorized docks ── */}
-                {uncatDocks.length > 0 && (
-                  <div>
-                    <div className="flex items-center gap-2 px-3 py-1" style={{ color: 'var(--color-muted)' }}>
-                      <Anchor className="w-3 h-3" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Uncategorized</span>
-                    </div>
-                    {uncatDocks.map(dock => (
-                      <DockTree
-                        key={dock.id}
-                        dock={dock}
-                        boards={boardsForDock(dock.id)}
-                        listsForBoard={listsForBoard}
-                        dockCheck={dockCheck}
-                        boardCheck={boardCheck}
-                        selBoards={selBoards}
-                        selLists={selLists}
-                        expDocks={expDocks}
-                        expBoards={expBoards}
-                        setExpDocks={setExpDocks}
-                        setExpBoards={setExpBoards}
-                        toggleDock={toggleDock}
-                        toggleBoard={toggleBoard}
-                        toggleList={toggleList}
-                        indent={1}
-                      />
-                    ))}
+                {renderWorkspaces()}
+                <div className="mt-2">
+                  <div
+                    className="flex items-center gap-2 px-3 py-1"
+                    style={{ color: 'var(--color-muted)' }}
+                  >
+                    <FolderKanban className="w-3 h-3" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">
+                      Unassigned Projects
+                    </span>
                   </div>
-                )}
+                  {unassignedProjects.length ? (
+                    unassignedProjects.map((project) => renderProject(project, 1))
+                  ) : (
+                    <p className="px-8 py-1 text-[10px] font-bold uppercase text-muted">
+                      No unassigned projects
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </div>
 
-          {/* ── RIGHT: options panel ── */}
-          <div className="w-56 shrink-0 flex flex-col overflow-auto p-4 space-y-5" style={{ background: 'var(--color-background)' }}>
-
-            {/* Format */}
+          <div
+            className="w-60 shrink-0 flex flex-col overflow-auto p-4 space-y-5"
+            style={{ background: 'var(--color-background)' }}
+          >
             <div>
-              <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: 'var(--color-muted)' }}>Format</p>
-              <div className="space-y-1">
-                {([
+              <p className="text-[9px] font-black uppercase tracking-widest mb-2">Format</p>
+              {(
+                [
                   ['json', FileJson, 'JSON'],
-                  ['csv',  FileText, 'CSV'],
-                  ['md',   FileCode, 'Markdown']
-                ] as const).map(([fmt, Icon, label]) => (
-                  <button
-                    key={fmt}
-                    onClick={() => setFormat(fmt)}
-                    className="w-full flex items-center gap-2 px-3 py-2 border-2 text-xs font-black uppercase tracking-wider transition-all"
-                    style={{
-                      borderColor: format === fmt ? 'var(--color-primary)' : 'var(--color-border)',
-                      background: format === fmt ? 'var(--color-primary)' : 'var(--color-surface)',
-                      color: format === fmt ? 'white' : 'var(--color-text)',
-                      boxShadow: format === fmt ? 'var(--shadow-brutal-sm)' : 'none'
-                    }}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Options */}
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: 'var(--color-muted)' }}>Options</p>
-              <label className="flex items-start gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={splitPerDock}
-                  onChange={e => setSplitPerDock(e.target.checked)}
-                  className="mt-0.5 w-3.5 h-3.5"
-                  style={{ accentColor: 'var(--color-primary)' }}
-                />
-                <div>
-                  <span className="text-xs font-black block" style={{ color: 'var(--color-text)' }}>Split by Dock</span>
-                  <span className="text-[9px] font-bold" style={{ color: 'var(--color-muted)' }}>
-                    One file per dock — you'll pick a folder
-                  </span>
-                </div>
-              </label>
-            </div>
-
-            {/* Stats summary */}
-            <div className="border-t-2 pt-3 space-y-1.5" style={{ borderColor: 'var(--color-border)' }}>
-              <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: 'var(--color-muted)' }}>Will export</p>
-              {[
-                [Anchor, `${ports.filter(p => selPorts[p.id]).length} Ports`],
-                [Layers, `${selectedDockCount} Docks`],
-                [Ship,   `${selectedBoardCount} Ships`],
-                [LayoutGrid, `${selectedListCount} Manifests`],
-                [Package,    `${selectedCardCount} Cargo items`]
-              ].map(([Icon, label]: any, i) => (
-                <div key={i} className="flex items-center gap-1.5 text-[10px] font-bold" style={{ color: 'var(--color-text)' }}>
-                  <Icon className="w-3 h-3 shrink-0" style={{ color: 'var(--color-primary)' }} />
-                  {label}
-                </div>
+                  ['csv', FileText, 'CSV'],
+                  ['md', FileCode, 'Markdown']
+                ] as const
+              ).map(([value, Icon, label]) => (
+                <button
+                  key={value}
+                  onClick={() => setFormat(value)}
+                  className="btn-secondary w-full flex items-center gap-2 px-3 py-2 mb-1 text-xs"
+                  style={{
+                    borderColor: format === value ? 'var(--color-primary)' : 'var(--color-border)',
+                    color: format === value ? 'var(--color-primary)' : 'var(--color-text)'
+                  }}
+                >
+                  <Icon className="w-3.5 h-3.5" /> {label}
+                </button>
               ))}
             </div>
-
-            {/* Export button */}
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-widest mb-2">Schema</p>
+              <select
+                value={schemaVersion}
+                onChange={(event) => setSchemaVersion(Number(event.target.value) as ExportSchema)}
+                className="aero-input w-full px-2 py-2 text-xs font-semibold"
+              >
+                <option value={2}>Canonical v2</option>
+                <option value={1}>Legacy v1</option>
+              </select>
+            </div>
+            <label className="flex items-start gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={splitPerProject}
+                onChange={(event) => setSplitPerProject(event.target.checked)}
+              />
+              <span className="text-xs font-black">
+                Split per project
+                <small className="block text-muted font-bold">One shipyard file per project</small>
+              </span>
+            </label>
+            <div
+              className="border-t-2 pt-3 space-y-1 text-[10px] font-bold"
+              style={{ borderColor: 'var(--color-border)' }}
+            >
+              <p className="font-black uppercase">Will export</p>
+              <p>
+                <Folder className="w-3 h-3 inline mr-1" />
+                {selectedProjectCount} Projects
+              </p>
+              <p>
+                <KanbanSquare className="w-3 h-3 inline mr-1" />
+                {selectedBoardCount} Boards
+              </p>
+              <p>
+                <Columns3 className="w-3 h-3 inline mr-1" />
+                {selectedColumnCount} Columns
+              </p>
+              <p>
+                <CheckSquare className="w-3 h-3 inline mr-1" />
+                {selectedTaskCount} Tasks
+              </p>
+            </div>
             <button
               onClick={handleExport}
-              disabled={exporting || selectedDockCount === 0}
-              className="w-full flex items-center justify-center gap-2 py-3 border-2 font-black text-xs uppercase tracking-wider transition-all duration-100 disabled:opacity-40 mt-auto"
-              style={{
-                borderColor: 'var(--color-primary)',
-                color: 'var(--color-primary)',
-                background: 'var(--color-primary)15',
-                boxShadow: '3px 3px 0 var(--color-primary)'
-              }}
-              onMouseOver={e => { if (!exporting) e.currentTarget.style.transform = 'translate(-2px,-2px)' }}
-              onMouseOut={e => { e.currentTarget.style.transform = '' }}
+              disabled={exporting || selectedProjectCount === 0}
+              className="btn-primary w-full text-xs disabled:opacity-40 mt-auto"
             >
-              {exporting ? <Loader className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              {exporting ? 'Exporting…' : 'Export'}
+              {exporting ? (
+                <Loader className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              {exporting ? 'Exporting...' : 'Export'}
             </button>
-
-            {/* Feedback */}
             {result && (
               <div
-                className="flex flex-col gap-2 p-3 border-2 text-[10px] font-bold animate-brutal-in mt-4"
-                style={{
-                  borderColor: result.ok ? '#059669' : '#dc2626',
-                  background: result.ok ? '#05966910' : '#dc262610',
-                  color: result.ok ? '#059669' : '#dc2626'
-                }}
+                className="aero-panel p-3 text-[10px] font-semibold"
+                style={{ color: result.ok ? '#059669' : '#dc2626' }}
               >
                 <div className="flex items-start gap-1.5">
-                  {result.ok ? <CheckCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" /> : <XCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />}
-                  <span className="break-all leading-tight">{result.msg}</span>
+                  {result.ok ? (
+                    <CheckCircle className="w-3.5 h-3.5" />
+                  ) : (
+                    <XCircle className="w-3.5 h-3.5" />
+                  )}
+                  <span className="break-all">{result.message}</span>
                 </div>
                 {result.ok && result.path && (
                   <button
-                    onClick={() => (window.electron as any).export.openItem(result.path)}
-                    className="self-start mt-1 px-3 py-1.5 border-2 text-[9px] font-black uppercase tracking-widest transition-transform hover:-translate-y-0.5"
-                    style={{
-                      borderColor: '#059669',
-                      color: '#059669',
-                      background: '#05966920'
-                    }}
+                    onClick={() => window.electron.export.openItem(result.path!)}
+                    className="mt-2 underline font-black uppercase"
                   >
-                    Open {splitPerDock ? 'Folder' : 'File'}
+                    Open {splitPerProject ? 'Folder' : 'File'}
                   </button>
                 )}
               </div>
@@ -685,69 +773,13 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
   )
 }
 
-// ── DockTree sub-component ──
-const DockTree: React.FC<{
-  dock: Dock
-  boards: Board[]
-  listsForBoard: (boardId: string) => List[]
-  dockCheck: (id: string) => Check
-  boardCheck: (id: string) => Check
-  selBoards: Record<string, boolean>
-  selLists: Record<string, boolean>
-  expDocks: Record<string, boolean>
-  expBoards: Record<string, boolean>
-  setExpDocks: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
-  setExpBoards: React.Dispatch<React.SetStateAction<Record<string, boolean>>>
-  toggleDock: (id: string) => void
-  toggleBoard: (id: string) => void
-  toggleList: (id: string) => void
-  indent: number
-}> = ({
-  dock, boards, listsForBoard,
-  dockCheck, boardCheck, selLists,
-  expDocks, expBoards, setExpDocks, setExpBoards,
-  toggleDock, toggleBoard, toggleList,
-  indent
-}) => {
-  const isExpanded = expDocks[dock.id]
-  return (
-    <div>
-      <TriCheck
-        state={dockCheck(dock.id)}
-        onChange={() => toggleDock(dock.id)}
-        label={dock.name}
-        color={dock.color}
-        indent={indent}
-        expanded={isExpanded}
-        onToggleExpand={() => setExpDocks(p => ({ ...p, [dock.id]: !p[dock.id] }))}
-        count={`${boards.length} ships`}
-      />
-      {isExpanded && boards.map(board => {
-        const boardLists = listsForBoard(board.id)
-        const isBoardExpanded = expBoards[board.id]
-        return (
-          <div key={board.id}>
-            <TriCheck
-              state={boardCheck(board.id)}
-              onChange={() => toggleBoard(board.id)}
-              label={board.name}
-              indent={indent + 1}
-              expanded={isBoardExpanded}
-              onToggleExpand={() => setExpBoards(p => ({ ...p, [board.id]: !p[board.id] }))}
-              count={`${boardLists.length} manifests`}
-            />
-            {isBoardExpanded && boardLists.map(list => (
-              <TriCheck
-                key={list.id}
-                state={selLists[list.id] ? 'all' : 'none'}
-                onChange={() => toggleList(list.id)}
-                label={list.name}
-                indent={indent + 2}
-              />
-            ))}
-          </div>
-        )
-      })}
-    </div>
-  )
+const parseIds = (value: unknown): string[] => {
+  if (Array.isArray(value)) return value.map(String)
+  if (typeof value !== 'string') return []
+  try {
+    const parsed = JSON.parse(value)
+    return Array.isArray(parsed) ? parsed.map(String) : []
+  } catch {
+    return []
+  }
 }

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Calendar, Tag, CheckSquare, Link2, Plus, Trash2, Search, RotateCcw } from 'lucide-react'
 import { MarkdownEditor } from './MarkdownEditor'
-import { SubCard } from './SubCard'
 import { useResizableDialog } from '../../hooks/useResizableDialog'
 import { ResizeHandle } from '../common/ResizeHandle'
+import { Subtask } from './Subtask'
 
-interface CardDetailsModalProps {
-  card: any
+interface TaskDetailsModalProps {
+  task: any
   onClose: () => void
   onUpdate: () => void
 }
@@ -24,9 +24,9 @@ const PRESET_COLORS = [
 
 // Default statuses seeded for every board
 const DEFAULT_STATUSES = [
-  { id: '__yet_to_start__', name: 'Yet to Start', color: '#6b7280', isDefault: true },
-  { id: '__working__', name: 'Working', color: '#f59e0b', isDefault: true },
-  { id: '__completed__', name: 'Completed', color: '#ef4444', isDefault: true }
+  { id: '__todo__', name: 'To Do', color: '#6b7280', isDefault: true },
+  { id: '__in_progress__', name: 'In Progress', color: '#f59e0b', isDefault: true },
+  { id: '__done__', name: 'Done', color: '#10b981', isDefault: true }
 ]
 
 interface StatusModalProps {
@@ -35,13 +35,15 @@ interface StatusModalProps {
 }
 
 const StatusModal: React.FC<StatusModalProps> = ({ onClose, onCreate }) => {
-  const { modalStyle, handleResizeStart, resetSize, shouldIgnoreOverlayClick } = useResizableDialog({
-    storageKey: 'shipyard:modal:status',
-    defaultWidth: 380,
-    defaultHeight: 320,
-    minWidth: 320,
-    minHeight: 260
-  })
+  const { modalStyle, handleResizeStart, resetSize, shouldIgnoreOverlayClick } = useResizableDialog(
+    {
+      storageKey: 'shipyard:modal:status',
+      defaultWidth: 380,
+      defaultHeight: 320,
+      minWidth: 320,
+      minHeight: 260
+    }
+  )
 
   const [name, setName] = useState('')
   const [color, setColor] = useState(PRESET_COLORS[0])
@@ -63,23 +65,23 @@ const StatusModal: React.FC<StatusModalProps> = ({ onClose, onCreate }) => {
       }}
     >
       <div
-        className="relative w-full animate-brutal-in overflow-hidden"
+        className="aero-window relative w-full animate-brutal-in overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         style={{
           ...modalStyle,
           background: 'var(--color-surface)',
-          border: '3px solid var(--color-border-strong)',
-          boxShadow: 'var(--shadow-brutal)'
+          border: '1px solid var(--color-border-strong)',
+          boxShadow: 'var(--shadow-window)'
         }}
       >
         <div
-          className="flex items-center justify-between px-4 py-3 border-b-2"
+          className="aero-titlebar flex items-center justify-between px-4 py-3 border-b"
           style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
         >
           <h3 className="text-sm font-black text-white uppercase tracking-wider">New Status</h3>
           <button
             onClick={onClose}
-            className="w-6 h-6 border-2 border-white text-white flex items-center justify-center hover:bg-white/20"
+            className="aero-icon-button w-6 h-6 text-white flex items-center justify-center"
           >
             <X className="w-3 h-3" />
           </button>
@@ -94,7 +96,7 @@ const StatusModal: React.FC<StatusModalProps> = ({ onClose, onCreate }) => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-              className="w-full px-3 py-2 border-2 text-sm font-bold focus:outline-none"
+              className="aero-input w-full px-3 py-2 text-sm font-semibold focus:outline-none"
               style={{
                 borderColor: 'var(--color-border-strong)',
                 background: 'var(--color-background)',
@@ -115,8 +117,10 @@ const StatusModal: React.FC<StatusModalProps> = ({ onClose, onCreate }) => {
                   style={{
                     backgroundColor: c,
                     borderColor: color === c ? 'var(--color-border-strong)' : 'transparent',
-                    boxShadow: color === c ? '2px 2px 0 var(--color-border-strong)' : 'none',
-                    transform: color === c ? 'translate(-1px,-1px)' : 'none'
+                    boxShadow:
+                      color === c
+                        ? '0 0 0 2px var(--color-surface), 0 0 0 3px var(--color-border-strong)'
+                        : 'inset 0 1px 0 rgba(255,255,255,.45)'
                   }}
                 />
               ))}
@@ -142,75 +146,76 @@ const StatusModal: React.FC<StatusModalProps> = ({ onClose, onCreate }) => {
   )
 }
 
-export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClose, onUpdate }) => {
-  const { modalStyle, handleResizeStart, resetSize, shouldIgnoreOverlayClick } = useResizableDialog({
-    storageKey: 'shipyard:modal:card-details',
-    defaultWidth: 1120,
-    defaultHeight: 780,
-    minWidth: 900,
-    minHeight: 620
-  })
+export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClose, onUpdate }) => {
+  const { modalStyle, handleResizeStart, resetSize, shouldIgnoreOverlayClick } = useResizableDialog(
+    {
+      storageKey: 'shipyard:modal:task-details',
+      defaultWidth: 1120,
+      defaultHeight: 780,
+      minWidth: 900,
+      minHeight: 620
+    }
+  )
 
-  const [title, setTitle] = useState(card.title)
-  const [description, setDescription] = useState(card.description || '')
+  const [title, setTitle] = useState(task.title)
+  const [description, setDescription] = useState(task.description || '')
   const [deadlineStr, setDeadlineStr] = useState(
-    card.deadline ? new Date(card.deadline).toISOString().split('T')[0] : ''
+    task.deadline ? new Date(task.deadline).toISOString().split('T')[0] : ''
   )
   const [status, setStatus] = useState<any>(
-    typeof card.status === 'string' && card.status.startsWith('{')
-      ? JSON.parse(card.status)
-      : card.status || null
+    typeof task.status === 'string' && task.status.startsWith('{')
+      ? JSON.parse(task.status)
+      : task.status || null
   )
-  const [color, setColor] = useState(card.color || '')
+  const [color, setColor] = useState(task.color || '')
   const [tags, setTags] = useState<any[]>(
-    typeof card.tags === 'string' ? JSON.parse(card.tags || '[]') : card.tags || []
+    typeof task.tags === 'string' ? JSON.parse(task.tags || '[]') : task.tags || []
   )
-  const [subCards, setSubCards] = useState<any[]>(card.subCards || [])
-  const [notes, setNotes] = useState(card.notes || '')
+  const [subtasks, setSubtasks] = useState<any[]>(task.subtasks || [])
+  const [notes, setNotes] = useState(task.notes || '')
   const [availableStatuses, setAvailableStatuses] = useState<any[]>([])
   const [newTagName, setNewTagName] = useState('')
-  const [newSubCardTitle, setNewSubCardTitle] = useState('')
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('')
   const [showStatusModal, setShowStatusModal] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [dockTagSuggestions, setDockTagSuggestions] = useState<any[]>([])
+  const [projectTagSuggestions, setProjectTagSuggestions] = useState<any[]>([])
   const [showTagSuggestions, setShowTagSuggestions] = useState(false)
 
   // Refs for autosave
-  const lastSavedSubCards = useRef<any[]>(card.subCards || [])
+  const lastSavedSubtasks = useRef<any[]>(task.subtasks || [])
   const isInitialRender = useRef(true)
   const initialState = useRef({
-    title: card.title,
-    description: card.description || '',
-    deadlineStr: card.deadline ? new Date(card.deadline).toISOString().split('T')[0] : '',
+    title: task.title,
+    description: task.description || '',
+    deadlineStr: task.deadline ? new Date(task.deadline).toISOString().split('T')[0] : '',
     status:
-      typeof card.status === 'string' && card.status.startsWith('{')
-        ? JSON.parse(card.status)
-        : card.status || null,
-    color: card.color || '',
-    tags: typeof card.tags === 'string' ? JSON.parse(card.tags || '[]') : card.tags || [],
-    subCards: card.subCards || [],
-    notes: card.notes || '',
-    connectedCardIds:
-      typeof card.connectedCardIds === 'string'
-        ? JSON.parse(card.connectedCardIds || '[]')
-        : card.connectedCardIds || []
+      typeof task.status === 'string' && task.status.startsWith('{')
+        ? JSON.parse(task.status)
+        : task.status || null,
+    color: task.color || '',
+    tags: typeof task.tags === 'string' ? JSON.parse(task.tags || '[]') : task.tags || [],
+    subtasks: task.subtasks || [],
+    notes: task.notes || '',
+    connectedTaskIds:
+      typeof task.connectedTaskIds === 'string'
+        ? JSON.parse(task.connectedTaskIds || '[]')
+        : task.connectedTaskIds || []
   })
 
-  // Card linking state
-  const [connectedCardIds, setConnectedCardIds] = useState<string[]>(
-    typeof card.connectedCardIds === 'string'
-      ? JSON.parse(card.connectedCardIds || '[]')
-      : card.connectedCardIds || []
+  const [connectedTaskIds, setConnectedTaskIds] = useState<string[]>(
+    typeof task.connectedTaskIds === 'string'
+      ? JSON.parse(task.connectedTaskIds || '[]')
+      : task.connectedTaskIds || []
   )
   const [showLinkSearch, setShowLinkSearch] = useState(false)
-  const [allCards, setAllCards] = useState<any[]>([])
+  const [allTasks, setAllTasks] = useState<any[]>([])
   const [linkSearchQuery, setLinkSearchQuery] = useState('')
-  const [connectedCardDetails, setConnectedCardDetails] = useState<any[]>([])
+  const [connectedTaskDetails, setConnectedTaskDetails] = useState<any[]>([])
 
   useEffect(() => {
     loadStatuses()
-    loadConnectedCards()
-    loadDockTagSuggestions()
+    loadConnectedTasks()
+    loadProjectTagSuggestions()
   }, [])
 
   // Debounced autosave
@@ -223,12 +228,12 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
       syncToDb(false)
     }, 1000)
     return () => clearTimeout(timer)
-  }, [title, description, deadlineStr, status, color, tags, notes, connectedCardIds, subCards])
+  }, [title, description, deadlineStr, status, color, tags, notes, connectedTaskIds, subtasks])
 
   const loadStatuses = async () => {
     const dbStatuses = await window.electron.db.findAll('statuses')
     const boardStatuses = dbStatuses
-      .filter((s: any) => s.boardId === card.boardId)
+      .filter((s: any) => s.boardId === task.boardId)
       .map((s: any) => ({
         ...s,
         isDefault: s.isDefault ?? false
@@ -237,46 +242,52 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
     setAvailableStatuses([...DEFAULT_STATUSES, ...boardStatuses])
   }
 
-  const loadDockTagSuggestions = async () => {
-    // Find the dock this card belongs to (via its board)
-    const currentBoard = await window.electron.db.findById('boards', card.boardId)
-    const dockId = currentBoard?.dockId
+  const loadProjectTagSuggestions = async () => {
+    const currentBoard = await window.electron.db.findById('boards', task.boardId)
+    const projectId = currentBoard?.projectId
     const allBoards = await window.electron.db.findAll('boards')
-    const allCards = await window.electron.db.findAll('cards')
+    const allTasks = await window.electron.db.findAll('tasks')
 
-    let relevantCards: any[]
-    if (dockId) {
-      const dockBoardIds = new Set(
-        allBoards.filter((b: any) => b.dockId === dockId).map((b: any) => b.id)
+    let relevantTasks: any[]
+    if (projectId) {
+      const projectBoardIds = new Set(
+        allBoards
+          .filter((board: any) => board.projectId === projectId)
+          .map((board: any) => board.id)
       )
-      relevantCards = allCards.filter((c: any) => dockBoardIds.has(c.boardId) && c.id !== card.id)
+      relevantTasks = allTasks.filter(
+        (candidate: any) => projectBoardIds.has(candidate.boardId) && candidate.id !== task.id
+      )
     } else {
-      relevantCards = allCards.filter((c: any) => c.boardId === card.boardId && c.id !== card.id)
+      relevantTasks = allTasks.filter(
+        (candidate: any) => candidate.boardId === task.boardId && candidate.id !== task.id
+      )
     }
 
-    // Collect all unique tags (by name) from those cards
     const tagMap = new Map<string, any>()
-    for (const c of relevantCards) {
-      const cardTags = typeof c.tags === 'string' ? JSON.parse(c.tags || '[]') : c.tags || []
-      for (const t of cardTags) {
+    for (const candidate of relevantTasks) {
+      const taskTags =
+        typeof candidate.tags === 'string'
+          ? JSON.parse(candidate.tags || '[]')
+          : candidate.tags || []
+      for (const t of taskTags) {
         if (t.name && !tagMap.has(t.name.toLowerCase())) {
           tagMap.set(t.name.toLowerCase(), t)
         }
       }
     }
-    setDockTagSuggestions(Array.from(tagMap.values()))
+    setProjectTagSuggestions(Array.from(tagMap.values()))
   }
 
-  const loadConnectedCards = async () => {
+  const loadConnectedTasks = async () => {
     const ids =
-      typeof card.connectedCardIds === 'string'
-        ? JSON.parse(card.connectedCardIds || '[]')
-        : card.connectedCardIds || []
+      typeof task.connectedTaskIds === 'string'
+        ? JSON.parse(task.connectedTaskIds || '[]')
+        : task.connectedTaskIds || []
 
     if (ids.length > 0) {
-      // Resolve the current card's dock
-      const currentBoard = await window.electron.db.findById('boards', card.boardId)
-      const dockId = currentBoard?.dockId
+      const currentBoard = await window.electron.db.findById('boards', task.boardId)
+      const projectId = currentBoard?.projectId
       const allBoards = await window.electron.db.findAll('boards')
       const boardMap: Record<string, string> = {}
       allBoards.forEach((b: any) => {
@@ -284,23 +295,25 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
       })
 
       const details = await Promise.all(
-        ids.map((id: string) => window.electron.db.findById('cards', id))
+        ids.map((id: string) => window.electron.db.findById('tasks', id))
       )
 
       let filtered = details.filter((d: any) => d != null)
 
-      if (dockId) {
-        const dockBoardIds = new Set(
-          allBoards.filter((b: any) => b.dockId === dockId).map((b: any) => b.id)
+      if (projectId) {
+        const projectBoardIds = new Set(
+          allBoards
+            .filter((board: any) => board.projectId === projectId)
+            .map((board: any) => board.id)
         )
-        filtered = filtered.filter((d: any) => dockBoardIds.has(d.boardId))
+        filtered = filtered.filter((detail: any) => projectBoardIds.has(detail.boardId))
       } else {
-        filtered = filtered.filter((d: any) => d.boardId === card.boardId)
+        filtered = filtered.filter((detail: any) => detail.boardId === task.boardId)
       }
 
       // Attach board name for display
       filtered = filtered.map((d: any) => ({ ...d, _boardName: boardMap[d.boardId] || '' }))
-      setConnectedCardDetails(filtered)
+      setConnectedTaskDetails(filtered)
     }
   }
 
@@ -309,8 +322,8 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
     async (closeAfter: boolean) => {
       setIsSaving(true)
       try {
-        const updatedCard = {
-          ...card,
+        const updatedTask = {
+          ...task,
           title,
           description,
           deadline: deadlineStr ? new Date(deadlineStr).getTime() : null,
@@ -318,49 +331,49 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
           color,
           tags: JSON.stringify(tags),
           notes,
-          connectedCardIds: JSON.stringify(connectedCardIds),
+          connectedTaskIds: JSON.stringify(connectedTaskIds),
           updatedAt: Date.now()
         }
-        delete updatedCard.subCards // Don't store in cards text column
+        delete updatedTask.subtasks
 
-        // Sync subcards against last known saved state
-        const oldSubCards = lastSavedSubCards.current
+        const oldSubtasks = lastSavedSubtasks.current
 
-        // Delete removed subcards
-        for (const oldSc of oldSubCards) {
-          if (!subCards.find((sc: any) => sc.id === oldSc.id)) {
-            await window.electron.db.delete('subcards', oldSc.id)
+        for (const oldSubtask of oldSubtasks) {
+          if (!subtasks.find((subtask: any) => subtask.id === oldSubtask.id)) {
+            await window.electron.db.delete('subtasks', oldSubtask.id)
           }
         }
 
-        // Create or update subcards
-        for (const sc of subCards) {
-          const oldSc = oldSubCards.find((o: any) => o.id === sc.id)
-          if (!oldSc) {
-            await window.electron.db.create('subcards', {
-              id: sc.id,
-              title: sc.title,
-              completed: sc.completed ? 1 : 0,
-              cardId: card.id,
-              createdAt: sc.createdAt || Date.now()
+        for (const subtask of subtasks) {
+          const oldSubtask = oldSubtasks.find((candidate: any) => candidate.id === subtask.id)
+          if (!oldSubtask) {
+            await window.electron.db.create('subtasks', {
+              id: subtask.id,
+              title: subtask.title,
+              completed: subtask.completed ? 1 : 0,
+              taskId: task.id,
+              createdAt: subtask.createdAt || Date.now()
             })
-          } else if (oldSc.completed !== sc.completed || oldSc.title !== sc.title) {
-            await window.electron.db.update('subcards', sc.id, {
-              title: sc.title,
-              completed: sc.completed ? 1 : 0
+          } else if (
+            oldSubtask.completed !== subtask.completed ||
+            oldSubtask.title !== subtask.title
+          ) {
+            await window.electron.db.update('subtasks', subtask.id, {
+              title: subtask.title,
+              completed: subtask.completed ? 1 : 0
             })
           }
         }
 
-        await window.electron.db.update('cards', card.id, updatedCard)
-        lastSavedSubCards.current = subCards
+        await window.electron.db.update('tasks', task.id, updatedTask)
+        lastSavedSubtasks.current = subtasks
         onUpdate()
         if (closeAfter) onClose()
       } finally {
         setIsSaving(false)
       }
     },
-    [title, description, deadlineStr, status, color, tags, notes, connectedCardIds, subCards]
+    [title, description, deadlineStr, status, color, tags, notes, connectedTaskIds, subtasks]
   )
 
   const handleSave = () => syncToDb(true)
@@ -375,13 +388,13 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
     setStatus(s.status)
     setColor(s.color)
     setTags(s.tags)
-    setSubCards(s.subCards)
+    setSubtasks(s.subtasks)
     setNotes(s.notes)
-    setConnectedCardIds(s.connectedCardIds)
+    setConnectedTaskIds(s.connectedTaskIds)
 
     // Revert DB (Silently sync the initial state back)
-    const revertedCard = {
-      ...card,
+    const revertedTask = {
+      ...task,
       title: s.title,
       description: s.description,
       deadline: s.deadlineStr ? new Date(s.deadlineStr).getTime() : null,
@@ -389,36 +402,35 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
       color: s.color,
       tags: JSON.stringify(s.tags),
       notes: s.notes,
-      connectedCardIds: JSON.stringify(s.connectedCardIds),
+      connectedTaskIds: JSON.stringify(s.connectedTaskIds),
       updatedAt: Date.now()
     }
-    delete revertedCard.subCards
+    delete revertedTask.subtasks
 
-    // Revert subcards in DB
-    const currentSubCards = subCards
+    const currentSubtasks = subtasks
     // Delete ones that didn't exist originally
-    for (const sc of currentSubCards) {
-      if (!s.subCards.find((orig: any) => orig.id === sc.id)) {
-        await window.electron.db.delete('subcards', sc.id)
+    for (const subtask of currentSubtasks) {
+      if (!s.subtasks.find((original: any) => original.id === subtask.id)) {
+        await window.electron.db.delete('subtasks', subtask.id)
       }
     }
     // Re-create/Update ones that did exist
-    for (const orig of s.subCards) {
-      const match = currentSubCards.find((sc: any) => sc.id === orig.id)
+    for (const original of s.subtasks) {
+      const match = currentSubtasks.find((subtask: any) => subtask.id === original.id)
       if (!match) {
         // Was deleted, re-create
-        await window.electron.db.create('subcards', orig)
-      } else if (match.completed !== orig.completed || match.title !== orig.title) {
+        await window.electron.db.create('subtasks', original)
+      } else if (match.completed !== original.completed || match.title !== original.title) {
         // Was changed, update back
-        await window.electron.db.update('subcards', orig.id, {
-          title: orig.title,
-          completed: orig.completed ? 1 : 0
+        await window.electron.db.update('subtasks', original.id, {
+          title: original.title,
+          completed: original.completed ? 1 : 0
         })
       }
     }
 
-    await window.electron.db.update('cards', card.id, revertedCard)
-    lastSavedSubCards.current = s.subCards
+    await window.electron.db.update('tasks', task.id, revertedTask)
+    lastSavedSubtasks.current = s.subtasks
     onUpdate()
     onClose()
   }
@@ -452,36 +464,36 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
     setTags(tags.filter((t: any) => t.id !== tagId))
   }
 
-  const handleAddSubCard = () => {
-    if (newSubCardTitle.trim()) {
-      const newSubCard = {
+  const handleAddSubtask = () => {
+    if (newSubtaskTitle.trim()) {
+      const newSubtask = {
         id: Date.now().toString(),
-        title: newSubCardTitle,
+        title: newSubtaskTitle,
         completed: false,
-        cardId: card.id,
+        taskId: task.id,
         createdAt: Date.now()
       }
-      setSubCards([...subCards, newSubCard])
-      setNewSubCardTitle('')
+      setSubtasks([...subtasks, newSubtask])
+      setNewSubtaskTitle('')
     }
   }
 
-  const handleToggleSubCard = async (subCardId: string) => {
-    const updatedSubCards = subCards.map((sc: any) =>
-      sc.id === subCardId ? { ...sc, completed: !sc.completed } : sc
+  const handleToggleSubtask = async (subtaskId: string) => {
+    const updatedSubtasks = subtasks.map((subtask: any) =>
+      subtask.id === subtaskId ? { ...subtask, completed: !subtask.completed } : subtask
     )
-    setSubCards(updatedSubCards)
+    setSubtasks(updatedSubtasks)
   }
 
-  const handleDeleteSubCard = async (subCardId: string) => {
-    setSubCards(subCards.filter((sc: any) => sc.id !== subCardId))
+  const handleDeleteSubtask = async (subtaskId: string) => {
+    setSubtasks(subtasks.filter((subtask: any) => subtask.id !== subtaskId))
   }
 
   const handleCreateStatus = async (name: string, color: string) => {
     const newStatus = {
       name,
       color,
-      boardId: card.boardId,
+      boardId: task.boardId,
       isDefault: false
     }
     const created = await window.electron.db.create('statuses', newStatus)
@@ -504,14 +516,15 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
       return
     }
 
-    // Find all cards that use this status (by matching the status id)
-    const allCards = await window.electron.db.findAll('cards')
-    const affectedCards = allCards.filter((c: any) => {
-      const cardStatus =
-        typeof c.status === 'string' && c.status.startsWith('{') ? JSON.parse(c.status) : c.status
-      return cardStatus && cardStatus.id === statusToDelete.id
+    const allTasks = await window.electron.db.findAll('tasks')
+    const affectedTasks = allTasks.filter((candidate: any) => {
+      const taskStatus =
+        typeof candidate.status === 'string' && candidate.status.startsWith('{')
+          ? JSON.parse(candidate.status)
+          : candidate.status
+      return taskStatus && taskStatus.id === statusToDelete.id
     })
-    const affectedCardIds = affectedCards.map((c: any) => c.id)
+    const affectedTaskIds = affectedTasks.map((candidate: any) => candidate.id)
 
     // Update local state immediately
     if (status?.id === statusToDelete.id) setStatus(null)
@@ -522,8 +535,8 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
       // Only delete from DB if it's a custom status
       await window.electron.db.delete('statuses', statusToDelete.id)
     }
-    for (const cardId of affectedCardIds) {
-      await window.electron.db.update('cards', cardId, { status: null })
+    for (const taskId of affectedTaskIds) {
+      await window.electron.db.update('tasks', taskId, { status: null })
     }
 
     // Show toast with safe undo
@@ -537,20 +550,18 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
                 // Re-create the status in DB
                 statusSnapshot = await window.electron.db.create('statuses', statusSnapshot)
               }
-              // Restore status on previously affected cards
-              for (const cardId of affectedCardIds) {
-                await window.electron.db.update('cards', cardId, {
+              for (const taskId of affectedTaskIds) {
+                await window.electron.db.update('tasks', taskId, {
                   status: JSON.stringify(statusSnapshot)
                 })
               }
-              // If the current card was affected, update its local status
-              if (affectedCardIds.includes(card.id)) {
+              if (affectedTaskIds.includes(task.id)) {
                 setStatus(statusSnapshot)
               }
               // Refresh the entire status list to ensure consistency
               const freshStatuses = await window.electron.db.findAll('statuses')
               const boardFreshStatuses = freshStatuses
-                .filter((s: any) => s.boardId === card.boardId)
+                .filter((s: any) => s.boardId === task.boardId)
                 .map((s: any) => ({ ...s, isDefault: s.isDefault ?? false }))
               // Merge with DEFAULT_STATUSES, making sure we don't duplicate if a default was re-added
               const merged = [...DEFAULT_STATUSES, ...boardFreshStatuses].filter(
@@ -591,23 +602,23 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
     )
   }
 
-  const handleDeleteCard = async () => {
+  const handleDeleteTask = async () => {
     // Capture state for undo
-    const cardSnapshot = await window.electron.db.findById('cards', card.id)
-    const allSubCards = await window.electron.db.findAll('subcards')
-    const cardSubCards = allSubCards.filter((sc: any) => sc.cardId === card.id)
+    const taskSnapshot = await window.electron.db.findById('tasks', task.id)
+    const allSubtasks = await window.electron.db.findAll('subtasks')
+    const taskSubtasks = allSubtasks.filter((subtask: any) => subtask.taskId === task.id)
 
-    await window.electron.db.delete('cards', card.id)
+    await window.electron.db.delete('tasks', task.id)
 
     // Trigger toast via custom event
     window.dispatchEvent(
       new CustomEvent('show-toast', {
         detail: {
-          message: `Card "${title}" deleted`,
+          message: `Task "${title}" deleted`,
           onUndo: async () => {
-            await window.electron.db.create('cards', cardSnapshot)
-            for (const sc of cardSubCards) {
-              await window.electron.db.create('subcards', sc)
+            await window.electron.db.create('tasks', taskSnapshot)
+            for (const subtask of taskSubtasks) {
+              await window.electron.db.create('subtasks', subtask)
             }
             onUpdate()
           }
@@ -619,13 +630,12 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
     onClose()
   }
 
-  // Card linking - only within the same dock
+  // Task linking is scoped to the current project.
   const handleOpenLinkSearch = async () => {
-    // Step 1: find the dock this card's board belongs to
-    const currentBoard = await window.electron.db.findById('boards', card.boardId)
-    const dockId = currentBoard?.dockId
+    const currentBoard = await window.electron.db.findById('boards', task.boardId)
+    const projectId = currentBoard?.projectId
 
-    const allCards = await window.electron.db.findAll('cards')
+    const allTasks = await window.electron.db.findAll('tasks')
     const allBoards = await window.electron.db.findAll('boards')
     const boardMap: Record<string, string> = {}
     allBoards.forEach((b: any) => {
@@ -634,112 +644,119 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
 
     let filtered: any[]
 
-    if (dockId) {
-      const dockBoardIds = new Set(
-        allBoards.filter((b: any) => b.dockId === dockId).map((b: any) => b.id)
+    if (projectId) {
+      const projectBoardIds = new Set(
+        allBoards
+          .filter((board: any) => board.projectId === projectId)
+          .map((board: any) => board.id)
       )
-      filtered = allCards.filter(
-        (c: any) =>
-          dockBoardIds.has(c.boardId) && c.id !== card.id && !connectedCardIds.includes(c.id)
+      filtered = allTasks.filter(
+        (candidate: any) =>
+          projectBoardIds.has(candidate.boardId) &&
+          candidate.id !== task.id &&
+          !connectedTaskIds.includes(candidate.id)
       )
     } else {
-      filtered = allCards.filter(
-        (c: any) =>
-          c.boardId === card.boardId && c.id !== card.id && !connectedCardIds.includes(c.id)
+      filtered = allTasks.filter(
+        (candidate: any) =>
+          candidate.boardId === task.boardId &&
+          candidate.id !== task.id &&
+          !connectedTaskIds.includes(candidate.id)
       )
     }
 
     // Attach board name for display
     filtered = filtered.map((c: any) => ({ ...c, _boardName: boardMap[c.boardId] || '' }))
 
-    setAllCards(filtered)
+    setAllTasks(filtered)
     setShowLinkSearch(true)
   }
 
-  const handleLinkCard = async (targetCardId: string) => {
-    const newConnectedIds = [...connectedCardIds, targetCardId]
-    setConnectedCardIds(newConnectedIds)
+  const handleLinkTask = async (targetTaskId: string) => {
+    const newConnectedIds = [...connectedTaskIds, targetTaskId]
+    setConnectedTaskIds(newConnectedIds)
 
-    // Also add reverse connection on the target card
-    const targetCard = await window.electron.db.findById('cards', targetCardId)
-    if (targetCard) {
+    const targetTask = await window.electron.db.findById('tasks', targetTaskId)
+    if (targetTask) {
       const targetConnected =
-        typeof targetCard.connectedCardIds === 'string'
-          ? JSON.parse(targetCard.connectedCardIds || '[]')
-          : targetCard.connectedCardIds || []
-      if (!targetConnected.includes(card.id)) {
-        targetConnected.push(card.id)
-        await window.electron.db.update('cards', targetCardId, {
-          connectedCardIds: JSON.stringify(targetConnected),
+        typeof targetTask.connectedTaskIds === 'string'
+          ? JSON.parse(targetTask.connectedTaskIds || '[]')
+          : targetTask.connectedTaskIds || []
+      if (!targetConnected.includes(task.id)) {
+        targetConnected.push(task.id)
+        await window.electron.db.update('tasks', targetTaskId, {
+          connectedTaskIds: JSON.stringify(targetConnected),
           updatedAt: Date.now()
         })
       }
     }
 
     // Update connected details
-    const detail = await window.electron.db.findById('cards', targetCardId)
+    const detail = await window.electron.db.findById('tasks', targetTaskId)
     if (detail) {
-      setConnectedCardDetails([...connectedCardDetails, detail])
+      setConnectedTaskDetails([...connectedTaskDetails, detail])
     }
 
     // Remove from available list
-    setAllCards(allCards.filter((c: any) => c.id !== targetCardId))
+    setAllTasks(allTasks.filter((candidate: any) => candidate.id !== targetTaskId))
     setShowLinkSearch(false)
     setLinkSearchQuery('')
   }
 
-  const handleUnlinkCard = async (targetCardId: string) => {
-    const newConnectedIds = connectedCardIds.filter((id) => id !== targetCardId)
-    setConnectedCardIds(newConnectedIds)
-    setConnectedCardDetails(connectedCardDetails.filter((c: any) => c.id !== targetCardId))
+  const handleUnlinkTask = async (targetTaskId: string) => {
+    const newConnectedIds = connectedTaskIds.filter((id) => id !== targetTaskId)
+    setConnectedTaskIds(newConnectedIds)
+    setConnectedTaskDetails(
+      connectedTaskDetails.filter((candidate: any) => candidate.id !== targetTaskId)
+    )
 
     // Remove reverse connection
-    const targetCard = await window.electron.db.findById('cards', targetCardId)
-    if (targetCard) {
+    const targetTask = await window.electron.db.findById('tasks', targetTaskId)
+    if (targetTask) {
       const targetConnected =
-        typeof targetCard.connectedCardIds === 'string'
-          ? JSON.parse(targetCard.connectedCardIds || '[]')
-          : targetCard.connectedCardIds || []
-      const filtered = targetConnected.filter((id: string) => id !== card.id)
-      await window.electron.db.update('cards', targetCardId, {
-        connectedCardIds: JSON.stringify(filtered),
+        typeof targetTask.connectedTaskIds === 'string'
+          ? JSON.parse(targetTask.connectedTaskIds || '[]')
+          : targetTask.connectedTaskIds || []
+      const filtered = targetConnected.filter((id: string) => id !== task.id)
+      await window.electron.db.update('tasks', targetTaskId, {
+        connectedTaskIds: JSON.stringify(filtered),
         updatedAt: Date.now()
       })
     }
   }
 
-  const filteredLinkCards = allCards.filter((c: any) =>
-    c.title.toLowerCase().includes(linkSearchQuery.toLowerCase())
+  const filteredLinkTasks = allTasks.filter((candidate: any) =>
+    candidate.title.toLowerCase().includes(linkSearchQuery.toLowerCase())
   )
 
-  const completedCount = subCards.filter((sc: any) => sc.completed).length
+  const completedCount = subtasks.filter((subtask: any) => subtask.completed).length
 
   const currentStatus = availableStatuses.find(
     (s) => s.id === (status?.id || '') || s.name === status?.name
   )
 
-    return (
-      <>
+  return (
+    <>
+      <div
+        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+        onClick={() => {
+          if (shouldIgnoreOverlayClick()) return
+          onClose()
+        }}
+      >
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-          onClick={() => {
-            if (shouldIgnoreOverlayClick()) return
-            onClose()
-          }}
-        >
-        <div
-          className="relative w-full surface rounded-xl flex flex-col overflow-hidden"
+          className="aero-window relative w-full surface flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
           style={modalStyle}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border">
+          <div className="aero-titlebar flex items-center justify-between p-4 border-b border-border">
             <textarea
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="text-xl font-bold bg-transparent border-none focus:outline-none focus:ring-2 focus:ring-primary rounded px-2 flex-1 resize-none overflow-hidden break-words whitespace-pre-wrap leading-tight py-2"
+              className="text-xl font-semibold text-white bg-transparent border-none focus:outline-none px-2 flex-1 resize-none overflow-hidden break-words whitespace-pre-wrap leading-tight py-2"
               rows={1}
-              placeholder="Card title"
+              placeholder="Task title"
               onInput={(e) => {
                 e.currentTarget.style.height = 'auto'
                 e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px'
@@ -751,20 +768,20 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
                 }
               }}
               style={
-                currentStatus?.id === '__completed__'
+                currentStatus?.id === '__done__'
                   ? { textDecoration: 'line-through', opacity: 0.7 }
                   : {}
               }
             />
             <div className="flex items-center gap-2">
               <button
-                onClick={handleDeleteCard}
-                className="p-2 rounded-lg hover:bg-alert/10 text-muted hover:text-alert transition"
-                title="Delete card"
+                onClick={handleDeleteTask}
+                className="aero-icon-button p-2 text-white hover:text-alert transition"
+                title="Delete task"
               >
                 <Trash2 className="w-5 h-5" />
               </button>
-              <button onClick={onClose} className="p-2 rounded-lg hover:bg-primary-soft transition">
+              <button onClick={onClose} className="aero-icon-button p-2 text-white transition">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -781,59 +798,59 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:border-primary"
+                    className="aero-input w-full px-3 py-2 bg-surface text-text focus:outline-none"
                     rows={4}
                     placeholder="Add a description..."
                   />
                 </div>
 
-                {/* Subcards */}
+                {/* Subtasks */}
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="font-medium">
                       Subtasks{' '}
-                      {subCards.length > 0 && (
+                      {subtasks.length > 0 && (
                         <span className="text-sm text-muted font-normal">
-                          ({completedCount}/{subCards.length})
+                          ({completedCount}/{subtasks.length})
                         </span>
                       )}
                     </h3>
                   </div>
 
                   {/* Progress bar */}
-                  {subCards.length > 0 && (
+                  {subtasks.length > 0 && (
                     <div className="w-full h-2 bg-border rounded-full mb-3 overflow-hidden">
                       <div
                         className="h-full bg-primary rounded-full transition-all duration-300"
                         style={{
-                          width: `${(completedCount / subCards.length) * 100}%`
+                          width: `${(completedCount / subtasks.length) * 100}%`
                         }}
                       />
                     </div>
                   )}
 
                   <div className="space-y-2">
-                    {subCards.map((subCard: any) => (
-                      <SubCard
-                        key={subCard.id}
-                        subCard={subCard}
-                        onToggle={handleToggleSubCard}
-                        onDelete={handleDeleteSubCard}
+                    {subtasks.map((subtask: any) => (
+                      <Subtask
+                        key={subtask.id}
+                        subtask={subtask}
+                        onToggle={handleToggleSubtask}
+                        onDelete={handleDeleteSubtask}
                       />
                     ))}
 
                     <div className="flex gap-2">
                       <input
                         type="text"
-                        value={newSubCardTitle}
-                        onChange={(e) => setNewSubCardTitle(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddSubCard()}
-                        className="flex-1 px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:border-primary"
+                        value={newSubtaskTitle}
+                        onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddSubtask()}
+                        className="aero-input flex-1 px-3 py-2 bg-surface text-text focus:outline-none"
                         placeholder="Add a subtask..."
                       />
                       <button
-                        onClick={handleAddSubCard}
-                        className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition"
+                        onClick={handleAddSubtask}
+                        className="btn-primary px-4 py-2 transition"
                       >
                         Add
                       </button>
@@ -851,7 +868,7 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
               {/* Sidebar */}
               <div className="space-y-4">
                 {/* Status */}
-                <div className="p-4 border border-border rounded-lg">
+                <div className="aero-panel p-4">
                   <h4 className="font-medium mb-2 flex items-center gap-2">
                     <CheckSquare className="w-4 h-4" />
                     Status
@@ -900,7 +917,7 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
                 </div>
 
                 {/* Deadline */}
-                <div className="p-4 border border-border rounded-lg">
+                <div className="aero-panel p-4">
                   <h4 className="font-medium mb-2 flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
                     Deadline
@@ -909,7 +926,7 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
                     type="date"
                     value={deadlineStr}
                     onChange={(e) => setDeadlineStr(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:border-primary"
+                    className="aero-input w-full px-3 py-2 bg-surface text-text focus:outline-none"
                   />
                   {deadlineStr && (
                     <button
@@ -922,8 +939,8 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
                 </div>
 
                 {/* Color */}
-                <div className="p-4 border border-border rounded-lg">
-                  <h4 className="font-medium mb-2">Card Color</h4>
+                <div className="aero-panel p-4">
+                  <h4 className="font-medium mb-2">Task Color</h4>
                   <div className="flex flex-wrap gap-2">
                     {PRESET_COLORS.map((c) => (
                       <button
@@ -941,7 +958,7 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
                 </div>
 
                 {/* Tags */}
-                <div className="p-4 border border-border rounded-lg">
+                <div className="aero-panel p-4">
                   <h4 className="font-medium mb-2 flex items-center gap-2">
                     <Tag className="w-4 h-4" />
                     Tags
@@ -959,20 +976,20 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
                           onFocus={() => setShowTagSuggestions(true)}
                           onBlur={() => setTimeout(() => setShowTagSuggestions(false), 200)}
                           onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
-                          className="flex-1 min-w-0 px-3 py-2 border border-border rounded-lg bg-surface text-text focus:outline-none focus:border-primary text-sm"
+                          className="aero-input flex-1 min-w-0 px-3 py-2 bg-surface text-text focus:outline-none text-sm"
                           placeholder="New tag..."
                         />
                         <button
                           onClick={handleAddTag}
-                          className="shrink-0 px-3 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition"
+                          className="btn-primary shrink-0 px-3 py-2 transition"
                         >
                           <Plus className="w-4 h-4" />
                         </button>
                       </div>
 
                       {showTagSuggestions && (
-                        <div className="absolute top-full left-0 right-0 mt-1 surface border border-border rounded-lg shadow-xl z-20 max-h-48 overflow-auto">
-                          {dockTagSuggestions
+                        <div className="aero-window absolute top-full left-0 right-0 mt-1 surface z-20 max-h-48 overflow-auto">
+                          {projectTagSuggestions
                             .filter(
                               (s) =>
                                 s.name.toLowerCase().includes(newTagName.toLowerCase()) &&
@@ -996,14 +1013,14 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
                                 <span className="text-sm">{suggestion.name}</span>
                               </button>
                             ))}
-                          {dockTagSuggestions.filter(
+                          {projectTagSuggestions.filter(
                             (s) =>
                               s.name.toLowerCase().includes(newTagName.toLowerCase()) &&
                               !tags.find((t: any) => t.name.toLowerCase() === s.name.toLowerCase())
                           ).length === 0 &&
                             newTagName.trim() === '' && (
                               <div className="px-3 py-2 text-xs text-muted italic">
-                                No other tags found in this dock
+                                No other tags found in this project
                               </div>
                             )}
                         </div>
@@ -1035,36 +1052,36 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
                   </div>
                 </div>
 
-                {/* Connected Cards — same dock only */}
-                <div className="p-4 border border-border rounded-lg">
+                {/* Connected tasks in this project */}
+                <div className="aero-panel p-4">
                   <h4 className="font-medium mb-2 flex items-center gap-2">
                     <Link2 className="w-4 h-4" />
-                    Connected Cards
-                    <span className="text-[10px] text-muted font-normal ml-auto">same dock</span>
+                    Connected Tasks
+                    <span className="text-[10px] text-muted font-normal ml-auto">same project</span>
                   </h4>
 
-                  {connectedCardDetails.length > 0 && (
+                  {connectedTaskDetails.length > 0 && (
                     <div className="space-y-2 mb-3">
-                      {connectedCardDetails.map((connCard: any) => (
+                      {connectedTaskDetails.map((connectedTask: any) => (
                         <div
-                          key={connCard.id}
-                          className="flex items-center justify-between p-2 rounded-lg border border-border hover:border-primary/50 transition"
+                          key={connectedTask.id}
+                          className="aero-panel flex items-center justify-between p-2 transition"
                         >
                           <div className="flex items-center gap-2 min-w-0">
                             <Link2 className="w-3.5 h-3.5 text-primary shrink-0" />
                             <div className="min-w-0">
                               <span className="text-sm break-words whitespace-pre-wrap block max-w-full leading-tight">
-                                {connCard.title}
+                                {connectedTask.title}
                               </span>
-                              {connCard.boardId !== card.boardId && (
+                              {connectedTask.boardId !== task.boardId && (
                                 <span className="text-[10px] text-muted font-bold uppercase tracking-wider">
-                                  {connCard._boardName || 'Other board'}
+                                  {connectedTask._boardName || 'Other board'}
                                 </span>
                               )}
                             </div>
                           </div>
                           <button
-                            onClick={() => handleUnlinkCard(connCard.id)}
+                            onClick={() => handleUnlinkTask(connectedTask.id)}
                             className="p-1 text-muted hover:text-alert transition"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -1082,31 +1099,31 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
                           type="text"
                           value={linkSearchQuery}
                           onChange={(e) => setLinkSearchQuery(e.target.value)}
-                          className="w-full pl-8 pr-3 py-2 border border-border rounded-lg bg-surface text-text text-sm focus:outline-none focus:border-primary"
-                          placeholder="Search cards in this dock..."
+                          className="aero-input w-full pl-8 pr-3 py-2 bg-surface text-text text-sm focus:outline-none"
+                          placeholder="Search tasks in this project..."
                           autoFocus
                         />
                       </div>
                       <div className="max-h-40 overflow-auto space-y-1">
-                        {filteredLinkCards.length > 0 ? (
-                          filteredLinkCards.map((c: any) => (
+                        {filteredLinkTasks.length > 0 ? (
+                          filteredLinkTasks.map((candidate: any) => (
                             <button
-                              key={c.id}
-                              onClick={() => handleLinkCard(c.id)}
-                              className="w-full text-left px-3 py-2 rounded-lg hover:bg-primary-soft transition"
+                              key={candidate.id}
+                              onClick={() => handleLinkTask(candidate.id)}
+                              className="w-full text-left px-3 py-2 rounded-sm hover:bg-primary-soft transition"
                             >
                               <p className="text-sm break-words whitespace-pre-wrap leading-tight">
-                                {c.title}
+                                {candidate.title}
                               </p>
-                              {c.boardId !== card.boardId && c._boardName && (
+                              {candidate.boardId !== task.boardId && candidate._boardName && (
                                 <p className="text-[10px] text-muted font-bold uppercase tracking-wider">
-                                  {c._boardName}
+                                  {candidate._boardName}
                                 </p>
                               )}
                             </button>
                           ))
                         ) : (
-                          <p className="text-xs text-muted p-2">No cards found in this dock</p>
+                          <p className="text-xs text-muted p-2">No tasks found in this project</p>
                         )}
                       </div>
                       <button
@@ -1122,9 +1139,9 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
                   ) : (
                     <button
                       onClick={handleOpenLinkSearch}
-                      className="w-full px-3 py-2 border border-dashed border-border rounded-lg hover:border-primary hover:bg-primary-soft transition text-muted hover:text-primary text-sm"
+                      className="btn-secondary w-full px-3 py-2 border-dashed hover:bg-primary-soft transition text-muted hover:text-primary text-sm"
                     >
-                      + Connect to card
+                      + Connect to task
                     </button>
                   )}
                 </div>
@@ -1140,7 +1157,7 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
             <div className="flex gap-2">
               <button
                 onClick={handleUndoChanges}
-                className="px-4 py-2 border border-border rounded-lg hover:bg-primary-soft transition flex items-center gap-2"
+                className="btn-secondary px-4 py-2 transition flex items-center gap-2"
               >
                 <RotateCcw className="w-4 h-4" />
                 Undo Changes
@@ -1148,7 +1165,7 @@ export const CardDetailsModal: React.FC<CardDetailsModalProps> = ({ card, onClos
               <button
                 onClick={handleSave}
                 disabled={isSaving}
-                className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-opacity-90 transition disabled:opacity-60 disabled:cursor-not-allowed"
+                className="btn-primary px-4 py-2 transition disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 Save &amp; Close
               </button>

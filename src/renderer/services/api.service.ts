@@ -14,13 +14,26 @@ export interface ServerSyncStatus {
   queueDepth?: number
 }
 
+export type SyncTable =
+  | 'workspaces'
+  | 'projects'
+  | 'boards'
+  | 'columns'
+  | 'tasks'
+  | 'subtasks'
+  | 'statuses'
+  | 'connections'
+  | 'tags'
+  | 'settings'
+
 export interface SyncOperation {
   id: string
-  operation: string
-  table: string
+  operation: 'CREATE' | 'UPDATE' | 'DELETE'
+  table: SyncTable
   recordId: string
   data: any
   timestamp?: number
+  schemaVersion: 2
 }
 
 export interface PushSyncResult {
@@ -94,7 +107,7 @@ export const pushSyncOperations = async (
         'Content-Type': 'application/json',
         ...(clientId ? { 'X-Client-Id': clientId } : {})
       },
-      body: JSON.stringify({ operations, clientId })
+      body: JSON.stringify({ schemaVersion: 2, operations, clientId })
     })
   } catch (error) {
     console.warn('Server sync push failed', error)

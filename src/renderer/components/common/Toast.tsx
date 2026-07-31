@@ -41,12 +41,12 @@ export const Toast: React.FC<ToastProps> = ({ message, onUndo, onClose, duration
         boxShadow: 'var(--shadow-brutal)',
         transition: 'opacity 0.3s, transform 0.3s',
         opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(12px)',
+        transform: visible ? 'translateY(0)' : 'translateY(12px)'
       }}
-      className="fixed bottom-6 right-6 z-[200] flex items-center gap-4 px-5 py-3.5 surface"
+      className="aero-window fixed bottom-6 right-6 z-[200] flex items-center gap-4 px-5 py-3.5 surface"
     >
       {/* Accent bar */}
-      <div className="brutal-accent absolute top-0 left-0 right-0 h-1" />
+      <div className="aero-titlebar absolute top-0 left-0 right-0 h-1" />
 
       <span className="text-sm font-bold text-text">{message}</span>
 
