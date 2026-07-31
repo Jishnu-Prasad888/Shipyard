@@ -143,7 +143,7 @@ function App() {
 
   const handleToggleTheme = () => {
     const current = settings.colorMode || settings.theme || 'light'
-    const newMode = current === 'light' ? 'dark' : 'light'
+    const newMode: 'light' | 'dark' = current === 'light' ? 'dark' : 'light'
     const updatedSettings = { ...settings, colorMode: newMode, theme: newMode }
     document.documentElement.classList.toggle('dark', newMode === 'dark')
     window.electron.darkMode.toggle(newMode === 'dark')

@@ -357,10 +357,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     try {
       // Save first so the main process has the latest config
       await window.electron.settings.save({
-        theme,
+        theme: colorMode,
+        colorMode,
+        themeStyle,
         firebaseEnabled: true,
         syncEnabled,
-        firebaseConfig
+        firebaseConfig,
+        fontFamily: fontFamily || undefined,
+        minimizeToTray,
+        serverUrl: serverUrl || undefined,
+        serverSyncEnabled,
+        lastServerSyncAt
       })
       const result = await window.electron.sync.test()
       showFeedback(result.success, result.message)
