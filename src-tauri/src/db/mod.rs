@@ -19,7 +19,7 @@ impl Database {
     }
 
     pub fn initialize(&self) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let mut conn = self.conn.lock().unwrap();
         conn.execute_batch(SCHEMA)?;
 
         // Migration: add parentId to folders if missing
@@ -71,6 +71,8 @@ impl Database {
             }
         }
 
+        migrate_legacy_schema(&mut conn)?;
+
         // Seed default settings if missing
         let settings_count: i64 = conn
             .query_row(
@@ -90,6 +92,8 @@ impl Database {
                 ],
             )?;
         }
+
+        conn.execute_batch(INDEXES)?;
 
         Ok(())
     }
@@ -535,6 +539,136 @@ fn json_to_sql_string(value: &Value) -> String {
     }
 }
 
+fn table_exists(conn: &Connection, table: &str) -> Result<bool> {
+    conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
+        params![table],
+        |row| row.get(0),
+    )
+}
+
+fn column_exists(conn: &Connection, table: &str, column: &str) -> Result<bool> {
+    conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM pragma_table_info(?1) WHERE name = ?2)",
+        params![table, column],
+        |row| row.get(0),
+    )
+}
+
+fn migrate_legacy_schema(conn: &mut Connection) -> Result<()> {
+    let already_migrated: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM schema_migrations WHERE name = 'legacy_naming')",
+        [],
+        |row| row.get(0),
+    )?;
+    if already_migrated {
+        return Ok(());
+    }
+
+    let has_legacy_boards = column_exists(conn, "boards", "projectId")?
+        && !column_exists(conn, "boards", "dockId")?;
+    let has_legacy_tables = ["workspaces", "projects", "columns", "tasks", "subtasks"]
+        .iter()
+        .try_fold(false, |found, table| {
+            table_exists(conn, table).map(|exists| found || exists)
+        })?;
+
+    if !has_legacy_boards && !has_legacy_tables {
+        return Ok(());
+    }
+
+    conn.pragma_update(None, "foreign_keys", false)?;
+    let migration = (|| -> Result<()> {
+        let tx = conn.transaction()?;
+
+        if table_exists(&tx, "workspaces")? {
+            tx.execute_batch(
+                r#"
+                INSERT OR IGNORE INTO folders (id, name, color, parentId, createdAt)
+                SELECT id, name, color, parentWorkspaceId, createdAt FROM workspaces;
+                "#,
+            )?;
+        }
+
+        if table_exists(&tx, "projects")? {
+            tx.execute_batch(
+                r#"
+                INSERT OR IGNORE INTO docks
+                  (id, name, description, folderId, tags, color, createdAt, updatedAt, boardIds)
+                SELECT id, name, description, workspaceId, tags, color, createdAt, updatedAt, boardIds
+                FROM projects;
+                "#,
+            )?;
+        }
+
+        if has_legacy_boards {
+            tx.execute_batch(
+                r#"
+                CREATE TABLE boards_migration (
+                  id TEXT PRIMARY KEY,
+                  name TEXT NOT NULL,
+                  description TEXT,
+                  dockId TEXT NOT NULL,
+                  color TEXT,
+                  tags TEXT,
+                  createdAt INTEGER NOT NULL,
+                  updatedAt INTEGER NOT NULL,
+                  FOREIGN KEY (dockId) REFERENCES docks(id) ON DELETE CASCADE
+                );
+                INSERT INTO boards_migration
+                  (id, name, description, dockId, color, tags, createdAt, updatedAt)
+                SELECT id, name, description, projectId, color, tags, createdAt, updatedAt
+                FROM boards;
+                DROP TABLE boards;
+                ALTER TABLE boards_migration RENAME TO boards;
+                "#,
+            )?;
+        }
+
+        if table_exists(&tx, "columns")? {
+            tx.execute_batch(
+                r#"
+                INSERT OR IGNORE INTO lists (id, name, boardId, "order", color, createdAt, updatedAt)
+                SELECT id, name, boardId, "order", color, createdAt, updatedAt FROM columns;
+                "#,
+            )?;
+        }
+
+        if table_exists(&tx, "tasks")? {
+            tx.execute_batch(
+                r#"
+                INSERT OR IGNORE INTO cards
+                  (id, title, description, listId, boardId, "order", color, deadline, status,
+                   notes, tags, connectedCardIds, connectedListIds, subCards, createdAt, updatedAt)
+                SELECT id, title, description, columnId, boardId, "order", color, deadline, status,
+                       notes, tags, connectedTaskIds, connectedColumnIds, subtasks, createdAt, updatedAt
+                FROM tasks;
+                "#,
+            )?;
+        }
+
+        if table_exists(&tx, "subtasks")? {
+            tx.execute_batch(
+                r#"
+                INSERT OR IGNORE INTO subcards (id, title, completed, cardId, createdAt)
+                SELECT id, title, completed, taskId, createdAt FROM subtasks;
+                "#,
+            )?;
+        }
+
+        tx.execute(
+            "INSERT INTO schema_migrations (name) VALUES ('legacy_naming')",
+            [],
+        )?;
+
+        tx.commit()
+    })();
+    let foreign_keys = conn.pragma_update(None, "foreign_keys", true);
+
+    migration?;
+    foreign_keys
+}
+
 const SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS folders (
   id TEXT PRIMARY KEY,
@@ -643,6 +777,10 @@ CREATE TABLE IF NOT EXISTS settings (
   updatedAt INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS schema_migrations (
+  name TEXT PRIMARY KEY
+);
+
 CREATE TABLE IF NOT EXISTS sync_queue (
   id TEXT PRIMARY KEY,
   operation TEXT NOT NULL,
@@ -653,6 +791,9 @@ CREATE TABLE IF NOT EXISTS sync_queue (
   synced INTEGER DEFAULT 0
 );
 
+"#;
+
+const INDEXES: &str = r#"
 CREATE INDEX IF NOT EXISTS idx_cards_list ON cards(listId);
 CREATE INDEX IF NOT EXISTS idx_cards_board ON cards(boardId);
 CREATE INDEX IF NOT EXISTS idx_lists_board ON lists(boardId);
@@ -661,3 +802,92 @@ CREATE INDEX IF NOT EXISTS idx_subcards_card ON subcards(cardId);
 CREATE INDEX IF NOT EXISTS idx_sync_queue_synced ON sync_queue(synced);
 CREATE INDEX IF NOT EXISTS idx_docks_folder ON docks(folderId);
 "#;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn migrates_legacy_naming_and_relationships() -> Result<()> {
+        let database = Database::new(":memory:")?;
+        {
+            let conn = database.conn.lock().unwrap();
+            conn.execute_batch(
+                r#"
+                CREATE TABLE workspaces (
+                  id TEXT PRIMARY KEY, name TEXT NOT NULL, color TEXT,
+                  parentWorkspaceId TEXT, createdAt INTEGER NOT NULL
+                );
+                CREATE TABLE projects (
+                  id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT,
+                  workspaceId TEXT, tags TEXT, color TEXT, createdAt INTEGER NOT NULL,
+                  updatedAt INTEGER NOT NULL, boardIds TEXT
+                );
+                CREATE TABLE boards (
+                  id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT,
+                  projectId TEXT NOT NULL, color TEXT, tags TEXT,
+                  createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL
+                );
+                CREATE TABLE columns (
+                  id TEXT PRIMARY KEY, name TEXT NOT NULL, boardId TEXT NOT NULL,
+                  "order" INTEGER NOT NULL, color TEXT, createdAt INTEGER NOT NULL,
+                  updatedAt INTEGER NOT NULL
+                );
+                CREATE TABLE tasks (
+                  id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT,
+                  columnId TEXT NOT NULL, boardId TEXT, "order" INTEGER NOT NULL,
+                  color TEXT, deadline INTEGER, status TEXT, notes TEXT, tags TEXT,
+                  connectedTaskIds TEXT, connectedColumnIds TEXT, subtasks TEXT,
+                  createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL
+                );
+                CREATE TABLE subtasks (
+                  id TEXT PRIMARY KEY, title TEXT NOT NULL, completed INTEGER,
+                  taskId TEXT NOT NULL, createdAt INTEGER NOT NULL
+                );
+
+                INSERT INTO workspaces VALUES ('workspace-1', 'Workspace', '#fff', NULL, 1);
+                INSERT INTO projects VALUES
+                  ('project-1', 'Project', 'Description', 'workspace-1', '[]', '#fff', 1, 2, '["board-1"]');
+                INSERT INTO boards VALUES
+                  ('board-1', 'Board', 'Description', 'project-1', '#fff', '[]', 1, 2);
+                INSERT INTO columns VALUES ('list-1', 'List', 'board-1', 0, '#fff', 1, 2);
+                INSERT INTO tasks VALUES
+                  ('card-1', 'Card', 'Description', 'list-1', 'board-1', 0, '#fff', NULL,
+                   NULL, NULL, '[]', '[]', '[]', '[]', 1, 2);
+                INSERT INTO subtasks VALUES ('subcard-1', 'Subcard', 0, 'card-1', 1);
+                "#,
+            )?;
+        }
+
+        database.initialize()?;
+        database.initialize()?;
+
+        let conn = database.conn.lock().unwrap();
+        let dock_id: String =
+            conn.query_row("SELECT dockId FROM boards WHERE id = 'board-1'", [], |row| {
+                row.get(0)
+            })?;
+        assert_eq!(dock_id, "project-1");
+
+        for table in ["folders", "docks", "boards", "lists", "cards", "subcards"] {
+            let count: i64 = conn.query_row(
+                &format!("SELECT COUNT(*) FROM {table}"),
+                [],
+                |row| row.get(0),
+            )?;
+            assert_eq!(count, 1, "unexpected row count in {table}");
+        }
+
+        conn.execute("DELETE FROM docks WHERE id = 'project-1'", [])?;
+        for table in ["boards", "lists", "cards", "subcards"] {
+            let count: i64 = conn.query_row(
+                &format!("SELECT COUNT(*) FROM {table}"),
+                [],
+                |row| row.get(0),
+            )?;
+            assert_eq!(count, 0, "cascade did not reach {table}");
+        }
+
+        Ok(())
+    }
+}
