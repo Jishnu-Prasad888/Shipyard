@@ -267,7 +267,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
             }}
           >
             <LayoutGrid className="w-3 h-3" />
-            {filteredBoards.length} Boards
+            {filteredBoards.length} {filteredBoards.length === 1 ? 'board' : 'boards'}
           </span>
         </div>
       </div>
@@ -286,6 +286,16 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
             }}
           />
         ))}
+
+        {filteredBoards.length > 0 && (
+          <button
+            onClick={() => setShowCreateBoard(true)}
+            className="add-column-ghost min-h-[120px] flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider"
+          >
+            <Plus className="w-4 h-4 stroke-[3px]" />
+            New board
+          </button>
+        )}
 
         {filteredBoards.length === 0 && (
           <div
@@ -306,10 +316,10 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
               className="text-xl font-black uppercase tracking-tight mb-1"
               style={{ color: 'var(--color-text)' }}
             >
-              No Boards
+              No boards yet
             </h3>
             <p className="text-sm font-bold" style={{ color: 'var(--color-muted)' }}>
-              Create the first board in this project
+              Boards hold the columns and tasks for a piece of work.
             </p>
             <button
               onClick={() => setShowCreateBoard(true)}

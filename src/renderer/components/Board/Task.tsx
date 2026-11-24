@@ -6,12 +6,19 @@ import { TaskDetailsModal } from './TaskDetailsModal'
 
 interface TaskProps {
   task: any
+  columnName?: string
   onUpdate: () => void
   autoOpenId?: string | null
   onAutoOpenComplete?: () => void
 }
 
-export const Task: React.FC<TaskProps> = ({ task, onUpdate, autoOpenId, onAutoOpenComplete }) => {
+export const Task: React.FC<TaskProps> = ({
+  task,
+  columnName,
+  onUpdate,
+  autoOpenId,
+  onAutoOpenComplete
+}) => {
   const [showDetails, setShowDetails] = useState(false)
   const autoOpenedRef = useRef(false)
 
@@ -38,7 +45,13 @@ export const Task: React.FC<TaskProps> = ({ task, onUpdate, autoOpenId, onAutoOp
       ? JSON.parse(task.status)
       : task.status
 
-  const isOverdue = task.deadline && task.deadline < Date.now()
+  const isDone = status?.name?.toLowerCase() === 'done'
+  const isOverdue = !isDone && task.deadline && task.deadline < Date.now()
+  // The column already says what stage the task is in; only show a status
+  // badge when it adds information.
+  const showStatus =
+    !!status?.name && status.name.trim().toLowerCase() !== (columnName || '').trim().toLowerCase()
+  const hasFooter = !!task.deadline || totalSubtasks > 0 || connectedIds.length > 0 || !!task.notes
   const taskColor = task.color || '#2563eb'
 
   useEffect(() => {
@@ -67,6 +80,11 @@ export const Task: React.FC<TaskProps> = ({ task, onUpdate, autoOpenId, onAutoOp
         onClick={() => setShowDetails(true)}
         {...attributes}
         {...listeners}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') setShowDetails(true)
+          else listeners?.onKeyDown?.(event)
+        }}
+        aria-label={`Open task ${task.title}`}
       >
         {/* Top accent line */}
         {task.color && (
@@ -77,7 +95,7 @@ export const Task: React.FC<TaskProps> = ({ task, onUpdate, autoOpenId, onAutoOp
         )}
 
         {/* Status badge */}
-        {status && status.name && (
+        {showStatus && (
           <div className="mb-2">
             <span
               className="text-[10px] px-2 py-0.5 font-black uppercase tracking-wider border-2"
@@ -97,8 +115,8 @@ export const Task: React.FC<TaskProps> = ({ task, onUpdate, autoOpenId, onAutoOp
           className="font-black text-sm leading-tight break-words whitespace-pre-wrap"
           style={{
             color: 'var(--color-text)',
-            textDecoration: status?.name === 'Done' ? 'line-through' : 'none',
-            opacity: status?.name === 'Done' ? 0.65 : 1
+            textDecoration: isDone ? 'line-through' : 'none',
+            opacity: isDone ? 0.65 : 1
           }}
         >
           {task.title}
@@ -134,58 +152,65 @@ export const Task: React.FC<TaskProps> = ({ task, onUpdate, autoOpenId, onAutoOp
         )}
 
         {/* Footer metadata */}
-        <div
-          className="flex items-center gap-3 mt-2 pt-2 border-t"
-          style={{ borderColor: 'var(--color-border)' }}
-        >
-          {task.deadline && (
-            <div
-              className={`flex items-center gap-1 text-[10px] font-black ${isOverdue ? 'text-red-600' : ''}`}
-              style={!isOverdue ? { color: 'var(--color-muted)' } : {}}
-            >
-              <Calendar className="w-3 h-3" />
-              <span>
-                {new Date(task.deadline).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric'
-                })}
-              </span>
-            </div>
-          )}
+        {hasFooter && (
+          <div
+            className="flex items-center gap-3 mt-2 pt-2 border-t"
+            style={{ borderColor: 'var(--color-border)' }}
+          >
+            {task.deadline && (
+              <div
+                className={`flex items-center gap-1 text-[10px] font-black ${isOverdue ? 'text-red-600' : ''}`}
+                style={!isOverdue ? { color: 'var(--color-muted)' } : {}}
+              >
+                <Calendar className="w-3 h-3" />
+                <span title={isOverdue ? 'Overdue' : 'Due date'}>
+                  {isOverdue && 'Overdue: '}
+                  {new Date(task.deadline).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric'
+                  })}
+                </span>
+              </div>
+            )}
 
-          {totalSubtasks > 0 && (
-            <div
-              className="flex items-center gap-1 text-[10px] font-black"
-              style={{
-                color:
-                  completedSubtasks === totalSubtasks
-                    ? 'var(--color-primary)'
-                    : 'var(--color-muted)'
-              }}
-            >
-              <CheckSquare className="w-3 h-3" />
-              <span>
-                {completedSubtasks}/{totalSubtasks}
-              </span>
-            </div>
-          )}
+            {totalSubtasks > 0 && (
+              <div
+                className="flex items-center gap-1 text-[10px] font-black"
+                style={{
+                  color:
+                    completedSubtasks === totalSubtasks
+                      ? 'var(--color-primary)'
+                      : 'var(--color-muted)'
+                }}
+              >
+                <CheckSquare className="w-3 h-3" />
+                <span title="Subtasks done">
+                  {completedSubtasks}/{totalSubtasks}
+                </span>
+              </div>
+            )}
 
-          {connectedIds.length > 0 && (
-            <div
-              className="flex items-center gap-1 text-[10px] font-black"
-              style={{ color: 'var(--color-muted)' }}
-            >
-              <Link2 className="w-3 h-3" />
-              <span>{connectedIds.length}</span>
-            </div>
-          )}
+            {connectedIds.length > 0 && (
+              <div
+                className="flex items-center gap-1 text-[10px] font-black"
+                style={{ color: 'var(--color-muted)' }}
+              >
+                <Link2 className="w-3 h-3" />
+                <span title="Linked tasks">{connectedIds.length}</span>
+              </div>
+            )}
 
-          {task.notes && (
-            <div className="flex items-center text-[10px]" style={{ color: 'var(--color-muted)' }}>
-              <FileText className="w-3 h-3" />
-            </div>
-          )}
-        </div>
+            {task.notes && (
+              <div
+                className="flex items-center text-[10px]"
+                style={{ color: 'var(--color-muted)' }}
+                title="Has notes"
+              >
+                <FileText className="w-3 h-3" />
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {showDetails && (

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import {
   X,
-  Database,
   Moon,
   Sun,
   Key,
@@ -16,7 +15,9 @@ import {
   Type,
   Server,
   Activity,
-  Keyboard
+  Keyboard,
+  FolderOpen,
+  Palette
 } from 'lucide-react'
 import { FirebaseConfig } from './FirebaseConfig'
 import { ExportModal } from './ExportModal'
@@ -42,6 +43,19 @@ interface SettingsModalProps {
 }
 
 type SyncOp = 'idle' | 'saving' | 'testing' | 'pushing' | 'pulling'
+
+type SettingsTab = 'folder' | 'appearance' | 'general' | 'sync'
+
+const SETTINGS_TABS: Array<{
+  id: SettingsTab
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+}> = [
+  { id: 'folder', label: 'Data folder', icon: FolderOpen },
+  { id: 'appearance', label: 'Appearance', icon: Palette },
+  { id: 'general', label: 'Shortcuts & window', icon: Keyboard },
+  { id: 'sync', label: 'Sync', icon: RefreshCw }
+]
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const dispatch = useDispatch()
@@ -91,6 +105,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const [fontsDetected, setFontsDetected] = useState(false)
   const fontListRef = useRef<HTMLDivElement>(null)
 
+  const [activeTab, setActiveTab] = useState<SettingsTab>('folder')
   const [minimizeToTray, setMinimizeToTray] = useState(settings.minimizeToTray ?? true)
 
   useEffect(() => {
@@ -547,695 +562,784 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
           </button>
         </div>
 
-        {/* Scrollable body */}
-        <div className="flex-1 overflow-auto p-5 space-y-4">
-          {/* ── DATA FOLDER ── */}
-          <DataFolderPanel />
-
-          {/* ── APPEARANCE ── */}
-          <div
-            className="aero-panel p-4"
-            style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}
+        {/* Body: section tabs + content */}
+        <div className="flex-1 flex min-h-0">
+          <nav
+            className="w-48 shrink-0 p-3 space-y-1 border-r overflow-y-auto"
+            style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)' }}
+            aria-label="Settings sections"
           >
-            <h3
-              className="font-black text-[10px] uppercase tracking-widest mb-3 flex items-center gap-2"
-              style={{ color: 'var(--color-muted)' }}
-            >
-              {colorMode === 'dark' ? (
-                <Moon className="w-3.5 h-3.5" />
-              ) : (
-                <Sun className="w-3.5 h-3.5" />
-              )}
-              Appearance & Theme
-            </h3>
-            <div className="flex gap-2 flex-wrap">
-              {(['light', 'dark'] as const).map((t) => (
-                <label
-                  key={t}
-                  className="flex items-center gap-2 px-4 py-2 border-2 cursor-pointer font-black text-xs uppercase tracking-wider transition-all duration-100"
-                  style={{
-                    borderColor: colorMode === t ? 'var(--color-primary)' : 'var(--color-border)',
-                    background: colorMode === t ? 'var(--color-primary)' : 'transparent',
-                    color: colorMode === t ? 'white' : 'var(--color-text)',
-                    boxShadow: colorMode === t ? 'var(--shadow-brutal-sm)' : 'none'
-                  }}
-                >
-                  <input
-                    type="radio"
-                    checked={colorMode === t}
-                    onChange={() => setColorMode(t)}
-                    className="sr-only"
-                  />
-                  {t === 'dark' ? (
-                    <Moon className="w-3.5 h-3.5" />
-                  ) : (
-                    <Sun className="w-3.5 h-3.5" />
-                  )}
-                  {t.toUpperCase()}
-                </label>
-              ))}
-              {(
-                [
-                  ['brutalist', 'Brutalist'],
-                  ['clay', 'Clay']
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setThemeStyle(value)}
-                  className="flex items-center gap-2 px-4 py-2 border-2 font-black text-xs uppercase tracking-wider transition-all duration-100"
-                  style={{
-                    borderColor:
-                      themeStyle === value ? 'var(--color-secondary)' : 'var(--color-border)',
-                    background: themeStyle === value ? 'var(--color-secondary)' : 'transparent',
-                    color: themeStyle === value ? '#041020' : 'var(--color-text)',
-                    boxShadow: themeStyle === value ? 'var(--shadow-control)' : 'none'
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* minimise to tray */}
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={minimizeToTray}
-              onChange={(e) => setMinimizeToTray(e.target.checked)}
-            />
-            Minimize to tray
-          </label>
-
-          <div
-            className="aero-panel p-4"
-            style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}
-          >
-            <h3
-              className="font-black text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2"
-              style={{ color: 'var(--color-muted)' }}
-            >
-              <Keyboard className="w-3.5 h-3.5" />
-              Keyboard Shortcuts
-            </h3>
-            <p className="text-xs font-bold mb-3" style={{ color: 'var(--color-muted)' }}>
-              Add, edit, or remove shortcuts for quick create and navigation actions.
-            </p>
-            <button
-              onClick={() => setShowKeyboardShortcuts(true)}
-              className="btn-secondary w-full flex items-center justify-center gap-2 py-2.5 text-xs"
-              style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
-            >
-              <Keyboard className="w-4 h-4" />
-              Manage Keyboard Shortcuts
-            </button>
-          </div>
-
-          {/* ── TYPOGRAPHY ── */}
-          <div
-            className="aero-panel p-4"
-            style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}
-          >
-            <h3
-              className="font-black text-[10px] uppercase tracking-widest mb-3 flex items-center gap-2"
-              style={{ color: 'var(--color-muted)' }}
-            >
-              <Type className="w-3.5 h-3.5" />
-              Typography
-            </h3>
-
-            {!fontsDetected ? (
-              <div
-                className="flex items-center gap-2 text-xs"
-                style={{ color: 'var(--color-muted)' }}
+            {SETTINGS_TABS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className="settings-tab w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-left"
+                aria-current={activeTab === id ? 'page' : undefined}
               >
-                <Loader className="w-3.5 h-3.5 animate-spin" /> Scanning system fonts…
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {/* Current font preview */}
+                <Icon className="w-4 h-4 shrink-0" />
+                {label}
+              </button>
+            ))}
+          </nav>
+
+          <div className="flex-1 overflow-auto p-5 space-y-4">
+            {activeTab === 'folder' && (
+              <>
+                <DataFolderPanel />
+                {/* ── DATA EXPORT ── */}
                 <div
-                  className="px-3 py-2 border-2 text-center"
+                  className="aero-panel"
                   style={{
                     borderColor: 'var(--color-border)',
-                    background: 'var(--color-background)'
+                    boxShadow: 'var(--shadow-brutal-sm)'
                   }}
                 >
-                  <p
-                    className="text-[10px] font-black uppercase tracking-widest mb-1"
-                    style={{ color: 'var(--color-muted)' }}
-                  >
-                    Preview
-                  </p>
-                  <p
-                    className="text-base"
-                    style={{
-                      fontFamily: fontFamily ? `'${fontFamily}', system-ui` : 'inherit',
-                      color: 'var(--color-text)'
-                    }}
-                  >
-                    The quick brown fox jumps over the lazy dog.
-                  </p>
-                  <p
-                    className="text-[9px] font-black uppercase tracking-widest mt-0.5"
-                    style={{ color: 'var(--color-muted)' }}
-                  >
-                    {fontFamily || 'Default (Poppins / Inter / system-ui)'}
-                  </p>
-                </div>
-
-                {/* Search */}
-                <input
-                  type="text"
-                  value={fontSearch}
-                  onChange={(e) => setFontSearch(e.target.value)}
-                  placeholder={`Search ${availableFonts.length} system fonts…`}
-                  className="aero-input w-full px-3 py-2 text-xs font-semibold outline-none"
-                  style={{
-                    borderColor: 'var(--color-border)',
-                    background: 'var(--color-background)',
-                    color: 'var(--color-text)'
-                  }}
-                />
-
-                {/* Font list */}
-                <div
-                  ref={fontListRef}
-                  className="border-2 overflow-auto"
-                  style={{ borderColor: 'var(--color-border)', maxHeight: '200px' }}
-                >
-                  {/* Reset to default option */}
-                  <button
-                    onClick={() => setFontFamily('')}
-                    className="w-full text-left px-3 py-2 border-b flex items-center justify-between transition-all"
+                  <div
+                    className="flex items-center gap-2 px-4 py-3 border-b-2"
                     style={{
                       borderColor: 'var(--color-border)',
-                      background: fontFamily === '' ? 'var(--color-primary)' : 'transparent',
-                      color: fontFamily === '' ? 'white' : 'var(--color-muted)'
+                      background: 'var(--color-background)'
                     }}
                   >
-                    <span className="text-xs font-black uppercase tracking-widest">
-                      Default (System)
-                    </span>
-                    {fontFamily === '' && <CheckCircle className="w-3.5 h-3.5 shrink-0" />}
-                  </button>
-
-                  {/* Filtered & sorted font list */}
-                  {filteredFonts.map((font) => (
+                    <Download className="w-3.5 h-3.5" style={{ color: 'var(--color-muted)' }} />
+                    <h3
+                      className="font-black text-[10px] uppercase tracking-widest"
+                      style={{ color: 'var(--color-muted)' }}
+                    >
+                      Export Data
+                    </h3>
+                  </div>
+                  <div className="p-4">
+                    <p className="text-xs font-bold mb-3" style={{ color: 'var(--color-muted)' }}>
+                      Export Workspaces, Projects, Boards, Columns, Tasks, and Subtasks to JSON,
+                      CSV, or Markdown. The export wizard lets you pick exactly which items to
+                      include.
+                    </p>
                     <button
-                      key={font}
-                      onClick={() => setFontFamily(font)}
-                      className="w-full text-left px-3 py-2 border-b flex items-center justify-between group transition-all"
+                      onClick={() => setShowExportModal(true)}
+                      className="btn-secondary w-full flex items-center justify-center gap-2 py-2.5 text-xs transition-all duration-150"
                       style={{
-                        borderColor: 'var(--color-border)',
-                        background: fontFamily === font ? 'var(--color-primary)' : 'transparent',
-                        color: fontFamily === font ? 'white' : 'var(--color-text)'
+                        borderColor: 'var(--color-primary)',
+                        color: 'var(--color-primary)',
+                        background: 'var(--color-primary)10',
+                        boxShadow: 'var(--shadow-control)'
                       }}
                       onMouseOver={(e) => {
-                        if (fontFamily !== font)
-                          e.currentTarget.style.background = 'var(--color-primary-soft)'
+                        e.currentTarget.style.filter = 'brightness(1.06)'
                       }}
                       onMouseOut={(e) => {
-                        if (fontFamily !== font) e.currentTarget.style.background = 'transparent'
+                        e.currentTarget.style.filter = ''
                       }}
                     >
-                      <span style={{ fontFamily: `'${font}', system-ui`, fontSize: '14px' }}>
-                        {font}
-                      </span>
-                      {fontFamily === font && (
-                        <CheckCircle className="w-3.5 h-3.5 shrink-0" style={{ color: 'white' }} />
-                      )}
+                      <Download className="w-4 h-4" />
+                      Open Export Wizard
                     </button>
-                  ))}
-
-                  {filteredFonts.length === 0 && (
-                    <p className="text-center text-xs py-4" style={{ color: 'var(--color-muted)' }}>
-                      No fonts match "{fontSearch}"
-                    </p>
-                  )}
+                  </div>
                 </div>
-                <p className="text-[9px] font-bold" style={{ color: 'var(--color-muted)' }}>
-                  {availableFonts.length} fonts detected on your system · Click Save Settings to
-                  apply
-                </p>
-              </div>
+              </>
             )}
-          </div>
 
-          <div
-            className="aero-panel"
-            style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}
-          >
-            {/* Firebase header */}
-            <div
-              className="flex items-center justify-between px-4 py-3 border-b-2"
-              style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)' }}
-            >
-              <h3
-                className="font-black text-[10px] uppercase tracking-widest flex items-center gap-2"
-                style={{ color: 'var(--color-muted)' }}
-              >
-                <Key className="w-3.5 h-3.5" />
-                Firebase Sync
-              </h3>
-
-              {/* Connection badge */}
-              {syncStatus && (
-                <div className="flex items-center gap-1.5">
-                  {syncStatus.syncEnabled ? (
-                    <>
-                      <Wifi className="w-3.5 h-3.5 text-emerald-500" />
-                      <span className="text-[9px] font-black uppercase tracking-wider text-emerald-600">
-                        Connected
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <WifiOff className="w-3.5 h-3.5" style={{ color: 'var(--color-muted)' }} />
-                      <span
-                        className="text-[9px] font-black uppercase tracking-wider"
-                        style={{ color: 'var(--color-muted)' }}
-                      >
-                        Not connected
-                      </span>
-                    </>
-                  )}
-                  {syncStatus.unsyncedCount > 0 && (
-                    <span
-                      className="text-[9px] font-black px-1.5 py-0.5 border"
-                      style={{ borderColor: '#d97706', color: '#d97706', background: '#d9770615' }}
-                    >
-                      {syncStatus.unsyncedCount} pending
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div className="p-4 space-y-4">
-              {/* Enable toggle */}
-              <label className="flex items-center gap-3 cursor-pointer">
-                <Toggle
-                  value={firebaseEnabled}
-                  onChange={() => setFirebaseEnabled(!firebaseEnabled)}
-                />
-                <div>
-                  <span className="font-black text-xs uppercase tracking-wider">
-                    Enable Firebase
-                  </span>
-                  <p
-                    className="text-[10px] font-bold mt-0.5"
+            {activeTab === 'appearance' && (
+              <>
+                {/* ── APPEARANCE ── */}
+                <div
+                  className="aero-panel p-4"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    boxShadow: 'var(--shadow-brutal-sm)'
+                  }}
+                >
+                  <h3
+                    className="font-black text-[10px] uppercase tracking-widest mb-3 flex items-center gap-2"
                     style={{ color: 'var(--color-muted)' }}
                   >
-                    Sync your data across devices via Firestore
-                  </p>
+                    {colorMode === 'dark' ? (
+                      <Moon className="w-3.5 h-3.5" />
+                    ) : (
+                      <Sun className="w-3.5 h-3.5" />
+                    )}
+                    Appearance & Theme
+                  </h3>
+                  <div className="flex gap-2 flex-wrap">
+                    {(['light', 'dark'] as const).map((t) => (
+                      <label
+                        key={t}
+                        className="flex items-center gap-2 px-4 py-2 border-2 cursor-pointer font-black text-xs uppercase tracking-wider transition-all duration-100"
+                        style={{
+                          borderColor:
+                            colorMode === t ? 'var(--color-primary)' : 'var(--color-border)',
+                          background: colorMode === t ? 'var(--color-primary)' : 'transparent',
+                          color: colorMode === t ? 'white' : 'var(--color-text)',
+                          boxShadow: colorMode === t ? 'var(--shadow-brutal-sm)' : 'none'
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          checked={colorMode === t}
+                          onChange={() => setColorMode(t)}
+                          className="sr-only"
+                        />
+                        {t === 'dark' ? (
+                          <Moon className="w-3.5 h-3.5" />
+                        ) : (
+                          <Sun className="w-3.5 h-3.5" />
+                        )}
+                        {t.toUpperCase()}
+                      </label>
+                    ))}
+                    {(
+                      [
+                        ['brutalist', 'Brutalist'],
+                        ['clay', 'Clay']
+                      ] as const
+                    ).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setThemeStyle(value)}
+                        className="flex items-center gap-2 px-4 py-2 border-2 font-black text-xs uppercase tracking-wider transition-all duration-100"
+                        style={{
+                          borderColor:
+                            themeStyle === value ? 'var(--color-secondary)' : 'var(--color-border)',
+                          background:
+                            themeStyle === value ? 'var(--color-secondary)' : 'transparent',
+                          color: themeStyle === value ? '#041020' : 'var(--color-text)',
+                          boxShadow: themeStyle === value ? 'var(--shadow-control)' : 'none'
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </label>
 
-              {/* Config fields */}
-              {firebaseEnabled && (
-                <div className="space-y-3">
-                  <FirebaseConfig config={firebaseConfig} onConfigChange={setFirebaseConfig} />
+                {/* ── TYPOGRAPHY ── */}
+                <div
+                  className="aero-panel p-4"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    boxShadow: 'var(--shadow-brutal-sm)'
+                  }}
+                >
+                  <h3
+                    className="font-black text-[10px] uppercase tracking-widest mb-3 flex items-center gap-2"
+                    style={{ color: 'var(--color-muted)' }}
+                  >
+                    <Type className="w-3.5 h-3.5" />
+                    Typography
+                  </h3>
 
-                  {/* Auto-sync toggle */}
-                  {configComplete && (
+                  {!fontsDetected ? (
+                    <div
+                      className="flex items-center gap-2 text-xs"
+                      style={{ color: 'var(--color-muted)' }}
+                    >
+                      <Loader className="w-3.5 h-3.5 animate-spin" /> Scanning system fonts…
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {/* Current font preview */}
+                      <div
+                        className="px-3 py-2 border-2 text-center"
+                        style={{
+                          borderColor: 'var(--color-border)',
+                          background: 'var(--color-background)'
+                        }}
+                      >
+                        <p
+                          className="text-[10px] font-black uppercase tracking-widest mb-1"
+                          style={{ color: 'var(--color-muted)' }}
+                        >
+                          Preview
+                        </p>
+                        <p
+                          className="text-base"
+                          style={{
+                            fontFamily: fontFamily ? `'${fontFamily}', system-ui` : 'inherit',
+                            color: 'var(--color-text)'
+                          }}
+                        >
+                          The quick brown fox jumps over the lazy dog.
+                        </p>
+                        <p
+                          className="text-[9px] font-black uppercase tracking-widest mt-0.5"
+                          style={{ color: 'var(--color-muted)' }}
+                        >
+                          {fontFamily || 'Default (Poppins / Inter / system-ui)'}
+                        </p>
+                      </div>
+
+                      {/* Search */}
+                      <input
+                        type="text"
+                        value={fontSearch}
+                        onChange={(e) => setFontSearch(e.target.value)}
+                        placeholder={`Search ${availableFonts.length} system fonts…`}
+                        className="aero-input w-full px-3 py-2 text-xs font-semibold outline-none"
+                        style={{
+                          borderColor: 'var(--color-border)',
+                          background: 'var(--color-background)',
+                          color: 'var(--color-text)'
+                        }}
+                      />
+
+                      {/* Font list */}
+                      <div
+                        ref={fontListRef}
+                        className="border-2 overflow-auto"
+                        style={{ borderColor: 'var(--color-border)', maxHeight: '200px' }}
+                      >
+                        {/* Reset to default option */}
+                        <button
+                          onClick={() => setFontFamily('')}
+                          className="w-full text-left px-3 py-2 border-b flex items-center justify-between transition-all"
+                          style={{
+                            borderColor: 'var(--color-border)',
+                            background: fontFamily === '' ? 'var(--color-primary)' : 'transparent',
+                            color: fontFamily === '' ? 'white' : 'var(--color-muted)'
+                          }}
+                        >
+                          <span className="text-xs font-black uppercase tracking-widest">
+                            Default (System)
+                          </span>
+                          {fontFamily === '' && <CheckCircle className="w-3.5 h-3.5 shrink-0" />}
+                        </button>
+
+                        {/* Filtered & sorted font list */}
+                        {filteredFonts.map((font) => (
+                          <button
+                            key={font}
+                            onClick={() => setFontFamily(font)}
+                            className="w-full text-left px-3 py-2 border-b flex items-center justify-between group transition-all"
+                            style={{
+                              borderColor: 'var(--color-border)',
+                              background:
+                                fontFamily === font ? 'var(--color-primary)' : 'transparent',
+                              color: fontFamily === font ? 'white' : 'var(--color-text)'
+                            }}
+                            onMouseOver={(e) => {
+                              if (fontFamily !== font)
+                                e.currentTarget.style.background = 'var(--color-primary-soft)'
+                            }}
+                            onMouseOut={(e) => {
+                              if (fontFamily !== font)
+                                e.currentTarget.style.background = 'transparent'
+                            }}
+                          >
+                            <span style={{ fontFamily: `'${font}', system-ui`, fontSize: '14px' }}>
+                              {font}
+                            </span>
+                            {fontFamily === font && (
+                              <CheckCircle
+                                className="w-3.5 h-3.5 shrink-0"
+                                style={{ color: 'white' }}
+                              />
+                            )}
+                          </button>
+                        ))}
+
+                        {filteredFonts.length === 0 && (
+                          <p
+                            className="text-center text-xs py-4"
+                            style={{ color: 'var(--color-muted)' }}
+                          >
+                            No fonts match "{fontSearch}"
+                          </p>
+                        )}
+                      </div>
+                      <p className="text-[9px] font-bold" style={{ color: 'var(--color-muted)' }}>
+                        {availableFonts.length} fonts detected on your system · Click Save Settings
+                        to apply
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {activeTab === 'general' && (
+              <>
+                <div
+                  className="aero-panel p-4"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    boxShadow: 'var(--shadow-brutal-sm)'
+                  }}
+                >
+                  <h3
+                    className="font-black text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2"
+                    style={{ color: 'var(--color-muted)' }}
+                  >
+                    <Keyboard className="w-3.5 h-3.5" />
+                    Keyboard Shortcuts
+                  </h3>
+                  <p className="text-xs font-bold mb-3" style={{ color: 'var(--color-muted)' }}>
+                    Add, edit, or remove shortcuts for quick create and navigation actions.
+                  </p>
+                  <button
+                    onClick={() => setShowKeyboardShortcuts(true)}
+                    className="btn-secondary w-full flex items-center justify-center gap-2 py-2.5 text-xs"
+                    style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+                  >
+                    <Keyboard className="w-4 h-4" />
+                    Manage Keyboard Shortcuts
+                  </button>
+                </div>
+
+                <div
+                  className="aero-panel p-4"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    boxShadow: 'var(--shadow-brutal-sm)'
+                  }}
+                >
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <Toggle
+                      value={minimizeToTray}
+                      onChange={() => setMinimizeToTray(!minimizeToTray)}
+                    />
+                    <span>
+                      <span className="block text-xs font-black">Keep running in the tray</span>
+                      <span
+                        className="block text-[11px] font-semibold"
+                        style={{ color: 'var(--color-muted)' }}
+                      >
+                        Closing the window hides Shipyard instead of quitting. Use Quit from the
+                        tray icon to exit.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </>
+            )}
+
+            {activeTab === 'sync' && (
+              <>
+                <p className="text-xs font-semibold" style={{ color: 'var(--color-muted)' }}>
+                  Optional. Your data folder already works on its own; sync copies changes to
+                  Firebase or your own server as well.
+                </p>
+                <div
+                  className="aero-panel"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    boxShadow: 'var(--shadow-brutal-sm)'
+                  }}
+                >
+                  {/* Firebase header */}
+                  <div
+                    className="flex items-center justify-between px-4 py-3 border-b-2"
+                    style={{
+                      borderColor: 'var(--color-border)',
+                      background: 'var(--color-background)'
+                    }}
+                  >
+                    <h3
+                      className="font-black text-[10px] uppercase tracking-widest flex items-center gap-2"
+                      style={{ color: 'var(--color-muted)' }}
+                    >
+                      <Key className="w-3.5 h-3.5" />
+                      Firebase Sync
+                    </h3>
+
+                    {/* Connection badge */}
+                    {syncStatus && (
+                      <div className="flex items-center gap-1.5">
+                        {syncStatus.syncEnabled ? (
+                          <>
+                            <Wifi className="w-3.5 h-3.5 text-emerald-500" />
+                            <span className="text-[9px] font-black uppercase tracking-wider text-emerald-600">
+                              Connected
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <WifiOff
+                              className="w-3.5 h-3.5"
+                              style={{ color: 'var(--color-muted)' }}
+                            />
+                            <span
+                              className="text-[9px] font-black uppercase tracking-wider"
+                              style={{ color: 'var(--color-muted)' }}
+                            >
+                              Not connected
+                            </span>
+                          </>
+                        )}
+                        {syncStatus.unsyncedCount > 0 && (
+                          <span
+                            className="text-[9px] font-black px-1.5 py-0.5 border"
+                            style={{
+                              borderColor: '#d97706',
+                              color: '#d97706',
+                              background: '#d9770615'
+                            }}
+                          >
+                            {syncStatus.unsyncedCount} pending
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-4 space-y-4">
+                    {/* Enable toggle */}
                     <label className="flex items-center gap-3 cursor-pointer">
-                      <Toggle value={syncEnabled} onChange={() => setSyncEnabled(!syncEnabled)} />
+                      <Toggle
+                        value={firebaseEnabled}
+                        onChange={() => setFirebaseEnabled(!firebaseEnabled)}
+                      />
                       <div>
                         <span className="font-black text-xs uppercase tracking-wider">
-                          Auto-Sync (every 60s)
+                          Enable Firebase
                         </span>
                         <p
                           className="text-[10px] font-bold mt-0.5"
                           style={{ color: 'var(--color-muted)' }}
                         >
-                          Automatically push local changes to Firebase
+                          Sync your data across devices via Firestore
                         </p>
                       </div>
                     </label>
-                  )}
 
-                  {/* Action buttons */}
-                  {configComplete && (
-                    <div
-                      className="pt-2 border-t-2 space-y-2"
-                      style={{ borderColor: 'var(--color-border)' }}
+                    {/* Config fields */}
+                    {firebaseEnabled && (
+                      <div className="space-y-3">
+                        <FirebaseConfig
+                          config={firebaseConfig}
+                          onConfigChange={setFirebaseConfig}
+                        />
+
+                        {/* Auto-sync toggle */}
+                        {configComplete && (
+                          <label className="flex items-center gap-3 cursor-pointer">
+                            <Toggle
+                              value={syncEnabled}
+                              onChange={() => setSyncEnabled(!syncEnabled)}
+                            />
+                            <div>
+                              <span className="font-black text-xs uppercase tracking-wider">
+                                Auto-Sync (every 60s)
+                              </span>
+                              <p
+                                className="text-[10px] font-bold mt-0.5"
+                                style={{ color: 'var(--color-muted)' }}
+                              >
+                                Automatically push local changes to Firebase
+                              </p>
+                            </div>
+                          </label>
+                        )}
+
+                        {/* Action buttons */}
+                        {configComplete && (
+                          <div
+                            className="pt-2 border-t-2 space-y-2"
+                            style={{ borderColor: 'var(--color-border)' }}
+                          >
+                            <p
+                              className="text-[10px] font-black uppercase tracking-widest"
+                              style={{ color: 'var(--color-muted)' }}
+                            >
+                              Manual Actions
+                            </p>
+                            <div className="grid grid-cols-3 gap-2">
+                              {/* Test */}
+                              <button
+                                onClick={handleTest}
+                                disabled={isLoading}
+                                className="flex flex-col items-center gap-1 px-3 py-3 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100 disabled:opacity-40"
+                                style={{
+                                  borderColor: 'var(--color-cyan)',
+                                  color: 'var(--color-cyan)',
+                                  background: 'var(--color-cyan)10',
+                                  boxShadow: 'var(--shadow-control)'
+                                }}
+                                onMouseOver={(e) => {
+                                  if (!isLoading) e.currentTarget.style.filter = 'brightness(1.06)'
+                                }}
+                                onMouseOut={(e) => {
+                                  e.currentTarget.style.filter = ''
+                                }}
+                              >
+                                {op === 'testing' ? (
+                                  <Loader className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="w-4 h-4" />
+                                )}
+                                Test
+                              </button>
+
+                              {/* Push */}
+                              <button
+                                onClick={handlePush}
+                                disabled={isLoading}
+                                className="flex flex-col items-center gap-1 px-3 py-3 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100 disabled:opacity-40"
+                                style={{
+                                  borderColor: 'var(--color-primary)',
+                                  color: 'var(--color-primary)',
+                                  background: 'var(--color-primary)10',
+                                  boxShadow: 'var(--shadow-control)'
+                                }}
+                                onMouseOver={(e) => {
+                                  if (!isLoading) e.currentTarget.style.filter = 'brightness(1.06)'
+                                }}
+                                onMouseOut={(e) => {
+                                  e.currentTarget.style.filter = ''
+                                }}
+                              >
+                                {op === 'pushing' ? (
+                                  <Loader className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Upload className="w-4 h-4" />
+                                )}
+                                Push
+                              </button>
+
+                              {/* Pull */}
+                              <button
+                                onClick={handlePull}
+                                disabled={isLoading}
+                                className="flex flex-col items-center gap-1 px-3 py-3 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100 disabled:opacity-40"
+                                style={{
+                                  borderColor: 'var(--color-violet)',
+                                  color: 'var(--color-violet)',
+                                  background: 'var(--color-violet)10',
+                                  boxShadow: 'var(--shadow-control)'
+                                }}
+                                onMouseOver={(e) => {
+                                  if (!isLoading) e.currentTarget.style.filter = 'brightness(1.06)'
+                                }}
+                                onMouseOut={(e) => {
+                                  e.currentTarget.style.filter = ''
+                                }}
+                              >
+                                {op === 'pulling' ? (
+                                  <Loader className="w-4 h-4 animate-spin" />
+                                ) : (
+                                  <Download className="w-4 h-4" />
+                                )}
+                                Pull
+                              </button>
+                            </div>
+
+                            <p
+                              className="text-[9px] font-bold"
+                              style={{ color: 'var(--color-muted)' }}
+                            >
+                              <strong>Push</strong> — upload local changes · <strong>Pull</strong> —
+                              download from Firebase · Save first!
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Feedback banner */}
+                    {feedback && (
+                      <div
+                        className="flex items-center gap-2 px-3 py-2 border-2 text-xs font-bold animate-brutal-in"
+                        style={{
+                          borderColor: feedback.ok ? '#059669' : '#dc2626',
+                          background: feedback.ok ? '#05966910' : '#dc262610',
+                          color: feedback.ok ? '#059669' : '#dc2626'
+                        }}
+                      >
+                        {feedback.ok ? (
+                          <CheckCircle className="w-4 h-4 shrink-0" />
+                        ) : (
+                          <XCircle className="w-4 h-4 shrink-0" />
+                        )}
+                        <span className="break-all">{feedback.msg}</span>
+                      </div>
+                    )}
+
+                    {/* Last sync info */}
+                    {syncStatus?.lastSyncTime && (
+                      <p className="text-[9px] font-bold" style={{ color: 'var(--color-muted)' }}>
+                        Last sync: {new Date(syncStatus.lastSyncTime).toLocaleTimeString()}
+                        {syncStatus.lastSyncResult && ` — ${syncStatus.lastSyncResult.message}`}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── SERVER SYNC ── */}
+                <div
+                  className="aero-panel"
+                  style={{
+                    borderColor: 'var(--color-border)',
+                    boxShadow: 'var(--shadow-brutal-sm)'
+                  }}
+                >
+                  <div
+                    className="flex items-center justify-between px-4 py-3 border-b-2"
+                    style={{
+                      borderColor: 'var(--color-border)',
+                      background: 'var(--color-background)'
+                    }}
+                  >
+                    <h3
+                      className="font-black text-[10px] uppercase tracking-widest flex items-center gap-2"
+                      style={{ color: 'var(--color-muted)' }}
                     >
-                      <p
+                      <Server className="w-3.5 h-3.5" />
+                      Server Sync
+                    </h3>
+
+                    <div className="flex items-center gap-2">
+                      {serverHealth && (
+                        <span
+                          className="text-[9px] font-black uppercase tracking-wider px-2 py-1 border"
+                          style={{
+                            borderColor:
+                              serverHealth.status === 'ok' ? 'var(--color-primary)' : '#dc2626',
+                            color:
+                              serverHealth.status === 'ok' ? 'var(--color-primary)' : '#dc2626',
+                            background:
+                              serverHealth.status === 'ok' ? 'var(--color-primary)10' : '#dc262610'
+                          }}
+                        >
+                          {serverHealth.status || 'unknown'}
+                        </span>
+                      )}
+                      {syncStatus?.unsyncedCount > 0 && (
+                        <span
+                          className="text-[9px] font-black px-1.5 py-0.5 border"
+                          style={{
+                            borderColor: '#d97706',
+                            color: '#d97706',
+                            background: '#d9770615'
+                          }}
+                        >
+                          {syncStatus.unsyncedCount} pending
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-4 space-y-3">
+                    <div className="space-y-1">
+                      <label
                         className="text-[10px] font-black uppercase tracking-widest"
                         style={{ color: 'var(--color-muted)' }}
                       >
-                        Manual Actions
-                      </p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {/* Test */}
-                        <button
-                          onClick={handleTest}
-                          disabled={isLoading}
-                          className="flex flex-col items-center gap-1 px-3 py-3 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100 disabled:opacity-40"
-                          style={{
-                            borderColor: 'var(--color-cyan)',
-                            color: 'var(--color-cyan)',
-                            background: 'var(--color-cyan)10',
-                            boxShadow: 'var(--shadow-control)'
-                          }}
-                          onMouseOver={(e) => {
-                            if (!isLoading) e.currentTarget.style.filter = 'brightness(1.06)'
-                          }}
-                          onMouseOut={(e) => {
-                            e.currentTarget.style.filter = ''
-                          }}
-                        >
-                          {op === 'testing' ? (
-                            <Loader className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <RefreshCw className="w-4 h-4" />
-                          )}
-                          Test
-                        </button>
-
-                        {/* Push */}
-                        <button
-                          onClick={handlePush}
-                          disabled={isLoading}
-                          className="flex flex-col items-center gap-1 px-3 py-3 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100 disabled:opacity-40"
-                          style={{
-                            borderColor: 'var(--color-primary)',
-                            color: 'var(--color-primary)',
-                            background: 'var(--color-primary)10',
-                            boxShadow: 'var(--shadow-control)'
-                          }}
-                          onMouseOver={(e) => {
-                            if (!isLoading) e.currentTarget.style.filter = 'brightness(1.06)'
-                          }}
-                          onMouseOut={(e) => {
-                            e.currentTarget.style.filter = ''
-                          }}
-                        >
-                          {op === 'pushing' ? (
-                            <Loader className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Upload className="w-4 h-4" />
-                          )}
-                          Push
-                        </button>
-
-                        {/* Pull */}
-                        <button
-                          onClick={handlePull}
-                          disabled={isLoading}
-                          className="flex flex-col items-center gap-1 px-3 py-3 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100 disabled:opacity-40"
-                          style={{
-                            borderColor: 'var(--color-violet)',
-                            color: 'var(--color-violet)',
-                            background: 'var(--color-violet)10',
-                            boxShadow: 'var(--shadow-control)'
-                          }}
-                          onMouseOver={(e) => {
-                            if (!isLoading) e.currentTarget.style.filter = 'brightness(1.06)'
-                          }}
-                          onMouseOut={(e) => {
-                            e.currentTarget.style.filter = ''
-                          }}
-                        >
-                          {op === 'pulling' ? (
-                            <Loader className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Download className="w-4 h-4" />
-                          )}
-                          Pull
-                        </button>
-                      </div>
-
-                      <p className="text-[9px] font-bold" style={{ color: 'var(--color-muted)' }}>
-                        <strong>Push</strong> — upload local changes · <strong>Pull</strong> —
-                        download from Firebase · Save first!
-                      </p>
+                        Server URL
+                      </label>
+                      <input
+                        value={serverUrl}
+                        onChange={(e) => setServerUrl(e.target.value)}
+                        placeholder="https://sync.example.com"
+                        className="aero-input w-full px-3 py-2 text-xs font-semibold outline-none"
+                        style={{
+                          borderColor: 'var(--color-border)',
+                          background: 'var(--color-background)',
+                          color: 'var(--color-text)'
+                        }}
+                      />
                     </div>
-                  )}
+
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <Toggle
+                        value={serverSyncEnabled}
+                        onChange={() => setServerSyncEnabled(!serverSyncEnabled)}
+                      />
+                      <div>
+                        <span className="font-black text-xs uppercase tracking-wider">
+                          Enable server sync
+                        </span>
+                        <p
+                          className="text-[10px] font-bold mt-0.5"
+                          style={{ color: 'var(--color-muted)' }}
+                        >
+                          Use your HTTP server (Postgres + Redis) instead of Firebase
+                        </p>
+                      </div>
+                    </label>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={handleCheckServer}
+                        disabled={isServerBusy || !serverUrl}
+                        className="flex items-center justify-center gap-2 px-3 py-3 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100 disabled:opacity-40"
+                        style={{
+                          borderColor: 'var(--color-cyan)',
+                          color: 'var(--color-cyan)',
+                          background: 'var(--color-cyan)10',
+                          boxShadow: 'var(--shadow-control)'
+                        }}
+                        onMouseOver={(e) => {
+                          if (!isServerBusy) e.currentTarget.style.filter = 'brightness(1.06)'
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.filter = ''
+                        }}
+                      >
+                        {serverOp === 'health' ? (
+                          <Loader className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Activity className="w-4 h-4" />
+                        )}
+                        Check health
+                      </button>
+
+                      <button
+                        onClick={handleServerSync}
+                        disabled={isServerBusy || !serverUrl || !serverSyncEnabled}
+                        className="flex items-center justify-center gap-2 px-3 py-3 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100 disabled:opacity-40"
+                        style={{
+                          borderColor: 'var(--color-primary)',
+                          color: 'var(--color-primary)',
+                          background: 'var(--color-primary)10',
+                          boxShadow: 'var(--shadow-control)'
+                        }}
+                        onMouseOver={(e) => {
+                          if (!isServerBusy) e.currentTarget.style.filter = 'brightness(1.06)'
+                        }}
+                        onMouseOut={(e) => {
+                          e.currentTarget.style.filter = ''
+                        }}
+                      >
+                        {serverOp === 'syncing' ? (
+                          <Loader className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <RefreshCw className="w-4 h-4" />
+                        )}
+                        Sync now
+                      </button>
+                    </div>
+
+                    <div
+                      className="grid grid-cols-2 gap-2 text-[10px] font-bold"
+                      style={{ color: 'var(--color-muted)' }}
+                    >
+                      <div>Local pending: {syncStatus?.unsyncedCount ?? 0}</div>
+                      <div>
+                        Last push:{' '}
+                        {lastServerSyncAt ? new Date(lastServerSyncAt).toLocaleString() : '—'}
+                      </div>
+                      <div>
+                        Server last sync:{' '}
+                        {serverStatus?.lastSyncAt
+                          ? new Date(serverStatus.lastSyncAt).toLocaleString()
+                          : '—'}
+                      </div>
+                      <div>Total events on server: {serverStatus?.totalEvents ?? 0}</div>
+                    </div>
+
+                    {serverHealth && (
+                      <div
+                        className="text-[10px] font-bold"
+                        style={{ color: 'var(--color-muted)' }}
+                      >
+                        <p>DB: {serverHealth.db || 'unknown'}</p>
+                        <p>Redis: {serverHealth.redis || 'unknown'}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-
-              {/* Feedback banner */}
-              {feedback && (
-                <div
-                  className="flex items-center gap-2 px-3 py-2 border-2 text-xs font-bold animate-brutal-in"
-                  style={{
-                    borderColor: feedback.ok ? '#059669' : '#dc2626',
-                    background: feedback.ok ? '#05966910' : '#dc262610',
-                    color: feedback.ok ? '#059669' : '#dc2626'
-                  }}
-                >
-                  {feedback.ok ? (
-                    <CheckCircle className="w-4 h-4 shrink-0" />
-                  ) : (
-                    <XCircle className="w-4 h-4 shrink-0" />
-                  )}
-                  <span className="break-all">{feedback.msg}</span>
-                </div>
-              )}
-
-              {/* Last sync info */}
-              {syncStatus?.lastSyncTime && (
-                <p className="text-[9px] font-bold" style={{ color: 'var(--color-muted)' }}>
-                  Last sync: {new Date(syncStatus.lastSyncTime).toLocaleTimeString()}
-                  {syncStatus.lastSyncResult && ` — ${syncStatus.lastSyncResult.message}`}
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* ── SERVER SYNC ── */}
-          <div
-            className="aero-panel"
-            style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}
-          >
-            <div
-              className="flex items-center justify-between px-4 py-3 border-b-2"
-              style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)' }}
-            >
-              <h3
-                className="font-black text-[10px] uppercase tracking-widest flex items-center gap-2"
-                style={{ color: 'var(--color-muted)' }}
-              >
-                <Server className="w-3.5 h-3.5" />
-                Server Sync
-              </h3>
-
-              <div className="flex items-center gap-2">
-                {serverHealth && (
-                  <span
-                    className="text-[9px] font-black uppercase tracking-wider px-2 py-1 border"
-                    style={{
-                      borderColor:
-                        serverHealth.status === 'ok' ? 'var(--color-primary)' : '#dc2626',
-                      color: serverHealth.status === 'ok' ? 'var(--color-primary)' : '#dc2626',
-                      background:
-                        serverHealth.status === 'ok' ? 'var(--color-primary)10' : '#dc262610'
-                    }}
-                  >
-                    {serverHealth.status || 'unknown'}
-                  </span>
-                )}
-                {syncStatus?.unsyncedCount > 0 && (
-                  <span
-                    className="text-[9px] font-black px-1.5 py-0.5 border"
-                    style={{ borderColor: '#d97706', color: '#d97706', background: '#d9770615' }}
-                  >
-                    {syncStatus.unsyncedCount} pending
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="p-4 space-y-3">
-              <div className="space-y-1">
-                <label
-                  className="text-[10px] font-black uppercase tracking-widest"
-                  style={{ color: 'var(--color-muted)' }}
-                >
-                  Server URL
-                </label>
-                <input
-                  value={serverUrl}
-                  onChange={(e) => setServerUrl(e.target.value)}
-                  placeholder="https://sync.example.com"
-                  className="aero-input w-full px-3 py-2 text-xs font-semibold outline-none"
-                  style={{
-                    borderColor: 'var(--color-border)',
-                    background: 'var(--color-background)',
-                    color: 'var(--color-text)'
-                  }}
-                />
-              </div>
-
-              <label className="flex items-center gap-3 cursor-pointer">
-                <Toggle
-                  value={serverSyncEnabled}
-                  onChange={() => setServerSyncEnabled(!serverSyncEnabled)}
-                />
-                <div>
-                  <span className="font-black text-xs uppercase tracking-wider">
-                    Enable server sync
-                  </span>
-                  <p
-                    className="text-[10px] font-bold mt-0.5"
-                    style={{ color: 'var(--color-muted)' }}
-                  >
-                    Use your HTTP server (Postgres + Redis) instead of Firebase
-                  </p>
-                </div>
-              </label>
-
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={handleCheckServer}
-                  disabled={isServerBusy || !serverUrl}
-                  className="flex items-center justify-center gap-2 px-3 py-3 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100 disabled:opacity-40"
-                  style={{
-                    borderColor: 'var(--color-cyan)',
-                    color: 'var(--color-cyan)',
-                    background: 'var(--color-cyan)10',
-                    boxShadow: 'var(--shadow-control)'
-                  }}
-                  onMouseOver={(e) => {
-                    if (!isServerBusy) e.currentTarget.style.filter = 'brightness(1.06)'
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.filter = ''
-                  }}
-                >
-                  {serverOp === 'health' ? (
-                    <Loader className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Activity className="w-4 h-4" />
-                  )}
-                  Check health
-                </button>
-
-                <button
-                  onClick={handleServerSync}
-                  disabled={isServerBusy || !serverUrl || !serverSyncEnabled}
-                  className="flex items-center justify-center gap-2 px-3 py-3 border-2 text-xs font-black uppercase tracking-wider transition-all duration-100 disabled:opacity-40"
-                  style={{
-                    borderColor: 'var(--color-primary)',
-                    color: 'var(--color-primary)',
-                    background: 'var(--color-primary)10',
-                    boxShadow: 'var(--shadow-control)'
-                  }}
-                  onMouseOver={(e) => {
-                    if (!isServerBusy) e.currentTarget.style.filter = 'brightness(1.06)'
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.filter = ''
-                  }}
-                >
-                  {serverOp === 'syncing' ? (
-                    <Loader className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <RefreshCw className="w-4 h-4" />
-                  )}
-                  Sync now
-                </button>
-              </div>
-
-              <div
-                className="grid grid-cols-2 gap-2 text-[10px] font-bold"
-                style={{ color: 'var(--color-muted)' }}
-              >
-                <div>Local pending: {syncStatus?.unsyncedCount ?? 0}</div>
-                <div>
-                  Last push: {lastServerSyncAt ? new Date(lastServerSyncAt).toLocaleString() : '—'}
-                </div>
-                <div>
-                  Server last sync:{' '}
-                  {serverStatus?.lastSyncAt
-                    ? new Date(serverStatus.lastSyncAt).toLocaleString()
-                    : '—'}
-                </div>
-                <div>Total events on server: {serverStatus?.totalEvents ?? 0}</div>
-              </div>
-
-              {serverHealth && (
-                <div className="text-[10px] font-bold" style={{ color: 'var(--color-muted)' }}>
-                  <p>DB: {serverHealth.db || 'unknown'}</p>
-                  <p>Redis: {serverHealth.redis || 'unknown'}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ── DATA EXPORT ── */}
-          <div
-            className="aero-panel"
-            style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}
-          >
-            <div
-              className="flex items-center gap-2 px-4 py-3 border-b-2"
-              style={{ borderColor: 'var(--color-border)', background: 'var(--color-background)' }}
-            >
-              <Download className="w-3.5 h-3.5" style={{ color: 'var(--color-muted)' }} />
-              <h3
-                className="font-black text-[10px] uppercase tracking-widest"
-                style={{ color: 'var(--color-muted)' }}
-              >
-                Export Data
-              </h3>
-            </div>
-            <div className="p-4">
-              <p className="text-xs font-bold mb-3" style={{ color: 'var(--color-muted)' }}>
-                Export Workspaces, Projects, Boards, Columns, Tasks, and Subtasks to JSON, CSV, or
-                Markdown. The export wizard lets you pick exactly which items to include.
-              </p>
-              <button
-                onClick={() => setShowExportModal(true)}
-                className="btn-secondary w-full flex items-center justify-center gap-2 py-2.5 text-xs transition-all duration-150"
-                style={{
-                  borderColor: 'var(--color-primary)',
-                  color: 'var(--color-primary)',
-                  background: 'var(--color-primary)10',
-                  boxShadow: 'var(--shadow-control)'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.filter = 'brightness(1.06)'
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.filter = ''
-                }}
-              >
-                <Download className="w-4 h-4" />
-                Open Export Wizard
-              </button>
-            </div>
-          </div>
-
-          {/* ── DATABASE INFO ── */}
-          <div
-            className="aero-panel p-4"
-            style={{ borderColor: 'var(--color-border)', boxShadow: 'var(--shadow-brutal-sm)' }}
-          >
-            <h3
-              className="font-black text-[10px] uppercase tracking-widest mb-2 flex items-center gap-2"
-              style={{ color: 'var(--color-muted)' }}
-            >
-              <Database className="w-3.5 h-3.5" />
-              Storage
-            </h3>
-            <p className="text-xs font-bold" style={{ color: 'var(--color-muted)' }}>
-              Data is stored locally via SQLite. Firebase sync is optional — set up a Firestore
-              database and paste the Web SDK config above.
-            </p>
-            <a
-              href="https://console.firebase.google.com/"
-              target="_blank"
-              rel="noreferrer"
-              className="inline-block mt-2 text-[10px] font-black uppercase tracking-wider underline"
-              style={{ color: 'var(--color-primary)' }}
-            >
-              Open Firebase Console →
-            </a>
+              </>
+            )}
           </div>
         </div>
 
