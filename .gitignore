@@ -46,3 +46,6 @@ Cargo.lock
 
 # Tauri updater artifacts 
 latest.json
+
+# Generated test data
+data_test/
