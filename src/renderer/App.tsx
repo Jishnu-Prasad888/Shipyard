@@ -187,20 +187,20 @@ function App(): ReactElement {
         case 'quickCreate':
           setQuickCreateType(null)
           break
-        case 'createPort':
-          setQuickCreateType('port')
+        case 'createWorkspace':
+          setQuickCreateType('workspace')
           break
-        case 'createDock':
-          setQuickCreateType('dock')
+        case 'createProject':
+          setQuickCreateType('project')
           break
-        case 'createShip':
-          setQuickCreateType('ship')
+        case 'createBoard':
+          setQuickCreateType('board')
           break
-        case 'createManifest':
-          setQuickCreateType('manifest')
+        case 'createColumn':
+          setQuickCreateType('column')
           break
-        case 'createCargo':
-          setQuickCreateType('cargo')
+        case 'createTask':
+          setQuickCreateType('task')
           break
         case 'openSettings':
           setShowSettings(true)

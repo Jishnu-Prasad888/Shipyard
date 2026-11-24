@@ -5,9 +5,36 @@ use tauri::{
 };
 
 mod commands;
-mod db;
+mod dev_seed;
+mod state;
 
-use db::Database;
+use state::{AppState, SourceDescriptor, PORTABLE_DIR};
+use std::path::PathBuf;
+use std::sync::Arc;
+
+/// Folder passed with `--data <path>` (or `--data=<path>`) or the
+/// `SHIPYARD_DATA_DIR` environment variable.
+fn data_dir_override() -> Option<PathBuf> {
+    let mut args = std::env::args().skip(1);
+    while let Some(arg) = args.next() {
+        if arg == "--data" {
+            return args.next().map(PathBuf::from);
+        }
+        if let Some(path) = arg.strip_prefix("--data=") {
+            return Some(PathBuf::from(path));
+        }
+    }
+    std::env::var_os("SHIPYARD_DATA_DIR")
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+}
+
+/// A `shipyard-data` folder next to the executable turns on portable mode.
+fn portable_dir() -> Option<PathBuf> {
+    let exe = std::env::current_exe().ok()?;
+    let dir = exe.parent()?.join(PORTABLE_DIR);
+    dir.is_dir().then_some(dir)
+}
 
 pub fn run() {
     tauri::Builder::default()
@@ -15,40 +42,51 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
-            // ── Initialize SQLite database ──
-            let app_data_dir = app
-                .path()
-                .app_data_dir()
-                .expect("Failed to get app data dir");
-
-            std::fs::create_dir_all(&app_data_dir).expect("Failed to create app data directory");
-
-            let is_dev = cfg!(debug_assertions);
-            let db_name = if is_dev {
-                "shipyard-dev.db"
-            } else {
-                "shipyard.db"
+            // ── Resolve where settings and data live ──
+            let portable = portable_dir();
+            let config_path = match &portable {
+                Some(dir) => dir.join(".shipyard").join("app-config.json"),
+                None => app
+                    .path()
+                    .app_config_dir()
+                    .expect("Failed to get app config dir")
+                    .join("config.json"),
             };
-            let db_path = app_data_dir.join(db_name);
+            let state = Arc::new(AppState::new(config_path, portable.is_some()));
 
-            let database =
-                Database::new(db_path.to_str().unwrap()).expect("Failed to initialize database");
-            database
-                .initialize()
-                .expect("Failed to run schema migrations");
-
-            // Seed a demo database when running `npm run tauri dev`
-            if is_dev {
-                let force_seed = std::env::var("SHIPYARD_FORCE_DEMO_SEED")
-                    .map(|v| matches!(v.to_lowercase().as_str(), "1" | "true" | "yes" | "on"))
-                    .unwrap_or(false);
-
-                database
-                    .seed_demo_data(force_seed)
-                    .expect("Failed to seed demo database");
+            let initial = data_dir_override().or_else(|| portable.clone());
+            if let Some(dir) = initial {
+                if let Err(e) = state.open_local(&dir.to_string_lossy(), false) {
+                    eprintln!("shipyard: could not open {}: {e}", dir.display());
+                }
+            } else {
+                let last = state.config.lock().unwrap().last_source.clone();
+                match last {
+                    Some(SourceDescriptor::Local { path }) if PathBuf::from(&path).is_dir() => {
+                        if let Err(e) = state.open_local(&path, true) {
+                            eprintln!("shipyard: could not reopen {path}: {e}");
+                        }
+                    }
+                    Some(SourceDescriptor::Remote { address, token }) => {
+                        state.restore_remote(&address, &token)
+                    }
+                    _ => {}
+                }
             }
 
-            app.manage(database);
+            // Demo data for development: SHIPYARD_DEMO_SEED=1 (or "reset").
+            if cfg!(debug_assertions) {
+                if let Ok(mode) = std::env::var("SHIPYARD_DEMO_SEED") {
+                    if let Some(shipyard_core::Source::Local(store)) = state.current_source() {
+                        let reset = mode.eq_ignore_ascii_case("reset");
+                        if let Err(e) = dev_seed::seed_demo_data(&store, reset) {
+                            eprintln!("shipyard: demo seed failed: {e}");
+                        }
+                    }
+                }
+            }
+
+            app.manage(state);
 
             // ── System Tray ──
             let open_item = MenuItem::with_id(app, "open", "Open", true, None::<&str>)?;
@@ -97,8 +135,8 @@ pub fn run() {
                 let app_handle = app.handle().clone();
                 window.on_window_event(move |event| {
                     if let WindowEvent::CloseRequested { api, .. } = event {
-                        let db = app_handle.state::<Database>();
-                        let settings = db.get_settings().unwrap_or_default();
+                        let state = app_handle.state::<Arc<AppState>>();
+                        let settings = state.config.lock().unwrap().settings.clone();
                         if settings
                             .get("minimizeToTray")
                             .and_then(|v| v.as_bool())
@@ -117,6 +155,14 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             commands::db_query,
+            commands::source_status,
+            commands::source_open_local,
+            commands::source_open_remote,
+            commands::source_close,
+            commands::source_forget,
+            commands::share_status,
+            commands::share_start,
+            commands::share_stop,
             commands::settings_get,
             commands::settings_save,
             commands::sync_status,

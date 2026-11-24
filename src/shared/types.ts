@@ -101,11 +101,11 @@ export interface FirebaseConfig {
 
 export type KeyboardShortcutAction =
   | 'quickCreate'
-  | 'createPort'
-  | 'createDock'
-  | 'createShip'
-  | 'createManifest'
-  | 'createCargo'
+  | 'createWorkspace'
+  | 'createProject'
+  | 'createBoard'
+  | 'createColumn'
+  | 'createTask'
   | 'openSettings'
   | 'goHome'
   | 'openCalendar'

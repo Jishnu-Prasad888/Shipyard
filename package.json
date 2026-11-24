@@ -13,7 +13,9 @@
     "format": "prettier --write .",
     "lint": "eslint --cache .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "build:serve": "cargo build --release --manifest-path src-tauri/Cargo.toml -p shipyard-core --bin shipyard-serve",
+    "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml --workspace"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

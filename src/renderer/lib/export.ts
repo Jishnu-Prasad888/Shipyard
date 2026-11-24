@@ -1,5 +1,4 @@
 export type ExportFormat = 'json' | 'csv' | 'md'
-export type ExportSchema = 1 | 2
 
 export type ExportRecord = Record<string, unknown>
 
@@ -127,47 +126,6 @@ export const canonicalExportData = (data: ExportData): ExportData => ({
   tags: data.tags.map((item) => ({ ...item }))
 })
 
-export const toLegacyExportData = (data: ExportData): Record<string, ExportRecord[]> => ({
-  folders: data.workspaces.map(({ parentWorkspaceId, ...workspace }) => ({
-    ...workspace,
-    parentId: parentWorkspaceId
-  })),
-  docks: data.projects.map(({ workspaceId, ...project }) => ({
-    ...project,
-    folderId: workspaceId
-  })),
-  boards: data.boards.map(({ projectId, columns, ...board }) => ({
-    ...board,
-    dockId: projectId,
-    ...(columns === undefined ? {} : { lists: columns })
-  })),
-  lists: data.columns.map(({ tasks, ...column }) => ({
-    ...column,
-    ...(tasks === undefined ? {} : { cards: tasks })
-  })),
-  cards: data.tasks.map(
-    ({ columnId, connectedTaskIds, connectedColumnIds, subtasks, ...task }) => ({
-      ...task,
-      listId: columnId,
-      connectedCardIds: connectedTaskIds,
-      connectedListIds: connectedColumnIds,
-      subCards: subtasks
-    })
-  ),
-  subcards: data.subtasks.map(({ taskId, ...subtask }) => ({ ...subtask, cardId: taskId })),
-  statuses: data.statuses,
-  connections: data.connections.map((connection) => ({
-    ...connection,
-    type:
-      connection.type === 'task-to-task'
-        ? 'card-to-card'
-        : connection.type === 'column-to-column'
-          ? 'list-to-list'
-          : connection.type
-  })),
-  tags: data.tags
-})
-
 const csvValue = (value: unknown): string => {
   const stringValue =
     value == null ? '' : typeof value === 'object' ? JSON.stringify(value) : String(value)
@@ -201,23 +159,15 @@ const toMarkdown = (label: string, rows: ExportRecord[]): string => {
   )
 }
 
-export const buildExportContent = (
-  input: ExportData,
-  format: ExportFormat,
-  schemaVersion: ExportSchema = 2
-): string => {
-  const canonical = canonicalExportData(input)
-  const arrays = schemaVersion === 2 ? canonical : toLegacyExportData(canonical)
-  const payload =
-    schemaVersion === 2
-      ? {
-          $schema: 'shipyard-export',
-          schemaVersion: 2,
-          product: 'Shipyard',
-          exportedAt: new Date().toISOString(),
-          ...arrays
-        }
-      : { schemaVersion: 1, ...arrays }
+export const buildExportContent = (input: ExportData, format: ExportFormat): string => {
+  const arrays = canonicalExportData(input)
+  const payload = {
+    $schema: 'shipyard-export',
+    schemaVersion: 2,
+    product: 'Shipyard',
+    exportedAt: new Date().toISOString(),
+    ...arrays
+  }
   if (format === 'json') return JSON.stringify(payload, null, 2)
 
   const sections = Object.entries(arrays)

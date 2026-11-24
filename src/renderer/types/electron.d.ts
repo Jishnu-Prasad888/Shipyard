@@ -1,14 +1,31 @@
 /**
  * src/renderer/types/electron.d.ts
  *
- * Keep the same shape — window.electron is populated by tauri-bridge.ts at runtime.
- * No component code needs to change.
+ * window.electron is populated by tauri-bridge.ts at runtime.
  */
-export {}
+import type { ShareStatus, SourceDescriptor, SourceStatus } from './source'
 
 declare global {
   interface Window {
     electron: {
+      source: {
+        status: () => Promise<SourceStatus>
+        pickFolder: () => Promise<string | null>
+        openLocal: (path: string) => Promise<SourceDescriptor>
+        openRemote: (address: string, token: string) => Promise<SourceDescriptor>
+        close: () => Promise<void>
+        forget: (descriptor: SourceDescriptor) => Promise<void>
+      }
+      share: {
+        status: () => Promise<ShareStatus>
+        start: (args: {
+          port?: number
+          token?: string
+          host?: string
+          readOnly?: boolean
+        }) => Promise<ShareStatus>
+        stop: () => Promise<ShareStatus>
+      }
       db: {
         findAll: (table: string) => Promise<any>
         findById: (table: string, id: string) => Promise<any>

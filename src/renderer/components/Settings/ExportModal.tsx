@@ -20,7 +20,6 @@ import {
   buildExportContent,
   ExportData,
   ExportFormat,
-  ExportSchema,
   ProjectExportRecord,
   BoardExportRecord,
   ColumnExportRecord,
@@ -149,7 +148,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
   const [expandedBoards, setExpandedBoards] = useState<Selection>({})
   const [expandedColumns, setExpandedColumns] = useState<Selection>({})
   const [format, setFormat] = useState<ExportFormat>('json')
-  const [schemaVersion, setSchemaVersion] = useState<ExportSchema>(2)
   const [splitPerProject, setSplitPerProject] = useState(false)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
@@ -406,7 +404,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
           .map((project) => ({
             name: `shipyard-${slugify(project.name)}`,
             ext: format,
-            content: buildExportContent(selectData(new Set([project.id])), format, schemaVersion)
+            content: buildExportContent(selectData(new Set([project.id])), format)
           }))
         const response = await window.electron.export.saveFolder(files)
         if (response?.success) {
@@ -420,8 +418,8 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
         }
       } else {
         const response = await window.electron.export.saveFile({
-          defaultName: schemaVersion === 2 ? 'shipyard-export' : 'shipyard-export-legacy-v1',
-          content: buildExportContent(selectData(), format, schemaVersion),
+          defaultName: 'shipyard-export',
+          content: buildExportContent(selectData(), format),
           ext: format
         })
         if (response?.success) {
@@ -685,17 +683,6 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
                 </button>
               ))}
             </div>
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-widest mb-2">Schema</p>
-              <select
-                value={schemaVersion}
-                onChange={(event) => setSchemaVersion(Number(event.target.value) as ExportSchema)}
-                className="aero-input w-full px-2 py-2 text-xs font-semibold"
-              >
-                <option value={2}>Canonical v2</option>
-                <option value={1}>Legacy v1</option>
-              </select>
-            </div>
             <label className="flex items-start gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -704,7 +691,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
               />
               <span className="text-xs font-black">
                 Split per project
-                <small className="block text-muted font-bold">One shipyard file per project</small>
+                <small className="block text-muted font-bold">One file per project</small>
               </span>
             </label>
             <div

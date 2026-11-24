@@ -10,7 +10,7 @@ import {
   X
 } from 'lucide-react'
 
-export type QuickCreateType = 'port' | 'dock' | 'ship' | 'manifest' | 'cargo'
+export type QuickCreateType = 'workspace' | 'project' | 'board' | 'column' | 'task'
 
 interface NamedRecord {
   id: string
@@ -80,35 +80,35 @@ const CREATE_TYPES: Array<{
   icon: React.ComponentType<{ className?: string }>
 }> = [
   {
-    id: 'port',
+    id: 'workspace',
     label: 'Workspace',
     description: 'Organize related projects',
     color: '#2563eb',
     icon: FolderTree
   },
   {
-    id: 'dock',
+    id: 'project',
     label: 'Project',
     description: 'Group one or more boards',
     color: '#0891b2',
     icon: FolderKanban
   },
   {
-    id: 'ship',
+    id: 'board',
     label: 'Board',
     description: 'Plan work inside a project',
     color: '#7c3aed',
     icon: LayoutDashboard
   },
   {
-    id: 'manifest',
+    id: 'column',
     label: 'Column',
     description: 'Organize tasks on a board',
     color: '#d97706',
     icon: Columns3
   },
   {
-    id: 'cargo',
+    id: 'task',
     label: 'Task',
     description: 'Add work to a column',
     color: '#059669',
@@ -233,10 +233,10 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
   const [type, setType] = useState<QuickCreateType | null>(initialType)
   const [selectedIndex, setSelectedIndex] = useState(0)
   const [name, setName] = useState('')
-  const [portId, setPortId] = useState('')
-  const [dockId, setDockId] = useState('')
-  const [shipId, setShipId] = useState('')
-  const [manifestId, setManifestId] = useState('')
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState('')
+  const [selectedProjectId, setSelectedProjectId] = useState('')
+  const [selectedBoardId, setSelectedBoardId] = useState('')
+  const [selectedColumnId, setSelectedColumnId] = useState('')
   const [workspaces, setWorkspaces] = useState<WorkspaceRecord[]>([])
   const [projects, setProjects] = useState<ProjectRecord[]>([])
   const [boards, setBoards] = useState<BoardRecord[]>([])
@@ -307,65 +307,67 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
   }, [type, selectedIndex, onClose])
 
   const selectedType = CREATE_TYPES.find((item) => item.id === type)
-  const availableDocks = portId
-    ? projects.filter((project) => project.workspaceId === portId)
+  const availableProjects = selectedWorkspaceId
+    ? projects.filter((project) => project.workspaceId === selectedWorkspaceId)
     : projects
-  const availableShips = dockId ? boards.filter((board) => board.projectId === dockId) : boards
-  const availableManifests = shipId
-    ? columns.filter((column) => column.boardId === shipId)
+  const availableBoards = selectedProjectId
+    ? boards.filter((board) => board.projectId === selectedProjectId)
+    : boards
+  const availableColumns = selectedBoardId
+    ? columns.filter((column) => column.boardId === selectedBoardId)
     : columns
 
-  const selectPort = (id: string): void => {
-    setPortId(id)
-    setDockId('')
-    setShipId('')
-    setManifestId('')
+  const selectWorkspace = (id: string): void => {
+    setSelectedWorkspaceId(id)
+    setSelectedProjectId('')
+    setSelectedBoardId('')
+    setSelectedColumnId('')
   }
 
-  const selectDock = (id: string): void => {
-    setDockId(id)
-    const dock = projects.find((project) => project.id === id)
-    if (dock?.workspaceId) setPortId(dock.workspaceId)
-    setShipId('')
-    setManifestId('')
+  const selectProject = (id: string): void => {
+    setSelectedProjectId(id)
+    const parentProject = projects.find((project) => project.id === id)
+    if (parentProject?.workspaceId) setSelectedWorkspaceId(parentProject.workspaceId)
+    setSelectedBoardId('')
+    setSelectedColumnId('')
   }
 
-  const selectShip = (id: string): void => {
-    setShipId(id)
-    const ship = boards.find((board) => board.id === id)
-    if (ship?.projectId) {
-      setDockId(ship.projectId)
-      const dock = projects.find((project) => project.id === ship.projectId)
-      if (dock?.workspaceId) setPortId(dock.workspaceId)
+  const selectBoard = (id: string): void => {
+    setSelectedBoardId(id)
+    const parentBoard = boards.find((board) => board.id === id)
+    if (parentBoard?.projectId) {
+      setSelectedProjectId(parentBoard.projectId)
+      const parentProject = projects.find((project) => project.id === parentBoard.projectId)
+      if (parentProject?.workspaceId) setSelectedWorkspaceId(parentProject.workspaceId)
     }
-    setManifestId('')
+    setSelectedColumnId('')
   }
 
-  const selectManifest = (id: string): void => {
-    setManifestId(id)
-    const manifest = columns.find((column) => column.id === id)
-    if (manifest?.boardId) selectShip(manifest.boardId)
-    setManifestId(id)
+  const selectColumn = (id: string): void => {
+    setSelectedColumnId(id)
+    const parentColumn = columns.find((column) => column.id === id)
+    if (parentColumn?.boardId) selectBoard(parentColumn.boardId)
+    setSelectedColumnId(id)
   }
 
-  const createPort = async (portName: string): Promise<void> => {
+  const createWorkspace = async (workspaceName: string): Promise<void> => {
     const created = (await window.electron.db.create('workspaces', {
-      name: portName,
+      name: workspaceName,
       color: '#2563eb',
       parentWorkspaceId: null,
       createdAt: currentTimeMs()
     })) as WorkspaceRecord
     await loadData()
-    setPortId(created.id)
+    setSelectedWorkspaceId(created.id)
     window.dispatchEvent(new CustomEvent('reload-projects'))
   }
 
-  const createDock = async (dockName: string): Promise<void> => {
-    if (!portId) throw new Error('Select or create a workspace first.')
+  const createProject = async (projectName: string): Promise<void> => {
+    if (!selectedWorkspaceId) throw new Error('Select or create a workspace first.')
     const created = (await window.electron.db.create('projects', {
-      name: dockName,
+      name: projectName,
       description: '',
-      workspaceId: portId,
+      workspaceId: selectedWorkspaceId,
       tags: JSON.stringify([]),
       color: '#0891b2',
       boardIds: JSON.stringify([]),
@@ -373,44 +375,47 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
       updatedAt: currentTimeMs()
     })) as ProjectRecord
     await loadData()
-    setDockId(created.id)
+    setSelectedProjectId(created.id)
     window.dispatchEvent(new CustomEvent('reload-projects'))
   }
 
-  const createShip = async (shipName: string): Promise<void> => {
-    if (!dockId) throw new Error('Select or create a project first.')
+  const createBoard = async (boardName: string): Promise<void> => {
+    if (!selectedProjectId) throw new Error('Select or create a project first.')
     const created = (await window.electron.db.create('boards', {
-      name: shipName,
+      name: boardName,
       description: '',
-      projectId: dockId,
+      projectId: selectedProjectId,
       color: '#7c3aed',
       tags: JSON.stringify([]),
       createdAt: currentTimeMs(),
       updatedAt: currentTimeMs()
     })) as BoardRecord
-    const dock = (await window.electron.db.findById('projects', dockId)) as ProjectRecord | null
-    const boardIds = [...parseIds(dock?.boardIds), created.id]
-    await window.electron.db.update('projects', dockId, {
+    const parentProject = (await window.electron.db.findById(
+      'projects',
+      selectedProjectId
+    )) as ProjectRecord | null
+    const boardIds = [...parseIds(parentProject?.boardIds), created.id]
+    await window.electron.db.update('projects', selectedProjectId, {
       boardIds: JSON.stringify([...new Set(boardIds)]),
       updatedAt: currentTimeMs()
     })
     await loadData()
-    setShipId(created.id)
+    setSelectedBoardId(created.id)
     window.dispatchEvent(new CustomEvent('reload-projects'))
   }
 
-  const createManifest = async (manifestName: string): Promise<void> => {
-    if (!shipId) throw new Error('Select or create a board first.')
+  const createColumn = async (columnName: string): Promise<void> => {
+    if (!selectedBoardId) throw new Error('Select or create a board first.')
     const created = (await window.electron.db.create('columns', {
-      name: manifestName,
-      boardId: shipId,
-      order: columns.filter((column) => column.boardId === shipId).length,
+      name: columnName,
+      boardId: selectedBoardId,
+      order: columns.filter((column) => column.boardId === selectedBoardId).length,
       color: '#d97706',
       createdAt: currentTimeMs(),
       updatedAt: currentTimeMs()
     })) as ColumnRecord
     await loadData()
-    setManifestId(created.id)
+    setSelectedColumnId(created.id)
     window.dispatchEvent(new CustomEvent('reload-projects'))
   }
 
@@ -421,59 +426,62 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
     setError('')
     try {
       let entity: CreatedEntity
-      if (type === 'port') {
+      if (type === 'workspace') {
         entity = await window.electron.db.create('workspaces', {
           name: name.trim(),
           color: selectedType?.color,
           parentWorkspaceId: null,
           createdAt: currentTimeMs()
         })
-      } else if (type === 'dock') {
-        if (!portId) throw new Error('Select or create a workspace.')
+      } else if (type === 'project') {
+        if (!selectedWorkspaceId) throw new Error('Select or create a workspace.')
         entity = await window.electron.db.create('projects', {
           name: name.trim(),
           description: '',
-          workspaceId: portId,
+          workspaceId: selectedWorkspaceId,
           tags: JSON.stringify([]),
           color: selectedType?.color,
           boardIds: JSON.stringify([]),
           createdAt: currentTimeMs(),
           updatedAt: currentTimeMs()
         })
-      } else if (type === 'ship') {
-        if (!dockId) throw new Error('Select or create a project.')
+      } else if (type === 'board') {
+        if (!selectedProjectId) throw new Error('Select or create a project.')
         entity = await window.electron.db.create('boards', {
           name: name.trim(),
           description: '',
-          projectId: dockId,
+          projectId: selectedProjectId,
           color: selectedType?.color,
           tags: JSON.stringify([]),
           createdAt: currentTimeMs(),
           updatedAt: currentTimeMs()
         })
-        const dock = (await window.electron.db.findById('projects', dockId)) as ProjectRecord | null
-        await window.electron.db.update('projects', dockId, {
-          boardIds: JSON.stringify([...new Set([...parseIds(dock?.boardIds), entity.id])]),
+        const parentProject = (await window.electron.db.findById(
+          'projects',
+          selectedProjectId
+        )) as ProjectRecord | null
+        await window.electron.db.update('projects', selectedProjectId, {
+          boardIds: JSON.stringify([...new Set([...parseIds(parentProject?.boardIds), entity.id])]),
           updatedAt: currentTimeMs()
         })
-      } else if (type === 'manifest') {
-        if (!shipId) throw new Error('Select or create a board.')
+      } else if (type === 'column') {
+        if (!selectedBoardId) throw new Error('Select or create a board.')
         entity = await window.electron.db.create('columns', {
           name: name.trim(),
-          boardId: shipId,
-          order: columns.filter((column) => column.boardId === shipId).length,
+          boardId: selectedBoardId,
+          order: columns.filter((column) => column.boardId === selectedBoardId).length,
           color: selectedType?.color,
           createdAt: currentTimeMs(),
           updatedAt: currentTimeMs()
         })
       } else {
-        if (!manifestId || !shipId) throw new Error('Select or create a column.')
+        if (!selectedColumnId || !selectedBoardId) throw new Error('Select or create a column.')
         entity = await window.electron.db.create('tasks', {
           title: name.trim(),
           description: '',
-          columnId: manifestId,
-          boardId: shipId,
-          order: tasks.filter((task) => task.columnId === manifestId).length,
+          columnId: selectedColumnId,
+          boardId: selectedBoardId,
+          order: tasks.filter((task) => task.columnId === selectedColumnId).length,
           color: selectedType?.color,
           deadline: null,
           status: null,
@@ -492,8 +500,8 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
         type,
         label: selectedType?.label || 'Item',
         entity,
-        projectId: type === 'dock' ? entity.id : dockId || entity.projectId,
-        boardId: type === 'ship' ? entity.id : shipId || entity.boardId
+        projectId: type === 'project' ? entity.id : selectedProjectId || entity.projectId,
+        boardId: type === 'board' ? entity.id : selectedBoardId || entity.boardId
       })
     } catch (caught) {
       setError(
@@ -506,9 +514,9 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
     }
   }
 
-  const needsDock = type === 'ship' || type === 'manifest' || type === 'cargo'
-  const needsShip = type === 'manifest' || type === 'cargo'
-  const needsManifest = type === 'cargo'
+  const needsProject = type === 'board' || type === 'column' || type === 'task'
+  const needsBoard = type === 'column' || type === 'task'
+  const needsColumn = type === 'task'
 
   return (
     <div className="fixed inset-0 z-[55] flex items-center justify-center p-4" onClick={onClose}>
@@ -593,47 +601,47 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
               />
             </div>
 
-            {type !== 'port' && (
+            {type !== 'workspace' && (
               <EntityPicker
                 label="Workspaces"
                 singular="Workspace"
                 items={workspaces}
-                value={portId}
-                onChange={selectPort}
-                onCreate={createPort}
+                value={selectedWorkspaceId}
+                onChange={selectWorkspace}
+                onCreate={createWorkspace}
               />
             )}
-            {needsDock && (
+            {needsProject && (
               <EntityPicker
                 label="Projects"
                 singular="Project"
-                items={availableDocks}
-                value={dockId}
-                onChange={selectDock}
-                onCreate={createDock}
-                disabled={!portId}
+                items={availableProjects}
+                value={selectedProjectId}
+                onChange={selectProject}
+                onCreate={createProject}
+                disabled={!selectedWorkspaceId}
               />
             )}
-            {needsShip && (
+            {needsBoard && (
               <EntityPicker
                 label="Boards"
                 singular="Board"
-                items={availableShips}
-                value={shipId}
-                onChange={selectShip}
-                onCreate={createShip}
-                disabled={!dockId}
+                items={availableBoards}
+                value={selectedBoardId}
+                onChange={selectBoard}
+                onCreate={createBoard}
+                disabled={!selectedProjectId}
               />
             )}
-            {needsManifest && (
+            {needsColumn && (
               <EntityPicker
                 label="Columns"
                 singular="Column"
-                items={availableManifests}
-                value={manifestId}
-                onChange={selectManifest}
-                onCreate={createManifest}
-                disabled={!shipId}
+                items={availableColumns}
+                value={selectedColumnId}
+                onChange={selectColumn}
+                onCreate={createColumn}
+                disabled={!selectedBoardId}
               />
             )}
 
