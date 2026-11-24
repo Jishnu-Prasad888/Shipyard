@@ -4,7 +4,6 @@ import {
   Settings,
   Moon,
   Sun,
-  Anchor,
   Folder,
   FolderKanban,
   KanbanSquare,
@@ -220,7 +219,7 @@ export const Header: React.FC<HeaderProps> = ({
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,.65), 0 2px 5px rgba(0,0,0,.35)'
             }}
           >
-            <Anchor className="w-5 h-5 text-white" strokeWidth={2.5} />
+            <KanbanSquare className="w-5 h-5 text-white" strokeWidth={2.5} />
           </div>
           <div className="leading-tight text-white">
             <span className="block text-xs font-black uppercase tracking-[0.2em] opacity-80">

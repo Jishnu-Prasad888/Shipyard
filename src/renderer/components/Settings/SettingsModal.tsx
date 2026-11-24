@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { FirebaseConfig } from './FirebaseConfig'
 import { ExportModal } from './ExportModal'
+import { DataFolderPanel } from './DataFolderPanel'
 import { useDispatch, useSelector } from 'react-redux'
 import { RootState } from '../../store'
 import { setSettings } from '../../store/settingsSlice'
@@ -548,6 +549,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-auto p-5 space-y-4">
+          {/* ── DATA FOLDER ── */}
+          <DataFolderPanel />
+
           {/* ── APPEARANCE ── */}
           <div
             className="aero-panel p-4"
@@ -1057,7 +1061,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                 <input
                   value={serverUrl}
                   onChange={(e) => setServerUrl(e.target.value)}
-                  placeholder="https://api.my-shipyard.com"
+                  placeholder="https://sync.example.com"
                   className="aero-input w-full px-3 py-2 text-xs font-semibold outline-none"
                   style={{
                     borderColor: 'var(--color-border)',

@@ -1,0 +1,22 @@
+[package]
+name = "shipyard-core"
+version = "1.0.1"
+description = "Folder-based storage, network sharing and remote access for Shipyard"
+authors = ["Jishnu"]
+edition = "2021"
+
+[lib]
+name = "shipyard_core"
+path = "src/lib.rs"
+
+[[bin]]
+name = "shipyard-serve"
+path = "src/bin/shipyard-serve.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["v4"] }
+thiserror = "1"
+tiny_http = "0.12"
+ureq = { version = "2", default-features = false }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildExportContent, canonicalExportData, toLegacyExportData } from './export'
+import { buildExportContent } from './export'
 
 const data = {
   workspaces: [{ id: 'workspace-1', name: 'Workspace' }],
@@ -42,7 +42,7 @@ const data = {
 
 describe('export schema', () => {
   it('emits canonical v2 arrays and relationships', () => {
-    const payload = JSON.parse(buildExportContent(data, 'json', 2))
+    const payload = JSON.parse(buildExportContent(data, 'json'))
     expect(payload.$schema).toBe('shipyard-export')
     expect(payload.schemaVersion).toBe(2)
     expect(payload.product).toBe('Shipyard')
@@ -55,16 +55,8 @@ describe('export schema', () => {
     expect(payload.connections[0].type).toBe('task-to-task')
   })
 
-  it('maps canonical data to the legacy v1 compatibility shape', () => {
-    const legacy = toLegacyExportData(canonicalExportData(data))
-    expect(legacy.docks[0].folderId).toBe('workspace-1')
-    expect(legacy.boards[0].dockId).toBe('project-1')
-    expect(legacy.cards[0].listId).toBe('column-1')
-    expect(legacy.subcards[0].cardId).toBe('task-1')
-    expect(legacy.connections[0].type).toBe('card-to-card')
-  })
-
-  it('marks legacy JSON as schema version 1', () => {
-    expect(JSON.parse(buildExportContent(data, 'json', 1)).schemaVersion).toBe(1)
+  it('exports CSV and Markdown sections for every record type', () => {
+    expect(buildExportContent(data, 'csv')).toContain('# PROJECTS')
+    expect(buildExportContent(data, 'md')).toContain('## Tasks')
   })
 })

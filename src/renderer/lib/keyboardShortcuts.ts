@@ -6,11 +6,11 @@ export const SHORTCUT_ACTIONS: Array<{
   group: 'Quick create' | 'Navigation'
 }> = [
   { id: 'quickCreate', label: 'Open quick create', group: 'Quick create' },
-  { id: 'createPort', label: 'Create workspace', group: 'Quick create' },
-  { id: 'createDock', label: 'Create project', group: 'Quick create' },
-  { id: 'createShip', label: 'Create board', group: 'Quick create' },
-  { id: 'createManifest', label: 'Create column', group: 'Quick create' },
-  { id: 'createCargo', label: 'Create task', group: 'Quick create' },
+  { id: 'createWorkspace', label: 'Create workspace', group: 'Quick create' },
+  { id: 'createProject', label: 'Create project', group: 'Quick create' },
+  { id: 'createBoard', label: 'Create board', group: 'Quick create' },
+  { id: 'createColumn', label: 'Create column', group: 'Quick create' },
+  { id: 'createTask', label: 'Create task', group: 'Quick create' },
   { id: 'openSettings', label: 'Open settings', group: 'Navigation' },
   { id: 'goHome', label: 'Go home', group: 'Navigation' },
   { id: 'openCalendar', label: 'Open calendar', group: 'Navigation' },
@@ -19,20 +19,20 @@ export const SHORTCUT_ACTIONS: Array<{
 
 export const DEFAULT_KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
   { action: 'quickCreate', strokes: ['Ctrl+N'] },
-  { action: 'createPort', strokes: ['Ctrl+N', 'W'] },
-  { action: 'createDock', strokes: ['Ctrl+N', 'P'] },
-  { action: 'createShip', strokes: ['Ctrl+N', 'B'] },
-  { action: 'createManifest', strokes: ['Ctrl+N', 'C'] },
-  { action: 'createCargo', strokes: ['Ctrl+N', 'T'] }
+  { action: 'createWorkspace', strokes: ['Ctrl+N', 'W'] },
+  { action: 'createProject', strokes: ['Ctrl+N', 'P'] },
+  { action: 'createBoard', strokes: ['Ctrl+N', 'B'] },
+  { action: 'createColumn', strokes: ['Ctrl+N', 'C'] },
+  { action: 'createTask', strokes: ['Ctrl+N', 'T'] }
 ]
 
 const LEGACY_DEFAULT_KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
   { action: 'quickCreate', strokes: ['Ctrl+N'] },
-  { action: 'createPort', strokes: ['Ctrl+N', 'P'] },
-  { action: 'createDock', strokes: ['Ctrl+N', 'D'] },
-  { action: 'createShip', strokes: ['Ctrl+N', 'S'] },
-  { action: 'createManifest', strokes: ['Ctrl+N', 'M'] },
-  { action: 'createCargo', strokes: ['Ctrl+N', 'C'] }
+  { action: 'createWorkspace', strokes: ['Ctrl+N', 'P'] },
+  { action: 'createProject', strokes: ['Ctrl+N', 'D'] },
+  { action: 'createBoard', strokes: ['Ctrl+N', 'S'] },
+  { action: 'createColumn', strokes: ['Ctrl+N', 'M'] },
+  { action: 'createTask', strokes: ['Ctrl+N', 'C'] }
 ]
 
 const MODIFIER_KEYS = new Set(['Control', 'Alt', 'Shift', 'Meta'])

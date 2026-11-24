@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -142,83 +141,7 @@ func (s *Server) ensureSchema(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return s.migrateLegacyState(ctx)
-}
-
-func (s *Server) migrateLegacyState(ctx context.Context) error {
-	tx, err := s.db.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback(ctx)
-
-	rows, err := tx.Query(ctx, `
-        SELECT table_name, record_id, payload, updated_at
-        FROM records_state
-        WHERE table_name = ANY($1)
-    `, []string{"folders", "docks", "lists", "cards", "subcards"})
-	if err != nil {
-		return err
-	}
-	type legacyRecord struct {
-		table, id string
-		payload   json.RawMessage
-		updatedAt time.Time
-	}
-	var records []legacyRecord
-	for rows.Next() {
-		var record legacyRecord
-		if err := rows.Scan(&record.table, &record.id, &record.payload, &record.updatedAt); err != nil {
-			rows.Close()
-			return err
-		}
-		records = append(records, record)
-	}
-	if err := rows.Err(); err != nil {
-		rows.Close()
-		return err
-	}
-	rows.Close()
-
-	for _, record := range records {
-		canonicalTable, _ := canonicalTableName(record.table)
-		canonicalPayload, err := canonicalizePayload(canonicalTable, record.payload)
-		if err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx, `
-            INSERT INTO records_state (table_name, record_id, payload, updated_at)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT (table_name, record_id) DO UPDATE
-            SET payload = EXCLUDED.payload, updated_at = EXCLUDED.updated_at
-            WHERE EXCLUDED.updated_at > records_state.updated_at
-        `, canonicalTable, record.id, canonicalPayload, record.updatedAt); err != nil {
-			return err
-		}
-		if _, err := tx.Exec(ctx,
-			"DELETE FROM records_state WHERE table_name = $1 AND record_id = $2",
-			record.table, record.id,
-		); err != nil {
-			return err
-		}
-	}
-
-	_, err = tx.Exec(ctx, `
-        UPDATE sync_events
-        SET canonical_table_name = CASE table_name
-            WHEN 'folders' THEN 'workspaces'
-            WHEN 'docks' THEN 'projects'
-            WHEN 'lists' THEN 'columns'
-            WHEN 'cards' THEN 'tasks'
-            WHEN 'subcards' THEN 'subtasks'
-            ELSE table_name
-        END
-        WHERE canonical_table_name IS NULL
-    `)
-	if err != nil {
-		return err
-	}
-	return tx.Commit(ctx)
+	return nil
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
@@ -325,8 +248,8 @@ func (s *Server) handleSync(w http.ResponseWriter, r *http.Request) {
 }
 
 func normalizeSyncOperations(req SyncRequest) ([]normalizedSyncOperation, error) {
-	if req.SchemaVersion != 0 && req.SchemaVersion != 1 && req.SchemaVersion != 2 {
-		return nil, errors.New("schemaVersion must be 1 or 2")
+	if req.SchemaVersion != 0 && req.SchemaVersion != currentSyncSchemaVersion {
+		return nil, fmt.Errorf("schemaVersion must be %d", currentSyncSchemaVersion)
 	}
 
 	operations := make([]normalizedSyncOperation, 0, len(req.Operations))
@@ -336,10 +259,10 @@ func normalizeSyncOperations(req SyncRequest) ([]normalizedSyncOperation, error)
 			schemaVersion = req.SchemaVersion
 		}
 		if schemaVersion == 0 {
-			schemaVersion = 1
+			schemaVersion = currentSyncSchemaVersion
 		}
-		if schemaVersion != 1 && schemaVersion != 2 {
-			return nil, errors.New("operation schemaVersion must be 1 or 2")
+		if schemaVersion != currentSyncSchemaVersion {
+			return nil, fmt.Errorf("operation schemaVersion must be %d", currentSyncSchemaVersion)
 		}
 
 		normalizedOp := strings.ToUpper(strings.TrimSpace(op.Operation))
@@ -389,118 +312,19 @@ func normalizeSyncOperations(req SyncRequest) ([]normalizedSyncOperation, error)
 }
 
 func canonicalTableName(table string) (string, bool) {
-	canonical, ok := map[string]string{
-		"folders":     "workspaces",
-		"docks":       "projects",
-		"boards":      "boards",
-		"lists":       "columns",
-		"cards":       "tasks",
-		"subcards":    "subtasks",
-		"workspaces":  "workspaces",
-		"projects":    "projects",
-		"columns":     "columns",
-		"tasks":       "tasks",
-		"subtasks":    "subtasks",
-		"statuses":    "statuses",
-		"connections": "connections",
-		"tags":        "tags",
-	}[strings.ToLower(strings.TrimSpace(table))]
-	return canonical, ok
+	name := strings.ToLower(strings.TrimSpace(table))
+	switch name {
+	case "workspaces", "projects", "boards", "columns", "tasks", "subtasks", "statuses", "connections", "tags":
+		return name, true
+	}
+	return "", false
 }
 
-func canonicalizePayload(table string, payload json.RawMessage) (json.RawMessage, error) {
+func canonicalizePayload(_ string, payload json.RawMessage) (json.RawMessage, error) {
 	if !json.Valid(payload) {
 		return nil, errors.New("payload must be valid JSON")
 	}
-	trimmed := bytes.TrimSpace(payload)
-	if len(trimmed) == 0 || trimmed[0] != '{' {
-		return payload, nil
-	}
-
-	var record map[string]json.RawMessage
-	if err := json.Unmarshal(payload, &record); err != nil {
-		return nil, err
-	}
-	if record == nil {
-		return payload, nil
-	}
-
-	aliases := map[string]map[string]string{
-		"workspaces": {
-			"parentId": "parentWorkspaceId",
-			"docks":    "projects",
-		},
-		"projects": {
-			"folderId": "workspaceId",
-		},
-		"boards": {
-			"dockId": "projectId",
-			"lists":  "columns",
-		},
-		"columns": {
-			"cards": "tasks",
-		},
-		"tasks": {
-			"listId":           "columnId",
-			"connectedCardIds": "connectedTaskIds",
-			"connectedListIds": "connectedColumnIds",
-			"subCards":         "subtasks",
-			"subcards":         "subtasks",
-		},
-		"subtasks": {
-			"cardId": "taskId",
-		},
-	}
-	for legacy, canonical := range aliases[table] {
-		value, exists := record[legacy]
-		if !exists {
-			continue
-		}
-		if _, canonicalExists := record[canonical]; !canonicalExists {
-			record[canonical] = value
-		}
-		delete(record, legacy)
-	}
-	if table == "connections" {
-		var connectionType string
-		if value, ok := record["type"]; ok && json.Unmarshal(value, &connectionType) == nil {
-			switch connectionType {
-			case "card-to-card":
-				record["type"] = json.RawMessage(`"task-to-task"`)
-			case "list-to-list":
-				record["type"] = json.RawMessage(`"column-to-column"`)
-			}
-		}
-	}
-
-	children := map[string]struct {
-		field string
-		table string
-	}{
-		"workspaces": {"projects", "projects"},
-		"projects":   {"boards", "boards"},
-		"boards":     {"columns", "columns"},
-		"columns":    {"tasks", "tasks"},
-		"tasks":      {"subtasks", "subtasks"},
-	}
-	child, hasChildren := children[table]
-	value, hasValue := record[child.field]
-	if hasChildren && hasValue && len(bytes.TrimSpace(value)) > 0 && bytes.TrimSpace(value)[0] == '[' {
-		var items []json.RawMessage
-		if err := json.Unmarshal(value, &items); err != nil {
-			return nil, err
-		}
-		for i, item := range items {
-			normalized, err := canonicalizePayload(child.table, item)
-			if err != nil {
-				return nil, err
-			}
-			items[i] = normalized
-		}
-		record[child.field], _ = json.Marshal(items)
-	}
-
-	return json.Marshal(record)
+	return payload, nil
 }
 
 func (s *Server) applySyncOperations(ctx context.Context, source string, operations []normalizedSyncOperation) ([]string, error) {

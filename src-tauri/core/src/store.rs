@@ -1,0 +1,829 @@
+//! Folder-backed record store.
+//!
+//! Every record lives in its own pretty-printed JSON file:
+//!
+//! ```text
+//! <folder>/
+//!   shipyard.json              folder marker + format version
+//!   workspaces/<id>.json
+//!   projects/<id>.json
+//!   boards/<id>.json
+//!   columns/<id>.json
+//!   tasks/<id>.json
+//!   subtasks/<id>.json
+//!   statuses/<id>.json
+//!   connections/<id>.json
+//!   tags/<id>.json
+//!   .shipyard/sync-queue.jsonl pending changes for optional sync
+//! ```
+//!
+//! There is no database: the files are the source of truth and are re-read
+//! whenever they change on disk, so a folder can be copied, backed up, put
+//! under version control, or opened from a network share.
+
+use serde_json::{json, Map, Value};
+use std::collections::HashMap;
+use std::fs;
+use std::io::{BufRead, BufReader, Write};
+use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
+use uuid::Uuid;
+
+use crate::{Error, Result};
+
+pub const FORMAT: &str = "shipyard-folder";
+pub const FORMAT_VERSION: u64 = 1;
+pub const MARKER_FILE: &str = "shipyard.json";
+const META_DIR: &str = ".shipyard";
+const SYNC_QUEUE_FILE: &str = "sync-queue.jsonl";
+
+/// Tables stored as one-file-per-record directories.
+pub const TABLES: &[&str] = &[
+    "workspaces",
+    "projects",
+    "boards",
+    "columns",
+    "tasks",
+    "subtasks",
+    "statuses",
+    "connections",
+    "tags",
+];
+
+/// Virtual table exposing pending sync operations.
+pub const SYNC_QUEUE: &str = "sync_queue";
+
+/// Fields whose values are structured JSON. Older callers sometimes send
+/// these as JSON-encoded strings; they are decoded so files stay readable.
+const JSON_FIELDS: &[&str] = &[
+    "tags",
+    "subtasks",
+    "status",
+    "connectedTaskIds",
+    "connectedColumnIds",
+    "boardIds",
+    "points",
+];
+
+fn has_created_at(table: &str) -> bool {
+    !matches!(table, "connections")
+}
+
+fn has_updated_at(table: &str) -> bool {
+    !matches!(table, "workspaces" | "subtasks" | "tags" | "connections")
+}
+
+pub fn now_ms() -> i64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64
+}
+
+/// Record IDs become file names, so only a safe character set is allowed.
+pub fn validate_id(id: &str) -> Result<()> {
+    let ok = !id.is_empty()
+        && id.len() <= 200
+        && !id.starts_with('.')
+        && id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'));
+    if ok {
+        Ok(())
+    } else {
+        Err(Error::InvalidInput(format!("invalid record id: {id:?}")))
+    }
+}
+
+fn validate_table(table: &str) -> Result<()> {
+    if TABLES.contains(&table) {
+        Ok(())
+    } else {
+        Err(Error::InvalidInput(format!("unknown table: {table:?}")))
+    }
+}
+
+struct CachedFile {
+    modified: Option<SystemTime>,
+    len: u64,
+    value: Value,
+}
+
+pub struct FileStore {
+    root: PathBuf,
+    /// Serialises writes from this process.
+    write_lock: Mutex<()>,
+    /// Parsed files keyed by path, invalidated by mtime/size.
+    cache: Mutex<HashMap<PathBuf, CachedFile>>,
+}
+
+impl FileStore {
+    /// Opens a folder, creating the layout if it does not exist yet.
+    pub fn open(root: impl AsRef<Path>) -> Result<Self> {
+        let root = root.as_ref().to_path_buf();
+        fs::create_dir_all(&root)?;
+        let root = root.canonicalize().unwrap_or(root);
+
+        let marker = root.join(MARKER_FILE);
+        if marker.exists() {
+            let raw = fs::read_to_string(&marker)?;
+            let meta: Value = serde_json::from_str(&raw).unwrap_or(Value::Null);
+            let version = meta.get("version").and_then(Value::as_u64).unwrap_or(1);
+            if version > FORMAT_VERSION {
+                return Err(Error::InvalidInput(format!(
+                    "this folder uses format version {version}; update Shipyard to open it"
+                )));
+            }
+        } else {
+            let meta = json!({
+                "format": FORMAT,
+                "version": FORMAT_VERSION,
+                "createdAt": now_ms(),
+            });
+            write_atomic(&marker, &serde_json::to_vec_pretty(&meta)?)?;
+        }
+
+        for table in TABLES {
+            fs::create_dir_all(root.join(table))?;
+        }
+        fs::create_dir_all(root.join(META_DIR))?;
+
+        Ok(Self {
+            root,
+            write_lock: Mutex::new(()),
+            cache: Mutex::new(HashMap::new()),
+        })
+    }
+
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    /// True when a folder already contains a Shipyard marker file.
+    pub fn is_store(path: impl AsRef<Path>) -> bool {
+        path.as_ref().join(MARKER_FILE).is_file()
+    }
+
+    fn record_path(&self, table: &str, id: &str) -> PathBuf {
+        self.root.join(table).join(format!("{id}.json"))
+    }
+
+    fn sync_queue_path(&self) -> PathBuf {
+        self.root.join(META_DIR).join(SYNC_QUEUE_FILE)
+    }
+
+    fn read_file(&self, path: &Path) -> Option<Value> {
+        let meta = fs::metadata(path).ok()?;
+        let modified = meta.modified().ok();
+        let len = meta.len();
+
+        if let Some(cached) = self.cache.lock().unwrap().get(path) {
+            if cached.modified == modified && cached.len == len {
+                return Some(cached.value.clone());
+            }
+        }
+
+        let raw = fs::read(path).ok()?;
+        let value: Value = match serde_json::from_slice(&raw) {
+            Ok(v @ Value::Object(_)) => v,
+            _ => {
+                eprintln!("shipyard: skipping unreadable file {}", path.display());
+                return None;
+            }
+        };
+        // Files touched in the last couple of seconds are not cached: some
+        // file systems only keep coarse timestamps, so a quick same-size edit
+        // could otherwise go unnoticed.
+        let settled = modified
+            .and_then(|m| SystemTime::now().duration_since(m).ok())
+            .is_some_and(|age| age.as_secs() >= 2);
+        if !settled {
+            return Some(value);
+        }
+        self.cache.lock().unwrap().insert(
+            path.to_path_buf(),
+            CachedFile {
+                modified,
+                len,
+                value: value.clone(),
+            },
+        );
+        Some(value)
+    }
+
+    fn write_record(&self, table: &str, id: &str, record: &Value) -> Result<()> {
+        let path = self.record_path(table, id);
+        write_atomic(&path, &serde_json::to_vec_pretty(record)?)?;
+        self.cache.lock().unwrap().remove(&path);
+        Ok(())
+    }
+
+    fn remove_record(&self, table: &str, id: &str) -> Result<bool> {
+        let path = self.record_path(table, id);
+        self.cache.lock().unwrap().remove(&path);
+        match fs::remove_file(&path) {
+            Ok(()) => Ok(true),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    // ── Reads ──
+
+    pub fn find_all(&self, table: &str) -> Result<Vec<Value>> {
+        if table == SYNC_QUEUE {
+            return self.pending_sync_operations();
+        }
+        validate_table(table)?;
+        let dir = self.root.join(table);
+        let mut records = Vec::new();
+        let entries = match fs::read_dir(&dir) {
+            Ok(entries) => entries,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(records),
+            Err(e) => return Err(e.into()),
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let is_json = path.extension().and_then(|e| e.to_str()) == Some("json");
+            let hidden = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .is_none_or(|n| n.starts_with('.'));
+            if !is_json || hidden {
+                continue;
+            }
+            if let Some(mut value) = self.read_file(&path) {
+                // The file name is authoritative for the ID.
+                if let (Some(obj), Some(stem)) = (
+                    value.as_object_mut(),
+                    path.file_stem().and_then(|s| s.to_str()),
+                ) {
+                    obj.insert("id".into(), json!(stem));
+                }
+                records.push(value);
+            }
+        }
+        records.sort_by(|a, b| {
+            let ka = (num(a, "createdAt"), str_field(a, "id"));
+            let kb = (num(b, "createdAt"), str_field(b, "id"));
+            ka.partial_cmp(&kb).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        Ok(records)
+    }
+
+    pub fn find_by_id(&self, table: &str, id: &str) -> Result<Option<Value>> {
+        validate_table(table)?;
+        if validate_id(id).is_err() {
+            return Ok(None);
+        }
+        let mut value = match self.read_file(&self.record_path(table, id)) {
+            Some(v) => v,
+            None => return Ok(None),
+        };
+        if let Some(obj) = value.as_object_mut() {
+            obj.insert("id".into(), json!(id));
+        }
+        Ok(Some(value))
+    }
+
+    fn find_where(&self, table: &str, field: &str, value: &str) -> Result<Vec<Value>> {
+        Ok(self
+            .find_all(table)?
+            .into_iter()
+            .filter(|r| r.get(field).and_then(Value::as_str) == Some(value))
+            .collect())
+    }
+
+    // ── Writes ──
+
+    pub fn create(&self, table: &str, data: &Value) -> Result<Value> {
+        validate_table(table)?;
+        let _guard = self.write_lock.lock().unwrap();
+        let input = data.as_object().cloned().unwrap_or_default();
+
+        let id = match input.get("id").and_then(Value::as_str) {
+            Some(id) if !id.is_empty() => id.to_string(),
+            _ => Uuid::new_v4().to_string(),
+        };
+        validate_id(&id)?;
+        if self.record_path(table, &id).exists() {
+            return Err(Error::InvalidInput(format!(
+                "a record with id {id:?} already exists in {table}"
+            )));
+        }
+
+        let now = now_ms();
+        let mut record = Map::new();
+        record.insert("id".into(), json!(id));
+        for (key, value) in input {
+            if key != "id" {
+                record.insert(key.clone(), normalize_field(&key, value));
+            }
+        }
+        if has_created_at(table) && !record.contains_key("createdAt") {
+            record.insert("createdAt".into(), json!(now));
+        }
+        if has_updated_at(table) {
+            if !record.contains_key("updatedAt") {
+                record.insert("updatedAt".into(), json!(now));
+            }
+        } else {
+            record.remove("updatedAt");
+        }
+
+        let record = Value::Object(record);
+        self.write_record(table, &id, &record)?;
+        self.enqueue_sync("CREATE", table, &id, data)?;
+        Ok(record)
+    }
+
+    pub fn update(&self, table: &str, id: &str, data: &Value) -> Result<Value> {
+        validate_table(table)?;
+        validate_id(id)?;
+        let _guard = self.write_lock.lock().unwrap();
+
+        let mut record = match self.find_by_id(table, id)? {
+            Some(Value::Object(obj)) => obj,
+            _ => return Ok(Value::Null),
+        };
+        for (key, value) in data.as_object().cloned().unwrap_or_default() {
+            if key != "id" {
+                record.insert(key.clone(), normalize_field(&key, value));
+            }
+        }
+        if has_updated_at(table) {
+            if data.get("updatedAt").is_none() {
+                record.insert("updatedAt".into(), json!(now_ms()));
+            }
+        } else {
+            record.remove("updatedAt");
+        }
+
+        let record = Value::Object(record);
+        self.write_record(table, id, &record)?;
+        self.enqueue_sync("UPDATE", table, id, data)?;
+        Ok(record)
+    }
+
+    pub fn delete(&self, table: &str, id: &str) -> Result<bool> {
+        validate_table(table)?;
+        validate_id(id)?;
+        let _guard = self.write_lock.lock().unwrap();
+        self.delete_cascade(table, id)?;
+        self.enqueue_sync("DELETE", table, id, &Value::Null)?;
+        Ok(true)
+    }
+
+    /// Mirrors the relationships between record types: removing a parent
+    /// removes its children, and projects of a removed workspace become
+    /// unassigned.
+    fn delete_cascade(&self, table: &str, id: &str) -> Result<()> {
+        match table {
+            "workspaces" => {
+                for child in self.find_where("workspaces", "parentWorkspaceId", id)? {
+                    self.delete_cascade("workspaces", str_field(&child, "id"))?;
+                }
+                for project in self.find_where("projects", "workspaceId", id)? {
+                    let mut project = project;
+                    let pid = str_field(&project, "id").to_string();
+                    project["workspaceId"] = Value::Null;
+                    self.write_record("projects", &pid, &project)?;
+                }
+            }
+            "projects" => {
+                for board in self.find_where("boards", "projectId", id)? {
+                    self.delete_cascade("boards", str_field(&board, "id"))?;
+                }
+            }
+            "boards" => {
+                for child_table in ["columns", "statuses", "connections"] {
+                    for child in self.find_where(child_table, "boardId", id)? {
+                        self.delete_cascade(child_table, str_field(&child, "id"))?;
+                    }
+                }
+            }
+            "columns" => {
+                for task in self.find_where("tasks", "columnId", id)? {
+                    self.delete_cascade("tasks", str_field(&task, "id"))?;
+                }
+            }
+            "tasks" => {
+                for subtask in self.find_where("subtasks", "taskId", id)? {
+                    self.delete_cascade("subtasks", str_field(&subtask, "id"))?;
+                }
+            }
+            _ => {}
+        }
+        self.remove_record(table, id)?;
+        Ok(())
+    }
+
+    // ── Composite reads ──
+
+    pub fn get_projects_with_workspaces(&self) -> Result<Vec<Value>> {
+        let workspaces: HashMap<String, Value> = self
+            .find_all("workspaces")?
+            .into_iter()
+            .map(|w| (str_field(&w, "id").to_string(), w))
+            .collect();
+        let mut projects = self.find_all("projects")?;
+        for project in &mut projects {
+            let workspace = project
+                .get("workspaceId")
+                .and_then(Value::as_str)
+                .and_then(|wid| workspaces.get(wid));
+            if let Some(obj) = project.as_object_mut() {
+                obj.insert(
+                    "workspaceName".into(),
+                    workspace.map_or(Value::Null, |w| w["name"].clone()),
+                );
+                obj.insert(
+                    "workspaceColor".into(),
+                    workspace.map_or(Value::Null, |w| w["color"].clone()),
+                );
+            }
+        }
+        projects.sort_by(|a, b| {
+            num(b, "updatedAt")
+                .partial_cmp(&num(a, "updatedAt"))
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+        Ok(projects)
+    }
+
+    pub fn get_board_with_details(&self, board_id: &str) -> Result<Option<Value>> {
+        let mut board = match self.find_by_id("boards", board_id)? {
+            Some(b) => b,
+            None => return Ok(None),
+        };
+
+        let mut subtasks_by_task: HashMap<String, Vec<Value>> = HashMap::new();
+        for subtask in self.find_all("subtasks")? {
+            if let Some(task_id) = subtask.get("taskId").and_then(Value::as_str) {
+                subtasks_by_task
+                    .entry(task_id.to_string())
+                    .or_default()
+                    .push(subtask);
+            }
+        }
+
+        let mut tasks_by_column: HashMap<String, Vec<Value>> = HashMap::new();
+        for mut task in self.find_all("tasks")? {
+            let column_id = match task.get("columnId").and_then(Value::as_str) {
+                Some(c) => c.to_string(),
+                None => continue,
+            };
+            let task_id = str_field(&task, "id").to_string();
+            let subtasks = subtasks_by_task.remove(&task_id).unwrap_or_default();
+            task["subtasks"] = json!(subtasks);
+            tasks_by_column.entry(column_id).or_default().push(task);
+        }
+
+        let mut columns = self.find_where("columns", "boardId", board_id)?;
+        sort_by_order(&mut columns);
+        for column in &mut columns {
+            let column_id = str_field(column, "id").to_string();
+            let mut tasks = tasks_by_column.remove(&column_id).unwrap_or_default();
+            sort_by_order(&mut tasks);
+            column["tasks"] = json!(tasks);
+        }
+
+        let connections = self.find_where("connections", "boardId", board_id)?;
+        board["columns"] = json!(columns);
+        board["connections"] = json!(connections);
+        Ok(Some(board))
+    }
+
+    // ── Sync queue ──
+
+    fn enqueue_sync(
+        &self,
+        operation: &str,
+        table: &str,
+        record_id: &str,
+        data: &Value,
+    ) -> Result<()> {
+        let entry = json!({
+            "id": Uuid::new_v4().to_string(),
+            "operation": operation,
+            "table": table,
+            "recordId": record_id,
+            "data": if data.is_null() { Value::Null } else { data.clone() },
+            "timestamp": now_ms(),
+            "synced": 0,
+        });
+        let mut file = fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(self.sync_queue_path())?;
+        writeln!(file, "{}", serde_json::to_string(&entry)?)?;
+        Ok(())
+    }
+
+    pub fn pending_sync_operations(&self) -> Result<Vec<Value>> {
+        let file = match fs::File::open(self.sync_queue_path()) {
+            Ok(f) => f,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(e) => return Err(e.into()),
+        };
+        Ok(BufReader::new(file)
+            .lines()
+            .map_while(|l| l.ok())
+            .filter(|l| !l.trim().is_empty())
+            .filter_map(|l| serde_json::from_str::<Value>(&l).ok())
+            .collect())
+    }
+
+    /// Drops synced operations from the queue.
+    pub fn mark_as_synced(&self, ids: &[String]) -> Result<()> {
+        if ids.is_empty() {
+            return Ok(());
+        }
+        let _guard = self.write_lock.lock().unwrap();
+        let remaining: Vec<String> = self
+            .pending_sync_operations()?
+            .into_iter()
+            .filter(|op| !ids.iter().any(|id| Some(id.as_str()) == op["id"].as_str()))
+            .map(|op| op.to_string())
+            .collect();
+        let mut body = remaining.join("\n");
+        if !body.is_empty() {
+            body.push('\n');
+        }
+        write_atomic(&self.sync_queue_path(), body.as_bytes())?;
+        Ok(())
+    }
+
+    /// Removes every record (used for demo seeding).
+    pub fn clear(&self) -> Result<()> {
+        let _guard = self.write_lock.lock().unwrap();
+        for table in TABLES {
+            let dir = self.root.join(table);
+            if let Ok(entries) = fs::read_dir(&dir) {
+                for entry in entries.flatten() {
+                    if entry.path().extension().and_then(|e| e.to_str()) == Some("json") {
+                        fs::remove_file(entry.path())?;
+                    }
+                }
+            }
+        }
+        let _ = fs::remove_file(self.sync_queue_path());
+        self.cache.lock().unwrap().clear();
+        Ok(())
+    }
+}
+
+// ── Helpers ──
+
+fn str_field<'a>(value: &'a Value, field: &str) -> &'a str {
+    value.get(field).and_then(Value::as_str).unwrap_or("")
+}
+
+fn num(value: &Value, field: &str) -> f64 {
+    match value.get(field) {
+        Some(Value::Number(n)) => n.as_f64().unwrap_or(0.0),
+        Some(Value::String(s)) => s.parse().unwrap_or(0.0),
+        _ => 0.0,
+    }
+}
+
+fn sort_by_order(records: &mut [Value]) {
+    records.sort_by(|a, b| {
+        (num(a, "order"), num(a, "createdAt"))
+            .partial_cmp(&(num(b, "order"), num(b, "createdAt")))
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+}
+
+fn normalize_field(key: &str, value: Value) -> Value {
+    if JSON_FIELDS.contains(&key) {
+        if let Value::String(s) = &value {
+            let trimmed = s.trim_start();
+            if trimmed.starts_with('[') || trimmed.starts_with('{') {
+                if let Ok(parsed) = serde_json::from_str::<Value>(s) {
+                    return parsed;
+                }
+            }
+        }
+    }
+    value
+}
+
+/// Writes through a temporary file and renames it into place so readers never
+/// see a half-written record.
+pub fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
+    let dir = path.parent().unwrap_or_else(|| Path::new("."));
+    fs::create_dir_all(dir)?;
+    let file_name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("record");
+    let tmp = dir.join(format!(".{file_name}.{}.tmp", Uuid::new_v4().simple()));
+    {
+        let mut file = fs::File::create(&tmp)?;
+        file.write_all(bytes)?;
+        file.sync_all().ok();
+    }
+    if let Err(e) = fs::rename(&tmp, path) {
+        let _ = fs::remove_file(&tmp);
+        return Err(e.into());
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_store() -> (FileStore, PathBuf) {
+        let dir = std::env::temp_dir().join(format!("shipyard-store-{}", Uuid::new_v4()));
+        (FileStore::open(&dir).unwrap(), dir)
+    }
+
+    #[test]
+    fn creates_folder_layout() {
+        let (store, dir) = temp_store();
+        assert!(FileStore::is_store(&dir));
+        for table in TABLES {
+            assert!(store.root().join(table).is_dir());
+        }
+        fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn crud_round_trip_uses_plain_json_files() {
+        let (store, dir) = temp_store();
+        let created = store
+            .create(
+                "tasks",
+                &json!({"id": "t1", "title": "Write docs", "columnId": "c1", "tags": "[{\"name\":\"docs\"}]"}),
+            )
+            .unwrap();
+        assert_eq!(created["tags"][0]["name"], "docs");
+        assert!(created["createdAt"].is_number());
+
+        let on_disk: Value =
+            serde_json::from_slice(&fs::read(dir.join("tasks/t1.json")).unwrap()).unwrap();
+        assert_eq!(on_disk["title"], "Write docs");
+
+        let updated = store
+            .update("tasks", "t1", &json!({"title": "Edited"}))
+            .unwrap();
+        assert_eq!(updated["title"], "Edited");
+        assert_eq!(updated["columnId"], "c1");
+
+        // Edits made directly to the file are picked up.
+        let mut edited = on_disk.clone();
+        edited["title"] = json!("Changed outside the app, with a longer title");
+        fs::write(dir.join("tasks/t1.json"), edited.to_string()).unwrap();
+        assert_eq!(
+            store.find_by_id("tasks", "t1").unwrap().unwrap()["title"],
+            "Changed outside the app, with a longer title"
+        );
+
+        assert!(store
+            .create("tasks", &json!({"id": "t1", "title": "dup"}))
+            .is_err());
+        assert_eq!(
+            store.update("tasks", "missing", &json!({})).unwrap(),
+            Value::Null
+        );
+        fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn rejects_unsafe_ids_and_tables() {
+        let (store, dir) = temp_store();
+        assert!(store.create("tasks", &json!({"id": "../escape"})).is_err());
+        assert!(store.create("tasks", &json!({"id": ".hidden"})).is_err());
+        assert!(store.find_all("../etc").is_err());
+        assert!(store.find_by_id("tasks", "../../x").unwrap().is_none());
+        fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn deletes_cascade_like_the_old_schema() {
+        let (store, dir) = temp_store();
+        store
+            .create("workspaces", &json!({"id": "w1", "name": "W"}))
+            .unwrap();
+        store
+            .create(
+                "workspaces",
+                &json!({"id": "w2", "name": "Child", "parentWorkspaceId": "w1"}),
+            )
+            .unwrap();
+        store
+            .create(
+                "projects",
+                &json!({"id": "p1", "name": "P", "workspaceId": "w2"}),
+            )
+            .unwrap();
+        store
+            .create(
+                "boards",
+                &json!({"id": "b1", "name": "B", "projectId": "p1"}),
+            )
+            .unwrap();
+        store
+            .create(
+                "columns",
+                &json!({"id": "c1", "name": "C", "boardId": "b1"}),
+            )
+            .unwrap();
+        store
+            .create(
+                "tasks",
+                &json!({"id": "t1", "title": "T", "columnId": "c1", "boardId": "b1"}),
+            )
+            .unwrap();
+        store
+            .create(
+                "subtasks",
+                &json!({"id": "s1", "title": "S", "taskId": "t1"}),
+            )
+            .unwrap();
+
+        store.delete("workspaces", "w1").unwrap();
+        assert!(store.find_all("workspaces").unwrap().is_empty());
+        let project = store.find_by_id("projects", "p1").unwrap().unwrap();
+        assert!(project["workspaceId"].is_null());
+
+        store.delete("projects", "p1").unwrap();
+        for table in ["boards", "columns", "tasks", "subtasks"] {
+            assert!(
+                store.find_all(table).unwrap().is_empty(),
+                "{table} not empty"
+            );
+        }
+        fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn board_details_are_assembled_in_order() {
+        let (store, dir) = temp_store();
+        store
+            .create(
+                "boards",
+                &json!({"id": "b1", "name": "B", "projectId": "p"}),
+            )
+            .unwrap();
+        store
+            .create(
+                "columns",
+                &json!({"id": "c2", "name": "Done", "boardId": "b1", "order": 1}),
+            )
+            .unwrap();
+        store
+            .create(
+                "columns",
+                &json!({"id": "c1", "name": "To Do", "boardId": "b1", "order": 0}),
+            )
+            .unwrap();
+        store
+            .create(
+                "tasks",
+                &json!({"id": "t2", "title": "B", "columnId": "c1", "order": 1}),
+            )
+            .unwrap();
+        store
+            .create(
+                "tasks",
+                &json!({"id": "t1", "title": "A", "columnId": "c1", "order": 0}),
+            )
+            .unwrap();
+        store
+            .create(
+                "subtasks",
+                &json!({"id": "s1", "title": "x", "taskId": "t1"}),
+            )
+            .unwrap();
+
+        let board = store.get_board_with_details("b1").unwrap().unwrap();
+        assert_eq!(board["columns"][0]["id"], "c1");
+        assert_eq!(board["columns"][0]["tasks"][0]["id"], "t1");
+        assert_eq!(board["columns"][0]["tasks"][0]["subtasks"][0]["id"], "s1");
+        assert_eq!(board["columns"][1]["tasks"].as_array().unwrap().len(), 0);
+        fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn sync_queue_records_and_clears_operations() {
+        let (store, dir) = temp_store();
+        store
+            .create("tags", &json!({"id": "tag1", "name": "x"}))
+            .unwrap();
+        store.update("tags", "tag1", &json!({"name": "y"})).unwrap();
+        let pending = store.find_all(SYNC_QUEUE).unwrap();
+        assert_eq!(pending.len(), 2);
+        assert_eq!(pending[0]["operation"], "CREATE");
+
+        let first = pending[0]["id"].as_str().unwrap().to_string();
+        store.mark_as_synced(&[first]).unwrap();
+        let pending = store.find_all(SYNC_QUEUE).unwrap();
+        assert_eq!(pending.len(), 1);
+        assert_eq!(pending[0]["operation"], "UPDATE");
+        fs::remove_dir_all(dir).ok();
+    }
+}

@@ -1,6 +1,6 @@
 # Shipyard
 
-Shipyard is a local-first desktop application for project management, Kanban planning, notes, and task tracking. It works offline with an embedded SQLite database and supports optional Firebase or self-hosted server synchronization.
+Shipyard is a local-first desktop application for project management, Kanban planning, notes, and task tracking. There is no database: you point it at a folder and it reads and writes plain JSON files there. Folders can live anywhere (a USB drive, a synced drive, a network share, a git repo) and can be opened from other computers by IP address. Optional Firebase or self-hosted server synchronization is still available.
 
 ## Organization Model
 
@@ -26,9 +26,11 @@ Projects that do not belong to a workspace remain available under **Unassigned P
 - Markdown, task lists, tables, links, images, and code formatting
 - Tags, custom colors, deadlines, statuses, task connections, and subtasks
 - JSON, CSV, and Markdown exports
-- Canonical export schema v2 and legacy v1 export compatibility
 - Light and dark themes with a system font picker
-- Local SQLite storage with optional Firebase and server synchronization
+- Folder-based storage: one readable JSON file per record
+- Open folders shared from another computer by IP address
+- Portable mode: keep the app and its data together on a USB drive
+- Optional Firebase and server synchronization
 
 ## Technology
 
@@ -36,7 +38,7 @@ Projects that do not belong to a workspace remain available under **Unassigned P
 - React 18, TypeScript, and Vite
 - Tailwind CSS
 - Redux Toolkit
-- SQLite through `rusqlite`
+- Plain JSON files (no database), shared over HTTP with `tiny_http`
 - Firebase Firestore
 - Optional Go sync server backed by PostgreSQL and Redis
 - Tiptap and dnd-kit
@@ -62,7 +64,7 @@ npm run typecheck
 npm test
 npm run lint
 npm run build:renderer
-cargo test --manifest-path src-tauri/Cargo.toml
+npm run test:rust
 ```
 
 Build the desktop application for the current platform:
@@ -71,23 +73,69 @@ Build the desktop application for the current platform:
 npm run build
 ```
 
-## Data Migration
+## Data Folders
 
-Existing installations are migrated automatically when the application starts. The migration:
+On first launch Shipyard asks you to **open a folder**. Pick an empty folder to start fresh, or one you have used before. You can switch folders any time from **Settings › Data folder**, and recent folders are listed on the open screen.
 
-- Creates a SQLite backup before changing a legacy database.
-- Renames the legacy hierarchy to workspaces, projects, boards, columns, tasks, and subtasks.
-- Preserves IDs, timestamps, nested workspaces, unassigned projects, and relationships.
-- Converts pending synchronization operations to schema v2.
-- Retains the Shipyard application identifier and database filenames.
+A folder looks like this:
 
-See [`MIGRATION_to_tauri.md`](MIGRATION_to_tauri.md) for migration and compatibility details.
+```text
+my-projects/
+  shipyard.json          folder marker and format version
+  workspaces/<id>.json
+  projects/<id>.json
+  boards/<id>.json
+  columns/<id>.json
+  tasks/<id>.json
+  subtasks/<id>.json
+  statuses/<id>.json
+  connections/<id>.json
+  tags/<id>.json
+  .shipyard/             pending sync changes (only used by Firebase/server sync)
+```
+
+Every record is its own pretty-printed JSON file, written atomically. Files are re-read when they change on disk, so edits made outside the app (or by another computer using the same network share) show up when you next open that view. Copying the folder copies everything; deleting a file deletes that record.
+
+Per-device settings (theme, font, recent folders, sharing options) are stored separately in the app config directory, not in the data folder.
+
+### Choosing a folder at launch
+
+- `shipyard --data /path/to/folder` or the `SHIPYARD_DATA_DIR` environment variable opens a folder directly.
+- **Portable mode:** create a folder named `shipyard-data` next to the Shipyard executable. Shipyard then opens it automatically and keeps its settings inside it, so the app and data can travel together.
+
+### Opening a folder on another computer (by IP)
+
+**From the desktop app:** on the computer that has the folder, open it and go to **Settings › Data folder › Share on network**. Choose a port (default `7420`), keep or regenerate the access token, optionally tick *Read-only*, and click **Start sharing**. The panel shows the address to use, for example `192.168.1.20:7420`.
+
+**Headless (NAS, server, Raspberry Pi):** build and run the small `shipyard-serve` binary; it needs no desktop session.
+
+```bash
+npm run build:serve            # outputs src-tauri/target/release/shipyard-serve
+shipyard-serve /srv/projects --port 7420 --token my-secret-token
+# options: --host 0.0.0.0  --read-only   (token can also come from SHIPYARD_TOKEN)
+```
+
+On the other computer, choose **Connect to a shared folder** on the open screen and enter the IP address (with `:port` if it is not 7420) and the token. Every change goes straight to the files on the sharing computer.
+
+Shares use plain HTTP with a bearer token. Use them on networks you trust, or over a VPN such as Tailscale or WireGuard. A folder on an SMB/NFS network share can also be opened directly with **Open folder…**.
+
+### Moving data from an older version
+
+Earlier versions stored data in a SQLite database (`shipyard.db`). Copy it into a folder with the bundled script (needs only Python 3; the database is opened read-only):
+
+```bash
+python3 scripts/sqlite-to-folder.py ~/my-projects
+# or give the database path explicitly:
+python3 scripts/sqlite-to-folder.py /path/to/shipyard.db ~/my-projects
+```
+
+Then open `~/my-projects` in Shipyard. Without a path, the script looks in the default location for your OS (`~/.local/share/com.shipyard.app/` on Linux, `~/Library/Application Support/com.shipyard.app/` on macOS, `%APPDATA%\com.shipyard.app\` on Windows).
 
 ## Firebase Sync
 
 Create a Firebase web application and Firestore database, then enter the Firebase Web SDK configuration under **Settings > Firebase Sync**.
 
-During the schema transition, Shipyard reads and writes both canonical v2 collections and legacy v1 collection aliases. Canonical records win timestamp ties.
+Records are stored in Firestore collections named after each record type (`workspaces`, `projects`, `boards`, `columns`, `tasks`, `subtasks`, `statuses`, `connections`, `tags`).
 
 ## Self-Hosted Sync Server
 
@@ -105,7 +153,7 @@ Configure `DATABASE_URL`, `REDIS_ADDR`, `REDIS_PASSWORD`, `REDIS_DB`, and `PORT`
 - `POST /sync`
 - `POST /sync/push`
 
-The server accepts legacy schema v1 and canonical schema v2 operations while storing canonical record state.
+The server accepts schema v2 operations for the record types listed above.
 
 ## License
 

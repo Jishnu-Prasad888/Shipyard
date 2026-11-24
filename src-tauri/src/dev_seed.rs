@@ -1,43 +1,13 @@
 use serde_json::json;
+use shipyard_core::store::now_ms;
+use shipyard_core::{FileStore, Result};
 
-use super::{now_ms, Database};
-
-pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Result<()> {
-    // Only seed when running a debug/dev build
-    if !cfg!(debug_assertions) {
-        return Ok(());
-    }
-
-    let mut should_seed = force_reset;
-
-    {
-        let conn = db.conn.lock().unwrap();
-
-        if force_reset {
-            conn.execute_batch(
-                r#"
-                DELETE FROM sync_queue;
-                DELETE FROM connections;
-                DELETE FROM subtasks;
-                DELETE FROM tasks;
-                DELETE FROM columns;
-                DELETE FROM statuses;
-                DELETE FROM boards;
-                DELETE FROM projects;
-                DELETE FROM workspaces;
-                DELETE FROM tags;
-                "#,
-            )?;
-        } else {
-            let project_count: i64 = conn
-                .query_row("SELECT COUNT(*) FROM projects", [], |r| r.get(0))
-                .unwrap_or(0);
-
-            should_seed = project_count == 0;
-        }
-    }
-
-    if !should_seed {
+/// Fills a folder with demo data. Used in development builds when the
+/// `SHIPYARD_DEMO_SEED` environment variable is set.
+pub fn seed_demo_data(db: &FileStore, force_reset: bool) -> Result<()> {
+    if force_reset {
+        db.clear()?;
+    } else if !db.find_all("projects")?.is_empty() {
         return Ok(());
     }
 
@@ -514,11 +484,13 @@ pub(super) fn seed_demo_data(db: &Database, force_reset: bool) -> rusqlite::Resu
         let _ = db.create("tags", tag)?;
     }
 
-    // Clear sync queue so the seeded data does not appear as unsynced operations
-    {
-        let conn = db.conn.lock().unwrap();
-        conn.execute("DELETE FROM sync_queue", [])?;
-    }
+    // Seeded data should not appear as unsynced changes.
+    let pending: Vec<String> = db
+        .pending_sync_operations()?
+        .iter()
+        .filter_map(|op| op["id"].as_str().map(String::from))
+        .collect();
+    db.mark_as_synced(&pending)?;
 
     Ok(())
 }

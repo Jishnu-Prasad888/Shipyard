@@ -1,19 +1,16 @@
 /**
  * src/renderer/lib/tauri-bridge.ts
  *
- * Drop-in replacement for the old `window.electron` API.
- * All 144 call-sites across the renderer continue to work
- * unchanged — they call `window.electron.db.*` etc. as before.
- * This module intercepts those calls and routes them to
- * Tauri's `invoke()` instead of Electron's `ipcRenderer.invoke()`.
+ * Exposes the app API as `window.electron` (name kept for existing call
+ * sites). Data calls go to the open folder, which is either on this computer
+ * or shared from another machine over the network.
  *
- * USAGE: import this file once in src/renderer/main.tsx BEFORE
- * any component is rendered:
- *
- *   import './lib/tauri-bridge'
+ * Import once in src/renderer/main.tsx before any component renders.
  */
 
 import { invoke } from '@tauri-apps/api/core'
+import { open as openDialog } from '@tauri-apps/plugin-dialog'
+import type { ShareStatus, SourceDescriptor, SourceStatus } from '../types/source'
 
 // ── Type helpers ──
 interface DbArgs {
@@ -27,8 +24,27 @@ async function dbQuery(args: DbArgs): Promise<any> {
   return invoke<any>('db_query', { args })
 }
 
-// ── The bridge object — identical shape to the old preload.ts ──
 const electronBridge = {
+  source: {
+    status: () => invoke<SourceStatus>('source_status'),
+    pickFolder: async (): Promise<string | null> => {
+      const selected = await openDialog({ directory: true, multiple: false })
+      return typeof selected === 'string' ? selected : null
+    },
+    openLocal: (path: string) => invoke<SourceDescriptor>('source_open_local', { path }),
+    openRemote: (address: string, token: string) =>
+      invoke<SourceDescriptor>('source_open_remote', { address, token }),
+    close: () => invoke<void>('source_close'),
+    forget: (descriptor: SourceDescriptor) => invoke<void>('source_forget', { descriptor })
+  },
+
+  share: {
+    status: () => invoke<ShareStatus>('share_status'),
+    start: (args: { port?: number; token?: string; host?: string; readOnly?: boolean }) =>
+      invoke<ShareStatus>('share_start', { args }),
+    stop: () => invoke<ShareStatus>('share_stop')
+  },
+
   db: {
     findAll: (table: string) => dbQuery({ operation: 'findAll', table }),
     findById: (table: string, id: string) => dbQuery({ operation: 'findById', table, id }),
@@ -73,7 +89,6 @@ const electronBridge = {
   }
 }
 
-// Attach to window so all existing call-sites work without any changes
 ;(window as any).electron = electronBridge
 
 export default electronBridge

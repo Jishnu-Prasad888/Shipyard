@@ -18,22 +18,21 @@ func TestNormalizeSyncOperations(t *testing.T) {
 		canonicalTable string
 		wantPayload    map[string]any
 	}{
-		{"workspace", "folders", `{"parentId":"root","docks":[{"id":"p1","folderId":"root"}]}`, "workspaces", map[string]any{"parentWorkspaceId": "root", "projects": []any{map[string]any{"id": "p1", "workspaceId": "root"}}}},
-		{"project", "docks", `{"folderId":"w1","boardIds":["b1"]}`, "projects", map[string]any{"workspaceId": "w1", "boardIds": []any{"b1"}}},
-		{"board", "boards", `{"dockId":"p1","lists":[]}`, "boards", map[string]any{"projectId": "p1", "columns": []any{}}},
-		{"column", "lists", `{"boardId":"b1","cards":[]}`, "columns", map[string]any{"boardId": "b1", "tasks": []any{}}},
-		{"task", "cards", `{"listId":"c1","boardId":"b1","connectedCardIds":["t2"],"connectedListIds":["c2"],"subCards":[]}`, "tasks", map[string]any{"columnId": "c1", "boardId": "b1", "connectedTaskIds": []any{"t2"}, "connectedColumnIds": []any{"c2"}, "subtasks": []any{}}},
-		{"subtask", "subcards", `{"cardId":"t1"}`, "subtasks", map[string]any{"taskId": "t1"}},
-		{"connection", "connections", `{"type":"card-to-card","boardId":"b1"}`, "connections", map[string]any{"type": "task-to-task", "boardId": "b1"}},
+		{"workspace", "workspaces", `{"parentWorkspaceId":"root"}`, "workspaces", map[string]any{"parentWorkspaceId": "root"}},
+		{"project", "projects", `{"workspaceId":"w1","boardIds":["b1"]}`, "projects", map[string]any{"workspaceId": "w1", "boardIds": []any{"b1"}}},
+		{"board", "Boards", `{"projectId":"p1"}`, "boards", map[string]any{"projectId": "p1"}},
+		{"column", "columns", `{"boardId":"b1"}`, "columns", map[string]any{"boardId": "b1"}},
+		{"task", "tasks", `{"columnId":"c1","connectedTaskIds":["t2"]}`, "tasks", map[string]any{"columnId": "c1", "connectedTaskIds": []any{"t2"}}},
+		{"subtask", "subtasks", `{"taskId":"t1"}`, "subtasks", map[string]any{"taskId": "t1"}},
+		{"connection", "connections", `{"type":"task-to-task","boardId":"b1"}`, "connections", map[string]any{"type": "task-to-task", "boardId": "b1"}},
 		{"status", "statuses", `{"name":"Done","boardId":"b1"}`, "statuses", map[string]any{"name": "Done", "boardId": "b1"}},
 		{"tag", "tags", `{"name":"Priority"}`, "tags", map[string]any{"name": "Priority"}},
-		{"canonical v2", "tasks", `{"columnId":"c1","projectId":"p1"}`, "tasks", map[string]any{"columnId": "c1", "projectId": "p1"}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			operations, err := normalizeSyncOperations(SyncRequest{
-				SchemaVersion: 1,
+				SchemaVersion: 2,
 				Operations: []SyncOperation{{
 					Operation: "update",
 					Table:     tt.table,
@@ -67,7 +66,7 @@ func TestNormalizeDeleteUsesCanonicalStateKey(t *testing.T) {
 	operations, err := normalizeSyncOperations(SyncRequest{
 		Operations: []SyncOperation{{
 			Operation: " delete ",
-			Table:     "cards",
+			Table:     "tasks",
 			RecordID:  "task-1",
 		}},
 	})
@@ -88,7 +87,7 @@ func TestSyncRoutes(t *testing.T) {
 		wantTable   string
 		wantVersion int
 	}{
-		{"/sync", `{"schemaVersion":1,"source":"shipyard-desktop","operations":[{"id":"event-1","operation":"CREATE","table":"docks","recordId":"project-1","data":{"folderId":"workspace-1"}}]}`, "projects", 1},
+		{"/sync", `{"schemaVersion":2,"source":"shipyard-desktop","operations":[{"id":"event-1","operation":"CREATE","table":"projects","recordId":"project-1","data":{"workspaceId":"workspace-1"}}]}`, "projects", 2},
 		{"/sync/push", `{"operations":[{"id":"event-2","schemaVersion":2,"operation":"UPDATE","table":"columns","recordId":"column-1","payload":{"boardId":"board-1"}}]}`, "columns", 2},
 	}
 
@@ -132,6 +131,7 @@ func TestNormalizeRejectsUnsupportedSchemaVersionAndTable(t *testing.T) {
 	for _, req := range []SyncRequest{
 		{SchemaVersion: 3, Operations: []SyncOperation{{Operation: "CREATE", Table: "tasks", RecordID: "1"}}},
 		{Operations: []SyncOperation{{Operation: "CREATE", Table: "unknown", RecordID: "1"}}},
+		{SchemaVersion: 1, Operations: []SyncOperation{{Operation: "CREATE", Table: "tasks", RecordID: "1"}}},
 	} {
 		if _, err := normalizeSyncOperations(req); err == nil {
 			t.Fatalf("normalizeSyncOperations(%#v) unexpectedly succeeded", req)
