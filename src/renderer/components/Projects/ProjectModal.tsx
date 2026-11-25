@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { X, Plus, Tag } from 'lucide-react'
+import { X, Plus, Tag, Github } from 'lucide-react'
+import { normalizeRepo } from '../../lib/github'
 import { useResizableDialog } from '../../hooks/useResizableDialog'
 import { ResizeHandle } from '../common/ResizeHandle'
 
@@ -8,6 +9,8 @@ interface ProjectModalProps {
   onCreate: (project: any) => void
   initialData?: any
   title?: string
+  /** Show the GitHub repository field (projects only, not boards). */
+  showGitHubRepo?: boolean
 }
 
 const COLORS = [
@@ -27,7 +30,8 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
   onClose,
   onCreate,
   initialData,
-  title = 'Create Project'
+  title = 'Create Project',
+  showGitHubRepo = false
 }) => {
   const { modalStyle, handleResizeStart, resetSize, shouldIgnoreOverlayClick } = useResizableDialog(
     {
@@ -52,16 +56,20 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
     }
   })
   const [newTag, setNewTag] = useState('')
+  const [githubRepo, setGithubRepo] = useState<string>(initialData?.githubRepo || '')
+  const repoValue = githubRepo.trim() ? normalizeRepo(githubRepo) : null
+  const repoInvalid = showGitHubRepo && githubRepo.trim() !== '' && !repoValue
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!name.trim()) return
+    if (!name.trim() || repoInvalid) return
 
     onCreate({
       name: name.trim(),
       description: description.trim(),
       color,
-      tags: JSON.stringify(tags)
+      tags: JSON.stringify(tags),
+      ...(showGitHubRepo ? { githubRepo: repoValue } : {})
     })
   }
 
@@ -139,6 +147,35 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
               placeholder="What is this project for?"
             />
           </div>
+
+          {showGitHubRepo && (
+            <div>
+              <label className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider mb-1">
+                <Github className="w-3.5 h-3.5" /> GitHub repository
+              </label>
+              <input
+                type="text"
+                value={githubRepo}
+                onChange={(e) => setGithubRepo(e.target.value)}
+                className="aero-input w-full px-3 py-2 text-sm font-mono focus:outline-none"
+                style={inputStyle}
+                placeholder="owner/repo or https://github.com/owner/repo"
+                spellCheck={false}
+              />
+              <p
+                className="text-[11px] mt-1"
+                style={{
+                  color: repoInvalid ? 'var(--color-alert, #d94c57)' : 'var(--color-muted)'
+                }}
+              >
+                {repoInvalid
+                  ? 'Enter it as owner/repo, or paste the repository URL'
+                  : repoValue
+                    ? `Linked to ${repoValue}. Tasks can mention #123 for its issues and pull requests.`
+                    : 'Optional. Shows its issues, pull requests and commits on the project page.'}
+              </p>
+            </div>
+          )}
 
           {/* Color */}
           <div>

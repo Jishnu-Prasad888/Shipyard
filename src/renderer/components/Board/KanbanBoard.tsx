@@ -379,11 +379,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     return () => stopRowResize()
   }, [])
 
+  const [githubRepo, setGithubRepo] = useState<string | null>(null)
+
   const loadBoard = async () => {
     const boardData = await getBoardWithDetails(boardId)
     if (boardData) {
       setBoard(boardData)
       setColumns(boardData.columns || [])
+      const project = boardData.projectId
+        ? await window.electron.db.findById('projects', boardData.projectId)
+        : null
+      setGithubRepo(project?.githubRepo || null)
     }
   }
 
@@ -872,6 +878,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                             openTaskId={openTaskId}
                             onTaskOpenComplete={onTaskOpenComplete}
                             orientation={columnOrientation}
+                            githubRepo={githubRepo}
                             rowHeight={rowHeight}
                           />
                         ))}
@@ -916,6 +923,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                     openTaskId={openTaskId}
                     onTaskOpenComplete={onTaskOpenComplete}
                     orientation={columnOrientation}
+                    githubRepo={githubRepo}
                   />
                 ))}
                 <button
