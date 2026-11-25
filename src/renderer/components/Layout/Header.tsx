@@ -8,7 +8,8 @@ import {
   FolderKanban,
   KanbanSquare,
   X,
-  ArrowRight
+  ArrowRight,
+  Columns2
 } from 'lucide-react'
 
 interface SearchResult {
@@ -27,12 +28,16 @@ interface HeaderProps {
   onSearch: (query: string) => void
   onSelectProject: (projectId: string) => void
   onSelectBoard: (boardId: string, projectId: string) => void
+  onToggleSplit?: () => void
+  isSplit?: boolean
 }
 
 export const Header: React.FC<HeaderProps> = ({
   onOpenSettings,
   onToggleTheme,
   isDarkMode,
+  onToggleSplit,
+  isSplit,
   onSearch,
   onSelectProject,
   onSelectBoard
@@ -411,6 +416,17 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Actions */}
         <div className="flex items-center gap-2 shrink-0">
+          {onToggleSplit && (
+            <button
+              onClick={onToggleSplit}
+              className="aero-icon-button p-2.5 text-white transition-all duration-150"
+              title={isSplit ? 'Close split view' : 'Split view'}
+              aria-pressed={!!isSplit}
+              style={isSplit ? { background: 'rgba(255,255,255,0.25)' } : undefined}
+            >
+              <Columns2 className="w-4 h-4" />
+            </button>
+          )}
           <button
             onClick={onToggleTheme}
             className="aero-icon-button p-2.5 text-white transition-all duration-150"

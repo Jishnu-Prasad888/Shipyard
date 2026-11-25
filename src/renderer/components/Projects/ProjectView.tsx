@@ -10,12 +10,15 @@ interface ProjectViewProps {
   projectId: string
   onSelectBoard: (boardId: string) => void
   searchQuery: string
+  /** Bumped when data may have changed elsewhere; triggers a reload. */
+  dataVersion?: number
 }
 
 export const ProjectView: React.FC<ProjectViewProps> = ({
   projectId,
   onSelectBoard,
-  searchQuery
+  searchQuery,
+  dataVersion = 0
 }) => {
   const [project, setProject] = useState<Project | null>(null)
   const [boards, setBoards] = useState<Board[]>([])
@@ -48,7 +51,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
 
   useEffect(() => {
     loadData()
-  }, [projectId])
+  }, [projectId, dataVersion])
 
   useEffect(() => {
     filterBoards()

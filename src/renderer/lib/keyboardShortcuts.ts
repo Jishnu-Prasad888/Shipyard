@@ -14,7 +14,8 @@ export const SHORTCUT_ACTIONS: Array<{
   { id: 'openSettings', label: 'Open settings', group: 'Navigation' },
   { id: 'goHome', label: 'Go home', group: 'Navigation' },
   { id: 'openCalendar', label: 'Open calendar', group: 'Navigation' },
-  { id: 'toggleTheme', label: 'Toggle theme', group: 'Navigation' }
+  { id: 'toggleTheme', label: 'Toggle theme', group: 'Navigation' },
+  { id: 'toggleSplit', label: 'Toggle split view', group: 'Navigation' }
 ]
 
 export const DEFAULT_KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
@@ -23,7 +24,8 @@ export const DEFAULT_KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
   { action: 'createProject', strokes: ['Ctrl+N', 'P'] },
   { action: 'createBoard', strokes: ['Ctrl+N', 'B'] },
   { action: 'createColumn', strokes: ['Ctrl+N', 'C'] },
-  { action: 'createTask', strokes: ['Ctrl+N', 'T'] }
+  { action: 'createTask', strokes: ['Ctrl+N', 'T'] },
+  { action: 'toggleSplit', strokes: ['Ctrl+\\'] }
 ]
 
 const LEGACY_DEFAULT_KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
@@ -54,7 +56,7 @@ export const shortcutStrokeFromEvent = (event: KeyboardEvent | React.KeyboardEve
 
 export const plainStroke = (stroke: string): string => stroke.split('+').at(-1) || stroke
 
-export const effectiveKeyboardShortcuts = (
+const migratedKeyboardShortcuts = (
   shortcuts: Settings['keyboardShortcuts']
 ): KeyboardShortcut[] => {
   if (shortcuts === undefined) {
@@ -81,13 +83,44 @@ export const effectiveKeyboardShortcuts = (
   })
 }
 
+/**
+ * Actions whose default shortcut was added after shortcuts became
+ * customisable. Saved lists that have no entry at all for one of these get
+ * its default; removing a shortcut leaves an empty entry, so a removed
+ * shortcut stays removed.
+ */
+const ADDED_DEFAULT_ACTIONS: KeyboardShortcutAction[] = ['toggleSplit']
+
+export const effectiveKeyboardShortcuts = (
+  shortcuts: Settings['keyboardShortcuts']
+): KeyboardShortcut[] => {
+  // Copy: the migration can return the saved list itself.
+  const result = [...migratedKeyboardShortcuts(shortcuts)]
+  // Undefined means defaults (already complete); an empty list means the
+  // user cleared every shortcut, which predates the empty-entry marker.
+  if (shortcuts === undefined || shortcuts.length === 0) return result
+  for (const action of ADDED_DEFAULT_ACTIONS) {
+    if (result.some((shortcut) => shortcut.action === action)) continue
+    const fallback = DEFAULT_KEYBOARD_SHORTCUTS.find((shortcut) => shortcut.action === action)
+    const taken =
+      fallback &&
+      result.some((shortcut) => shortcut.strokes.join('\u0000') === fallback.strokes.join('\u0000'))
+    if (fallback && !taken) result.push({ ...fallback, strokes: [...fallback.strokes] })
+  }
+  return result
+}
+
+/** Shortcuts that are actually bound (removed ones keep an empty entry). */
+export const boundShortcuts = (shortcuts: KeyboardShortcut[]): KeyboardShortcut[] =>
+  shortcuts.filter((shortcut) => shortcut.strokes.length > 0)
+
 export const shortcutLabel = (strokes: string[]): string => strokes.join(', ')
 
 export const shortcutsMatchingPrefix = (
   shortcuts: KeyboardShortcut[],
   strokes: string[]
 ): KeyboardShortcut[] =>
-  shortcuts.filter((shortcut) =>
+  boundShortcuts(shortcuts).filter((shortcut) =>
     strokes.every((stroke, index) => shortcut.strokes[index] === stroke)
   )
 

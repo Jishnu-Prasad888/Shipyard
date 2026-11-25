@@ -25,6 +25,14 @@ async function dbQuery(args: DbArgs): Promise<any> {
   return invoke<any>('db_query', { args })
 }
 
+/** Event fired after any record is created, updated or deleted. */
+export const DATA_WRITTEN_EVENT = 'shipyard-data-written'
+
+const notifyWrite = <T>(result: T): T => {
+  window.dispatchEvent(new CustomEvent(DATA_WRITTEN_EVENT))
+  return result
+}
+
 const electronBridge = {
   source: {
     status: () => invoke<SourceStatus>('source_status'),
@@ -58,10 +66,12 @@ const electronBridge = {
   db: {
     findAll: (table: string) => dbQuery({ operation: 'findAll', table }),
     findById: (table: string, id: string) => dbQuery({ operation: 'findById', table, id }),
-    create: (table: string, data: any) => dbQuery({ operation: 'create', table, data }),
+    create: (table: string, data: any) =>
+      dbQuery({ operation: 'create', table, data }).then(notifyWrite),
     update: (table: string, id: string, data: any) =>
-      dbQuery({ operation: 'update', table, id, data }),
-    delete: (table: string, id: string) => dbQuery({ operation: 'delete', table, id }),
+      dbQuery({ operation: 'update', table, id, data }).then(notifyWrite),
+    delete: (table: string, id: string) =>
+      dbQuery({ operation: 'delete', table, id }).then(notifyWrite),
     getBoardWithDetails: (id: string) => dbQuery({ operation: 'getBoardWithDetails', id }),
     getProjectsWithWorkspaces: () => dbQuery({ operation: 'getProjectsWithWorkspaces' })
   },

@@ -39,7 +39,9 @@ describe('keyboard shortcuts', () => {
   it('detects duplicate bindings while allowing an action to edit itself', () => {
     const candidate = { action: 'createProject' as const, strokes: ['Ctrl+N', 'W'] }
     expect(hasDuplicateShortcut(DEFAULT_KEYBOARD_SHORTCUTS, candidate)).toBe(true)
-    expect(hasDuplicateShortcut(DEFAULT_KEYBOARD_SHORTCUTS, candidate, 'createWorkspace')).toBe(false)
+    expect(hasDuplicateShortcut(DEFAULT_KEYBOARD_SHORTCUTS, candidate, 'createWorkspace')).toBe(
+      false
+    )
     expect(plainStroke('Ctrl+Shift+P')).toBe('P')
   })
 
@@ -57,6 +59,22 @@ describe('keyboard shortcuts', () => {
     const customized = legacyDefaults.map((shortcut) =>
       shortcut.action === 'createTask' ? { ...shortcut, strokes: ['Alt+T'] } : shortcut
     )
-    expect(effectiveKeyboardShortcuts(customized)).toEqual(customized)
+    expect(effectiveKeyboardShortcuts(customized)).toEqual([
+      ...customized,
+      { action: 'toggleSplit', strokes: ['Ctrl+\\'] }
+    ])
+  })
+
+  it('adds new defaults to saved lists, but not over a removed or clashing shortcut', () => {
+    const saved = [{ action: 'quickCreate' as const, strokes: ['Ctrl+K'] }]
+    expect(effectiveKeyboardShortcuts(saved)).toContainEqual({
+      action: 'toggleSplit',
+      strokes: ['Ctrl+\\']
+    })
+    const removed = [...saved, { action: 'toggleSplit' as const, strokes: [] }]
+    expect(effectiveKeyboardShortcuts(removed)).toEqual(removed)
+    expect(shortcutsMatchingPrefix(effectiveKeyboardShortcuts(removed), ['Ctrl+\\'])).toEqual([])
+    const clash = [{ action: 'goHome' as const, strokes: ['Ctrl+\\'] }]
+    expect(effectiveKeyboardShortcuts(clash)).toEqual(clash)
   })
 })

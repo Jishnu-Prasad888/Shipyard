@@ -6,7 +6,8 @@ import {
   hasDuplicateShortcut,
   shortcutLabel,
   shortcutStrokeFromEvent,
-  SHORTCUT_ACTIONS
+  SHORTCUT_ACTIONS,
+  boundShortcuts
 } from '../../lib/keyboardShortcuts'
 
 interface KeyboardShortcutsModalProps {
@@ -58,12 +59,17 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
   }
 
   const removeBinding = (action: KeyboardShortcutAction): void => {
-    setShortcuts((current) => current.filter((shortcut) => shortcut.action !== action))
+    // Keep an empty entry so a default added in a later version doesn't
+    // quietly bring the shortcut back.
+    setShortcuts((current) => [
+      ...current.filter((shortcut) => shortcut.action !== action),
+      { action, strokes: [] }
+    ])
     if (editingAction === action) setEditingAction(null)
   }
 
   const unassignedActions = SHORTCUT_ACTIONS.filter(
-    (action) => !shortcuts.some((shortcut) => shortcut.action === action.id)
+    (action) => !boundShortcuts(shortcuts).some((shortcut) => shortcut.action === action.id)
   )
 
   return (
@@ -98,7 +104,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
           </p>
 
           <div className="border" style={{ borderColor: 'var(--color-border-strong)' }}>
-            {shortcuts.map((shortcut) => {
+            {boundShortcuts(shortcuts).map((shortcut) => {
               const action = SHORTCUT_ACTIONS.find((item) => item.id === shortcut.action)
               return (
                 <div

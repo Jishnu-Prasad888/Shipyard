@@ -114,6 +114,7 @@ export type KeyboardShortcutAction =
   | 'goHome'
   | 'openCalendar'
   | 'toggleTheme'
+  | 'toggleSplit'
 
 export interface KeyboardShortcut {
   action: KeyboardShortcutAction
