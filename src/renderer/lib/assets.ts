@@ -61,8 +61,19 @@ export const uploadImage = async (file: File): Promise<string> => {
   return ASSET_PREFIX + name
 }
 
-// Resolved images are cached as object URLs for the lifetime of the window.
+// Resolved images are cached as object URLs; the oldest are released once
+// the cache is full so memory use stays bounded in long sessions.
+const MAX_CACHED_IMAGES = 60
 const urlCache = new Map<string, Promise<string | null>>()
+
+const evictOldest = (): void => {
+  while (urlCache.size > MAX_CACHED_IMAGES) {
+    const [oldestName, oldest] = urlCache.entries().next().value as [string, Promise<string | null>]
+    urlCache.delete(oldestName)
+    // Images already on screen keep working: revoking only stops new loads.
+    void oldest.then((url) => url && setTimeout(() => URL.revokeObjectURL(url), 30_000))
+  }
+}
 
 const base64ToObjectUrl = (base64: string, mime: string): string => {
   const binary = atob(base64)
@@ -75,7 +86,11 @@ const base64ToObjectUrl = (base64: string, mime: string): string => {
 export const resolveAssetUrl = (src: string): Promise<string | null> => {
   const name = assetNameFromRef(src)
   let pending = urlCache.get(name)
-  if (!pending) {
+  if (pending) {
+    // Mark as recently used.
+    urlCache.delete(name)
+    urlCache.set(name, pending)
+  } else {
     const ext = name.split('.').pop()?.toLowerCase() || ''
     pending = window.electron.assets
       .read(name)
@@ -84,6 +99,7 @@ export const resolveAssetUrl = (src: string): Promise<string | null> => {
       )
       .catch(() => null)
     urlCache.set(name, pending)
+    evictOldest()
     // Let a later attempt retry if this one failed (e.g. share offline).
     pending.then((url) => {
       if (!url) urlCache.delete(name)

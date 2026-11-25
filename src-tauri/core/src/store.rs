@@ -104,10 +104,9 @@ pub fn validate_id(id: &str) -> Result<()> {
 
 /// Asset names are `<id>.<ext>` with an allowed image extension.
 pub fn validate_asset_name(name: &str) -> Result<()> {
+    // Exactly one dot: `<id>.<ext>`, where the id itself has no dots.
     let valid = name.split_once('.').is_some_and(|(stem, ext)| {
-        validate_id(stem).is_ok()
-            && !stem.contains('.')
-            && ASSET_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str())
+        validate_id(stem).is_ok() && ASSET_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str())
     });
     if valid {
         Ok(())

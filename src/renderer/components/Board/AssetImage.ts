@@ -18,6 +18,24 @@ export const AssetImage = Image.extend({
         dom.tagName === 'IMG' ? dom : dom.querySelector('img')
       ) as HTMLImageElement | null
       const src = props.node.attrs.src as string | null
+      const showMissing = (message: string) => {
+        if (!img) return
+        img.alt = message
+        img.classList.add('asset-image-missing')
+        // The resizable view hides itself until the image loads.
+        dom.style.visibility = ''
+        dom.style.pointerEvents = ''
+      }
+      if (img) img.addEventListener('error', () => showMissing('Image could not be loaded'))
+
+      // Reuse this view only for the same image; otherwise re-create it so
+      // the right picture is resolved (e.g. after undo).
+      const parentUpdate = view.update?.bind(view)
+      view.update = (node, decorations, innerDecorations) =>
+        node.type === props.node.type && node.attrs.src === src && parentUpdate
+          ? parentUpdate(node, decorations, innerDecorations)
+          : false
+
       if (img && isAssetRef(src)) {
         img.removeAttribute('src')
         void resolveAssetUrl(src!).then((url) => {
@@ -26,10 +44,7 @@ export const AssetImage = Image.extend({
             return
           }
           // Missing file (deleted, or a share that is offline): show why.
-          img.alt = 'Image not found in this folder'
-          img.classList.add('asset-image-missing')
-          dom.style.visibility = ''
-          dom.style.pointerEvents = ''
+          showMissing('Image not found in this folder')
         })
       }
       return view

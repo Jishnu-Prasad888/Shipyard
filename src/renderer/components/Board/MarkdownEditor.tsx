@@ -34,6 +34,7 @@ import {
 } from 'lucide-react'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
+import { Fragment, Slice } from '@tiptap/pm/model'
 import { AssetImage } from './AssetImage'
 import { isSupportedImage, uploadImage } from '../../lib/assets'
 
@@ -42,25 +43,41 @@ const notify = (message: string): void => {
 }
 
 /**
- * Saves image files into the data folder and inserts them at `pos` (or at
- * the selection). Unsupported or oversized files are reported, not inserted.
+ * Saves image files into the data folder, then inserts them together, in
+ * order, at `pos` (or at the selection). Unsupported or oversized files are
+ * reported, not inserted.
  */
 const insertImageFiles = async (view: EditorView, files: File[], pos?: number): Promise<void> => {
-  let insertAt = pos
+  const startDoc = view.state.doc
+  const sources: { src: string; alt: string | null }[] = []
   for (const file of files) {
     try {
-      const src = await uploadImage(file)
-      if (view.isDestroyed) return
-      const node = view.state.schema.nodes.image?.create({ src, alt: file.name || null })
-      if (!node) return
-      const at = Math.min(insertAt ?? view.state.selection.from, view.state.doc.content.size)
-      view.dispatch(view.state.tr.insert(at, node).scrollIntoView())
-      insertAt = at + node.nodeSize
+      sources.push({ src: await uploadImage(file), alt: file.name || null })
     } catch (error) {
       notify(error instanceof Error ? error.message : `Could not add image: ${String(error)}`)
     }
   }
+  const imageType = view.state.schema.nodes.image
+  if (view.isDestroyed || !imageType || sources.length === 0) return
+  // If the notes changed during the upload the drop position is stale, so
+  // use wherever the cursor is now.
+  const at =
+    pos !== undefined && view.state.doc.eq(startDoc)
+      ? Math.min(pos, view.state.doc.content.size)
+      : view.state.selection.from
+  const nodes = sources.map((attrs) => imageType.create(attrs))
+  // replaceRange splits the surrounding paragraph where needed and keeps order.
+  view.dispatch(
+    view.state.tr.replaceRange(at, at, new Slice(Fragment.from(nodes), 0, 0)).scrollIntoView()
+  )
 }
+
+/**
+ * True when the clipboard holds only image data. Office and some browsers
+ * put a picture of copied text next to the text itself; then the text wins.
+ */
+const isImageOnlyPaste = (data: DataTransfer | null): boolean =>
+  !!data && !data.getData('text/plain').trim() && imageFilesFrom(data.files).length > 0
 
 const imageFilesFrom = (list: FileList | null | undefined): File[] =>
   Array.from(list || []).filter((file) => isSupportedImage(file))
@@ -240,15 +257,16 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       },
       // Pasted or dropped image files are saved into the data folder.
       handlePaste: (view, event) => {
-        const files = imageFilesFrom(event.clipboardData?.files)
-        if (!files.length || !view.editable) return false
+        if (!view.editable || !isImageOnlyPaste(event.clipboardData)) return false
         event.preventDefault()
-        void insertImageFiles(view, files)
+        void insertImageFiles(view, imageFilesFrom(event.clipboardData?.files))
         return true
       },
       handleDrop: (view, event, _slice, moved) => {
-        if (moved || !view.editable) return false
+        if (moved) return false
         const dropped = event.dataTransfer?.files
+        // Never let a dropped file through: the window would navigate to it.
+        if (!view.editable) return !!dropped?.length
         const files = imageFilesFrom(dropped)
         if (!files.length) {
           if (dropped?.length) notify('Only PNG, JPEG, GIF, WebP and BMP images can be added')
