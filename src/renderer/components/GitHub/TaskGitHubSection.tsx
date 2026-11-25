@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Github, Link2, Loader2, Plus, Search } from 'lucide-react'
 import {
   formatRef,
@@ -41,9 +41,17 @@ export const TaskGitHubSection: React.FC<Props> = ({
   const [browseError, setBrowseError] = useState<string | null>(null)
   const [browseFilter, setBrowseFilter] = useState('')
 
+  // Mentions are read from the text only once typing pauses, so typing
+  // "#1234" doesn't look up #1, #12 and #123 on the way.
+  const [settledText, setSettledText] = useState({ title, description, notes })
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSettledText({ title, description, notes }), 800)
+    return () => window.clearTimeout(timer)
+  }, [title, description, notes])
+
   const refs = useMemo(
-    () => taskReferences({ title, description, notes, githubLinks: links }, repo),
-    [title, description, notes, links, repo]
+    () => taskReferences({ ...settledText, githubLinks: links }, repo),
+    [settledText, links, repo]
   )
   const linkedKeys = new Set(links.map(refKey))
 

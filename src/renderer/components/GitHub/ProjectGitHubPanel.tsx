@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { ExternalLink, Github, Loader2, Plus, RefreshCw, Star } from 'lucide-react'
 import {
   fetchRepo,
@@ -36,25 +36,41 @@ export const ProjectGitHubPanel: React.FC<Props> = ({ repo, boards }) => {
     ? targetBoardId
     : boards[0]?.id || ''
 
-  const load = useCallback(async () => {
-    setItems(null)
-    setError(null)
-    try {
-      fetchRepo(repo).then(setInfo, () => setInfo(null))
-      const result =
-        tab === 'pulls'
-          ? await listPullRequests(repo, state)
-          : tab === 'issues'
-            ? await listIssues(repo, state)
-            : await listCommits(repo)
-      setItems(result)
-    } catch (err: any) {
-      setError(String(err?.message || err))
-    }
-  }, [repo, tab, state])
+  // Only the latest request may update the list, so a slow answer for a tab
+  // the user already left can't overwrite the current one.
+  const requestIdRef = useRef(0)
+  const load = useCallback(
+    async (fresh = false) => {
+      const requestId = ++requestIdRef.current
+      const current = () => requestId === requestIdRef.current
+      setItems(null)
+      setError(null)
+      fetchRepo(repo, { fresh }).then(
+        (value) => current() && setInfo(value),
+        () => current() && setInfo(null)
+      )
+      try {
+        const result =
+          tab === 'pulls'
+            ? await listPullRequests(repo, state, { fresh })
+            : tab === 'issues'
+              ? await listIssues(repo, state, { fresh })
+              : await listCommits(repo, 30, { fresh })
+        if (current()) setItems(result)
+      } catch (err: any) {
+        if (current()) setError(String(err?.message || err))
+      }
+    },
+    [repo, tab, state]
+  )
 
   useEffect(() => {
     void load()
+    return () => {
+      // Invalidate answers still on their way when the view changes or closes.
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- bumping the current id is the point
+      requestIdRef.current++
+    }
   }, [load])
 
   /** Creates a task in the first column of the chosen board, linked to the item. */
@@ -154,7 +170,7 @@ export const ProjectGitHubPanel: React.FC<Props> = ({ repo, boards }) => {
         <div className="flex-1" />
         <button
           type="button"
-          onClick={() => void load()}
+          onClick={() => void load(true)}
           className="btn-secondary text-xs px-2"
           title="Refresh"
           aria-label="Refresh GitHub data"

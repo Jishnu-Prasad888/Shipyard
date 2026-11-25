@@ -102,4 +102,17 @@ describe('task references', () => {
     ).toHaveLength(1)
     expect(parseStoredLinks('not json')).toEqual([])
   })
+
+  it('handles review edge cases: trailing slashes, #0, colours', () => {
+    expect(normalizeRepo('https://github.com/octo/hello.git/')).toBe('octo/hello')
+    expect(normalizeRepo('https://github.com/octo/hello?tab=readme-ov-file#readme')).toBe(
+      'octo/hello'
+    )
+    expect(parseSingleReference('#0', 'octo/hello')).toBeNull()
+    expect(parseSingleReference('0', 'octo/hello')).toBeNull()
+    expect(parseGitHubReferences('use #000000 or #0f0 for text', 'octo/hello')).toEqual([])
+    expect(parseGitHubReferences('fixes #12', 'octo/hello')).toEqual([
+      { kind: 'issue', repo: 'octo/hello', number: 12 }
+    ])
+  })
 })

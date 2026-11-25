@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux'
 import { CheckCircle2, Eye, EyeOff, Github, Loader2, XCircle } from 'lucide-react'
 import { RootState } from '../../store'
 import { setSettings } from '../../store/settingsSlice'
-import { fetchViewer, openExternal, setGitHubToken } from '../../lib/github'
+import { fetchViewer, getGitHubToken, openExternal, setGitHubToken } from '../../lib/github'
 
 /**
  * GitHub token for this device. Without one, public repositories still work
@@ -29,17 +29,38 @@ export const GitHubSettingsPanel: React.FC = () => {
     setGitHubToken(value)
   }
 
+  const removedMessage = 'Token removed. Public repositories still work.'
+
+  /** Checks the token with GitHub first; a token that fails is not saved. */
   const saveAndTest = async () => {
     setStatus({ kind: 'busy' })
+    if (!token.trim()) {
+      try {
+        await save('')
+        setStatus({ kind: 'ok', message: removedMessage })
+      } catch (error: any) {
+        setStatus({ kind: 'error', message: String(error?.message || error) })
+      }
+      return
+    }
+    const previous = getGitHubToken()
+    let login: string
+    try {
+      setGitHubToken(token)
+      login = await fetchViewer()
+    } catch (error: any) {
+      setGitHubToken(previous)
+      setStatus({
+        kind: 'error',
+        message: `${String(error?.message || error)} The token was not saved.`
+      })
+      return
+    }
     try {
       await save(token)
-      if (!token.trim()) {
-        setStatus({ kind: 'ok', message: 'Token removed. Public repositories still work.' })
-        return
-      }
-      const login = await fetchViewer()
       setStatus({ kind: 'ok', message: `Connected as ${login}` })
     } catch (error: any) {
+      setGitHubToken(previous)
       setStatus({ kind: 'error', message: String(error?.message || error) })
     }
   }
@@ -114,11 +135,9 @@ export const GitHubSettingsPanel: React.FC = () => {
               className="btn-secondary text-xs"
               onClick={() => {
                 setToken('')
-                void save('').then(() =>
-                  setStatus({
-                    kind: 'ok',
-                    message: 'Token removed. Public repositories still work.'
-                  })
+                save('').then(
+                  () => setStatus({ kind: 'ok', message: removedMessage }),
+                  (error) => setStatus({ kind: 'error', message: String(error?.message || error) })
                 )
               }}
             >

@@ -33,7 +33,11 @@ export const normalizeRepo = (value: string): string | null => {
   if (!v) return null
   v = v.replace(/^git@github\.com:/i, '')
   v = v.replace(/^(?:https?:\/\/)?(?:www\.)?github\.com\//i, '')
-  v = v.replace(/\.git$/i, '').replace(/\/+$/, '')
+  // Query, fragment and trailing slashes first, so "repo.git/" still works.
+  v = v
+    .replace(/[?#].*$/, '')
+    .replace(/\/+$/, '')
+    .replace(/\.git$/i, '')
   const [owner, repo] = v.split('/')
   if (!owner || !repo) return null
   const candidate = `${owner}/${repo}`
@@ -96,7 +100,8 @@ export const parseGitHubReferences = (text: string, defaultRepo?: string | null)
     else if (m[3]) add({ kind: 'commit', repo: m[1], sha: m[3] })
   }
   if (defaultRepo && isValidRepo(defaultRepo)) {
-    for (const m of plain.matchAll(/(?:^|[\s([{,;:])#(\d{1,7})\b/g)) {
+    // Issue numbers never start with 0, which also skips colors like #000000.
+    for (const m of plain.matchAll(/(?:^|[\s([{,;:])#([1-9]\d{0,6})\b/g)) {
       add({ kind: 'issue', repo: defaultRepo, number: Number(m[1]) })
     }
   }
@@ -113,7 +118,7 @@ export const parseSingleReference = (
   if (defaultRepo && /^[0-9a-fA-F]{7,40}$/.test(value) && /[a-fA-F]/.test(value)) {
     return { kind: 'commit', repo: defaultRepo, sha: value }
   }
-  if (defaultRepo && /^#?\d+$/.test(value)) {
+  if (defaultRepo && /^#?[1-9]\d*$/.test(value)) {
     return { kind: 'issue', repo: defaultRepo, number: Number(value.replace('#', '')) }
   }
   return parseGitHubReferences(value, defaultRepo)[0] ?? null
@@ -156,6 +161,8 @@ export const setGitHubToken = (token: string | undefined | null): void => {
   if (next !== currentToken) cache.clear()
   currentToken = next
 }
+
+export const getGitHubToken = (): string => currentToken
 
 export const hasGitHubToken = (): boolean => currentToken.length > 0
 
@@ -256,29 +263,54 @@ export const fetchRef = async (ref: GitHubRef): Promise<GitHubItem> => {
 
 export type IssueFilter = 'open' | 'closed' | 'all'
 
-/** Issues (not pull requests) in a repository, most recently updated first. */
+export interface FetchOptions {
+  /** Skip the short-lived cache (e.g. for a Refresh button). */
+  fresh?: boolean
+}
+
+const ISSUE_LIST_SIZE = 50
+const ISSUE_PAGES = 3
+
+/**
+ * Issues (not pull requests) in a repository, most recently updated first.
+ * GitHub's issues endpoint also returns pull requests, so this reads up to a
+ * few pages until it has enough real issues.
+ */
 export const listIssues = async (
   repo: string,
-  state: IssueFilter = 'open'
+  state: IssueFilter = 'open',
+  { fresh = false }: FetchOptions = {}
 ): Promise<GitHubItem[]> => {
-  const rows: any[] = await request(
-    `/repos/${enc(repo)}/issues?state=${state}&sort=updated&per_page=50`
-  )
-  return rows.filter((row) => !row.pull_request).map((row) => issueToItem(repo, row))
+  const items: GitHubItem[] = []
+  for (let page = 1; page <= ISSUE_PAGES && items.length < ISSUE_LIST_SIZE; page++) {
+    const rows: any[] = await request(
+      `/repos/${enc(repo)}/issues?state=${state}&sort=updated&per_page=100&page=${page}`,
+      { fresh }
+    )
+    for (const row of rows) if (!row.pull_request) items.push(issueToItem(repo, row))
+    if (rows.length < 100) break
+  }
+  return items.slice(0, ISSUE_LIST_SIZE)
 }
 
 export const listPullRequests = async (
   repo: string,
-  state: IssueFilter = 'open'
+  state: IssueFilter = 'open',
+  { fresh = false }: FetchOptions = {}
 ): Promise<GitHubItem[]> => {
   const rows: any[] = await request(
-    `/repos/${enc(repo)}/pulls?state=${state}&sort=updated&direction=desc&per_page=50`
+    `/repos/${enc(repo)}/pulls?state=${state}&sort=updated&direction=desc&per_page=50`,
+    { fresh }
   )
   return rows.map((row) => issueToItem(repo, { ...row, pull_request: {} }, !!row.merged_at))
 }
 
-export const listCommits = async (repo: string, limit = 30): Promise<GitHubItem[]> => {
-  const rows: any[] = await request(`/repos/${enc(repo)}/commits?per_page=${limit}`)
+export const listCommits = async (
+  repo: string,
+  limit = 30,
+  { fresh = false }: FetchOptions = {}
+): Promise<GitHubItem[]> => {
+  const rows: any[] = await request(`/repos/${enc(repo)}/commits?per_page=${limit}`, { fresh })
   return rows.map((raw) => ({
     ref: { kind: 'commit' as const, repo, sha: raw.sha },
     title: String(raw.commit?.message || '').split('\n')[0],
@@ -299,8 +331,11 @@ export interface RepoInfo {
   isPrivate: boolean
 }
 
-export const fetchRepo = async (repo: string): Promise<RepoInfo> => {
-  const raw: any = await request(`/repos/${enc(repo)}`)
+export const fetchRepo = async (
+  repo: string,
+  { fresh = false }: FetchOptions = {}
+): Promise<RepoInfo> => {
+  const raw: any = await request(`/repos/${enc(repo)}`, { fresh })
   return {
     fullName: raw.full_name,
     description: raw.description || undefined,
