@@ -1,12 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Calendar, CheckSquare, Link2, FileText } from 'lucide-react'
+import { Calendar, CheckSquare, Link2, FileText, Github } from 'lucide-react'
+import { taskReferences } from '../../lib/github'
 import { TaskDetailsModal } from './TaskDetailsModal'
 
 interface TaskProps {
   task: any
   columnName?: string
+  githubRepo?: string | null
   onUpdate: () => void
   autoOpenId?: string | null
   onAutoOpenComplete?: () => void
@@ -15,6 +17,7 @@ interface TaskProps {
 export const Task: React.FC<TaskProps> = ({
   task,
   columnName,
+  githubRepo,
   onUpdate,
   autoOpenId,
   onAutoOpenComplete
@@ -59,7 +62,13 @@ export const Task: React.FC<TaskProps> = ({
         .replace(/<[^>]*>/g, '')
         .replace(/&nbsp;/g, ' ')
         .trim().length > 0)
-  const hasFooter = !!task.deadline || totalSubtasks > 0 || connectedIds.length > 0 || hasNotes
+  const githubRefCount = useMemo(() => taskReferences(task, githubRepo).length, [task, githubRepo])
+  const hasFooter =
+    !!task.deadline ||
+    totalSubtasks > 0 ||
+    connectedIds.length > 0 ||
+    hasNotes ||
+    githubRefCount > 0
   const taskColor = task.color || '#2563eb'
 
   useEffect(() => {
@@ -205,6 +214,17 @@ export const Task: React.FC<TaskProps> = ({
               >
                 <Link2 className="w-3 h-3" />
                 <span title="Linked tasks">{connectedIds.length}</span>
+              </div>
+            )}
+
+            {githubRefCount > 0 && (
+              <div
+                className="flex items-center gap-1 text-[10px] font-black"
+                style={{ color: 'var(--color-muted)' }}
+                title="GitHub issues, pull requests and commits"
+              >
+                <Github className="w-3 h-3" />
+                <span>{githubRefCount}</span>
               </div>
             )}
 

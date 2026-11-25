@@ -11,6 +11,7 @@ import { CalendarView } from './components/Calendar/CalendarView'
 import { Toast } from './components/common/Toast'
 import { RootState } from './store'
 import { setSettings } from './store/settingsSlice'
+import { setGitHubToken } from './lib/github'
 import {
   effectiveKeyboardShortcuts,
   plainStroke,
@@ -123,6 +124,10 @@ function App(): ReactElement {
       }
     })
   }, [dispatch])
+
+  useEffect(() => {
+    setGitHubToken(settings.githubToken)
+  }, [settings.githubToken])
 
   useEffect(() => {
     const colorMode = settings.colorMode || settings.theme || 'light'

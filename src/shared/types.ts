@@ -8,6 +8,8 @@ export interface Project {
   updatedAt: number
   color?: string
   boardIds: string[]
+  /** Linked GitHub repository as owner/repo. */
+  githubRepo?: string
 }
 
 export interface Workspace {
@@ -57,6 +59,8 @@ export interface Task {
   subtasks: Subtask[]
   connectedTaskIds: string[]
   connectedColumnIds: string[]
+  /** GitHub issues, pull requests and commits linked to the task. */
+  githubLinks?: { kind: 'issue' | 'commit'; repo: string; number?: number; sha?: string }[]
   createdAt: number
   updatedAt: number
 }
@@ -130,4 +134,6 @@ export interface Settings {
   serverSyncEnabled?: boolean
   lastServerSyncAt?: number
   keyboardShortcuts?: KeyboardShortcut[]
+  /** GitHub personal access token for this device. */
+  githubToken?: string
 }

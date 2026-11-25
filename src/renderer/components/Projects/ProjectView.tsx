@@ -4,6 +4,7 @@ import { BoardCard } from './BoardCard'
 import { ProjectModal } from './ProjectModal'
 import { Board, Project } from '@shared/types'
 import { getBoardsByProjectId, getProjectById } from '../../lib/data'
+import { ProjectGitHubPanel } from '../GitHub/ProjectGitHubPanel'
 
 interface ProjectViewProps {
   projectId: string
@@ -332,6 +333,15 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
         )}
       </div>
 
+      {project?.githubRepo && (
+        <div className="mt-8">
+          <ProjectGitHubPanel
+            repo={project.githubRepo}
+            boards={boards.map((board) => ({ id: board.id, name: board.name }))}
+          />
+        </div>
+      )}
+
       {showCreateBoard && (
         <ProjectModal
           title="Create Board"
@@ -343,6 +353,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
       {showEditProject && (
         <ProjectModal
           title="Edit Project"
+          showGitHubRepo
           initialData={project}
           onClose={() => setShowEditProject(false)}
           onCreate={handleUpdateProject}

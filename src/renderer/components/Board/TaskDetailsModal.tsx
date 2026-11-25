@@ -5,6 +5,8 @@ import { useResizableDialog } from '../../hooks/useResizableDialog'
 import { ResizeHandle } from '../common/ResizeHandle'
 import { Subtask } from './Subtask'
 import { fromDateInputValue, toDateInputValue } from '../../lib/dates'
+import { GitHubRef, parseStoredLinks } from '../../lib/github'
+import { TaskGitHubSection } from '../GitHub/TaskGitHubSection'
 
 interface TaskDetailsModalProps {
   task: any
@@ -204,8 +206,14 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
     connectedTaskIds:
       typeof task.connectedTaskIds === 'string'
         ? JSON.parse(task.connectedTaskIds || '[]')
-        : task.connectedTaskIds || []
+        : task.connectedTaskIds || [],
+    githubLinks: parseStoredLinks(task.githubLinks)
   })
+  const [githubLinks, setGithubLinks] = useState<GitHubRef[]>(() =>
+    parseStoredLinks(task.githubLinks)
+  )
+  // The project's linked repository, so "#123" in the task means its issue.
+  const [githubRepo, setGithubRepo] = useState<string | null>(null)
 
   const [connectedTaskIds, setConnectedTaskIds] = useState<string[]>(
     typeof task.connectedTaskIds === 'string'
@@ -223,6 +231,21 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
     loadProjectTagSuggestions()
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+    const loadRepo = async () => {
+      const board = task.boardId ? await window.electron.db.findById('boards', task.boardId) : null
+      const project = board?.projectId
+        ? await window.electron.db.findById('projects', board.projectId)
+        : null
+      if (!cancelled) setGithubRepo(project?.githubRepo || null)
+    }
+    void loadRepo()
+    return () => {
+      cancelled = true
+    }
+  }, [task.boardId])
+
   // Debounced autosave
   useEffect(() => {
     if (isInitialRender.current) {
@@ -234,7 +257,18 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
       void syncToDb(false)
     }, 1000)
     return () => clearTimeout(timer)
-  }, [title, description, deadlineStr, status, color, tags, notes, connectedTaskIds, subtasks])
+  }, [
+    title,
+    description,
+    deadlineStr,
+    status,
+    color,
+    tags,
+    notes,
+    connectedTaskIds,
+    subtasks,
+    githubLinks
+  ])
 
   const loadStatuses = async () => {
     const dbStatuses = await window.electron.db.findAll('statuses')
@@ -372,6 +406,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
             tags: JSON.stringify(tags),
             notes,
             connectedTaskIds: JSON.stringify(connectedTaskIds),
+            githubLinks,
             updatedAt: Date.now()
           }
           // Rewriting an unchanged deadline would drop its time of day.
@@ -408,6 +443,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
       notes,
       connectedTaskIds,
       subtasks,
+      githubLinks,
       task.id,
       onUpdate,
       onClose
@@ -438,6 +474,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
     setSubtasks(s.subtasks)
     setNotes(s.notes)
     setConnectedTaskIds(s.connectedTaskIds)
+    setGithubLinks(s.githubLinks)
 
     // Revert DB (Silently sync the initial state back)
     const revertedTask = {
@@ -449,6 +486,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
       tags: JSON.stringify(s.tags),
       notes: s.notes,
       connectedTaskIds: JSON.stringify(s.connectedTaskIds),
+      githubLinks: s.githubLinks,
       updatedAt: Date.now()
     }
 
@@ -1109,6 +1147,18 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
                       ))}
                     </div>
                   </div>
+                </div>
+
+                {/* GitHub issues, pull requests and commits */}
+                <div className="aero-panel p-4">
+                  <TaskGitHubSection
+                    title={title}
+                    description={description}
+                    notes={notes}
+                    links={githubLinks}
+                    onChangeLinks={setGithubLinks}
+                    repo={githubRepo}
+                  />
                 </div>
 
                 {/* Connected tasks in this project */}

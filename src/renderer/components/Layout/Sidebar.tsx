@@ -675,6 +675,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {showProjectModal && (
         <ProjectModal
           title="Create Project"
+          showGitHubRepo
           onClose={() => setShowProjectModal(false)}
           onCreate={createProject}
         />
@@ -682,6 +683,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {editingProject && (
         <ProjectModal
           title="Edit Project"
+          showGitHubRepo
           initialData={editingProject}
           onClose={() => setEditingProject(null)}
           onCreate={updateProject}

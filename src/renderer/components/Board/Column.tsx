@@ -23,6 +23,7 @@ interface ColumnProps {
   onTaskOpenComplete?: () => void
   orientation: 'horizontal' | 'vertical'
   rowHeight?: number
+  githubRepo?: string | null
 }
 
 // Default statuses matching TaskDetailsModal
@@ -39,7 +40,8 @@ export const Column: React.FC<ColumnProps> = ({
   openTaskId,
   onTaskOpenComplete,
   orientation,
-  rowHeight
+  rowHeight,
+  githubRepo
 }) => {
   const [showCreateTask, setShowCreateTask] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
@@ -573,6 +575,7 @@ export const Column: React.FC<ColumnProps> = ({
               key={task.id}
               task={task}
               columnName={column.name}
+              githubRepo={githubRepo}
               onUpdate={onTasksChange}
               autoOpenId={openTaskId}
               onAutoOpenComplete={onTaskOpenComplete}

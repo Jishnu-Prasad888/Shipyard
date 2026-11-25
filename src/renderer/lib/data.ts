@@ -1,4 +1,5 @@
 import { Board, Column, Project, Status, Subtask, Tag, Task } from '@shared/types'
+import { parseStoredLinks } from './github'
 
 const toNumber = (value: any, fallback = Date.now()): number => {
   const n = typeof value === 'number' ? value : Number(value)
@@ -69,7 +70,12 @@ const parseSubtasks = (value: any): Subtask[] => {
 export const parseTask = (raw: any): Task => {
   const status =
     parseStatusValue(raw.status, raw.boardId) ||
-    ({ id: '__unknown__', name: 'Unspecified', color: '#6b7280', boardId: raw.boardId || '' } as Status)
+    ({
+      id: '__unknown__',
+      name: 'Unspecified',
+      color: '#6b7280',
+      boardId: raw.boardId || ''
+    } as Status)
 
   return {
     id: String(raw.id),
@@ -86,6 +92,7 @@ export const parseTask = (raw: any): Task => {
     subtasks: parseSubtasks(raw.subtasks),
     connectedTaskIds: parseStringArray(raw.connectedTaskIds),
     connectedColumnIds: parseStringArray(raw.connectedColumnIds),
+    githubLinks: parseStoredLinks(raw.githubLinks),
     createdAt: toNumber(raw.createdAt),
     updatedAt: toNumber(raw.updatedAt)
   }
@@ -131,7 +138,8 @@ export const parseProject = (raw: any): Project => {
     createdAt: toNumber(raw.createdAt),
     updatedAt: toNumber(raw.updatedAt),
     color: raw.color || undefined,
-    boardIds: parseStringArray(raw.boardIds)
+    boardIds: parseStringArray(raw.boardIds),
+    githubRepo: typeof raw.githubRepo === 'string' && raw.githubRepo ? raw.githubRepo : undefined
   }
 }
 
@@ -149,9 +157,7 @@ export const getProjectById = async (projectId: string): Promise<Project | null>
 
 export const getBoardsByProjectId = async (projectId: string): Promise<Board[]> => {
   const rows = await window.electron.db.findAll('boards')
-  return (rows || [])
-    .filter((board: any) => board.projectId === projectId)
-    .map(parseBoard)
+  return (rows || []).filter((board: any) => board.projectId === projectId).map(parseBoard)
 }
 
 export const getBoardWithDetails = async (boardId: string): Promise<Board | null> => {

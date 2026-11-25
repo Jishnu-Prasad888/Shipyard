@@ -17,8 +17,10 @@ import {
   Activity,
   Keyboard,
   FolderOpen,
-  Palette
+  Palette,
+  Github
 } from 'lucide-react'
+import { GitHubSettingsPanel } from '../GitHub/GitHubSettingsPanel'
 import { FirebaseConfig } from './FirebaseConfig'
 import { ExportModal } from './ExportModal'
 import { DataFolderPanel } from './DataFolderPanel'
@@ -44,7 +46,7 @@ interface SettingsModalProps {
 
 type SyncOp = 'idle' | 'saving' | 'testing' | 'pushing' | 'pulling'
 
-type SettingsTab = 'folder' | 'appearance' | 'general' | 'sync'
+type SettingsTab = 'folder' | 'appearance' | 'general' | 'sync' | 'github'
 
 const SETTINGS_TABS: Array<{
   id: SettingsTab
@@ -54,7 +56,8 @@ const SETTINGS_TABS: Array<{
   { id: 'folder', label: 'Data folder', icon: FolderOpen },
   { id: 'appearance', label: 'Appearance', icon: Palette },
   { id: 'general', label: 'Shortcuts & window', icon: Keyboard },
-  { id: 'sync', label: 'Sync', icon: RefreshCw }
+  { id: 'sync', label: 'Sync', icon: RefreshCw },
+  { id: 'github', label: 'GitHub', icon: Github }
 ]
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
@@ -306,7 +309,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
     setTimeout(() => setFeedback(null), 5000)
   }
 
+  // Settings this dialog does not edit (e.g. the GitHub token) are kept.
   const activeSettings = {
+    ...settings,
     colorMode,
     themeStyle,
     firebaseEnabled,
@@ -583,6 +588,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
           </nav>
 
           <div className="flex-1 overflow-auto p-5 space-y-4">
+            {activeTab === 'github' && <GitHubSettingsPanel />}
+
             {activeTab === 'folder' && (
               <>
                 <DataFolderPanel />

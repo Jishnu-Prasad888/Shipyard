@@ -642,6 +642,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       {showCreateProject && (
         <ProjectModal
           title="Create Project"
+          showGitHubRepo
           onClose={() => setShowCreateProject(false)}
           onCreate={handleCreateProject}
         />
