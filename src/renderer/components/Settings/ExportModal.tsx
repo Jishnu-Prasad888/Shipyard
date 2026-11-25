@@ -399,13 +399,22 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
     setResult(null)
     try {
       if (splitPerProject) {
+        // Different names can slugify to the same file name ("Alpha!" and
+        // "Alpha?", or names in non-Latin scripts); number repeats so no
+        // project's file overwrites another's.
+        const usedNames = new Map<string, number>()
         const files = data.projects
           .filter((project) => projectIds.has(project.id))
-          .map((project) => ({
-            name: `shipyard-${slugify(project.name)}`,
-            ext: format,
-            content: buildExportContent(selectData(new Set([project.id])), format)
-          }))
+          .map((project) => {
+            const base = `shipyard-${slugify(project.name)}`
+            const seen = usedNames.get(base) ?? 0
+            usedNames.set(base, seen + 1)
+            return {
+              name: seen === 0 ? base : `${base}-${seen + 1}`,
+              ext: format,
+              content: buildExportContent(selectData(new Set([project.id])), format)
+            }
+          })
         const response = await window.electron.export.saveFolder(files)
         if (response?.success) {
           setResult({

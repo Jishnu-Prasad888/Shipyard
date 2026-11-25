@@ -4,6 +4,7 @@ import { MarkdownEditor } from './MarkdownEditor'
 import { useResizableDialog } from '../../hooks/useResizableDialog'
 import { ResizeHandle } from '../common/ResizeHandle'
 import { Subtask } from './Subtask'
+import { fromDateInputValue, toDateInputValue } from '../../lib/dates'
 
 interface TaskDetailsModalProps {
   task: any
@@ -159,9 +160,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
 
   const [title, setTitle] = useState(task.title)
   const [description, setDescription] = useState(task.description || '')
-  const [deadlineStr, setDeadlineStr] = useState(
-    task.deadline ? new Date(task.deadline).toISOString().split('T')[0] : ''
-  )
+  const [deadlineStr, setDeadlineStr] = useState(toDateInputValue(task.deadline))
   const [status, setStatus] = useState<any>(
     typeof task.status === 'string' && task.status.startsWith('{')
       ? JSON.parse(task.status)
@@ -183,11 +182,17 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
 
   // Refs for autosave
   const lastSavedSubtasks = useRef<any[]>(task.subtasks || [])
+  const lastSavedDeadlineStr = useRef(toDateInputValue(task.deadline))
+  // Saves run one at a time so an autosave and a manual save never race.
+  const saveChainRef = useRef<Promise<void>>(Promise.resolve())
+  // True while an autosave is scheduled but has not started yet.
+  const pendingSaveRef = useRef(false)
   const isInitialRender = useRef(true)
   const initialState = useRef({
     title: task.title,
     description: task.description || '',
-    deadlineStr: task.deadline ? new Date(task.deadline).toISOString().split('T')[0] : '',
+    deadlineStr: toDateInputValue(task.deadline),
+    deadline: task.deadline ?? null,
     status:
       typeof task.status === 'string' && task.status.startsWith('{')
         ? JSON.parse(task.status)
@@ -224,8 +229,9 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
       isInitialRender.current = false
       return
     }
+    pendingSaveRef.current = true
     const timer = setTimeout(() => {
-      syncToDb(false)
+      void syncToDb(false)
     }, 1000)
     return () => clearTimeout(timer)
   }, [title, description, deadlineStr, status, color, tags, notes, connectedTaskIds, subtasks])
@@ -317,69 +323,110 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
     }
   }
 
-  // Shared save logic — closeAfter=true for manual save, false for autosave
+  // Shared save logic — closeAfter=true for manual save, false for autosave.
+  // Only the fields edited here are written, so changes made elsewhere to the
+  // task (its column, order, ...) are not overwritten with stale values.
   const syncToDb = useCallback(
-    async (closeAfter: boolean) => {
-      setIsSaving(true)
-      try {
-        const updatedTask = {
-          ...task,
-          title,
-          description,
-          deadline: deadlineStr ? new Date(deadlineStr).getTime() : null,
-          status: status ? JSON.stringify(status) : null,
-          color,
-          tags: JSON.stringify(tags),
-          notes,
-          connectedTaskIds: JSON.stringify(connectedTaskIds),
-          updatedAt: Date.now()
-        }
-        delete updatedTask.subtasks
-
-        const oldSubtasks = lastSavedSubtasks.current
-
-        for (const oldSubtask of oldSubtasks) {
-          if (!subtasks.find((subtask: any) => subtask.id === oldSubtask.id)) {
-            await window.electron.db.delete('subtasks', oldSubtask.id)
+    (closeAfter: boolean): Promise<void> => {
+      pendingSaveRef.current = false
+      const run = async (): Promise<void> => {
+        setIsSaving(true)
+        const saved = [...lastSavedSubtasks.current]
+        try {
+          for (const oldSubtask of [...saved]) {
+            if (!subtasks.find((subtask: any) => subtask.id === oldSubtask.id)) {
+              await window.electron.db.delete('subtasks', oldSubtask.id)
+              saved.splice(saved.indexOf(oldSubtask), 1)
+            }
           }
-        }
 
-        for (const subtask of subtasks) {
-          const oldSubtask = oldSubtasks.find((candidate: any) => candidate.id === subtask.id)
-          if (!oldSubtask) {
-            await window.electron.db.create('subtasks', {
-              id: subtask.id,
-              title: subtask.title,
-              completed: subtask.completed ? 1 : 0,
-              taskId: task.id,
-              createdAt: subtask.createdAt || Date.now()
-            })
-          } else if (
-            oldSubtask.completed !== subtask.completed ||
-            oldSubtask.title !== subtask.title
-          ) {
-            await window.electron.db.update('subtasks', subtask.id, {
-              title: subtask.title,
-              completed: subtask.completed ? 1 : 0
-            })
+          for (const subtask of subtasks) {
+            const index = saved.findIndex((candidate: any) => candidate.id === subtask.id)
+            const oldSubtask = index === -1 ? null : saved[index]
+            if (!oldSubtask) {
+              await window.electron.db.create('subtasks', {
+                id: subtask.id,
+                title: subtask.title,
+                completed: subtask.completed ? 1 : 0,
+                taskId: task.id,
+                createdAt: subtask.createdAt || Date.now()
+              })
+              saved.push(subtask)
+            } else if (
+              oldSubtask.completed !== subtask.completed ||
+              oldSubtask.title !== subtask.title
+            ) {
+              await window.electron.db.update('subtasks', subtask.id, {
+                title: subtask.title,
+                completed: subtask.completed ? 1 : 0
+              })
+              saved[index] = subtask
+            }
           }
-        }
 
-        await window.electron.db.update('tasks', task.id, updatedTask)
-        lastSavedSubtasks.current = subtasks
-        onUpdate()
-        if (closeAfter) onClose()
-      } finally {
-        setIsSaving(false)
+          const changes: Record<string, any> = {
+            title,
+            description,
+            status: status ? JSON.stringify(status) : null,
+            color,
+            tags: JSON.stringify(tags),
+            notes,
+            connectedTaskIds: JSON.stringify(connectedTaskIds),
+            updatedAt: Date.now()
+          }
+          // Rewriting an unchanged deadline would drop its time of day.
+          if (deadlineStr !== lastSavedDeadlineStr.current) {
+            changes.deadline = fromDateInputValue(deadlineStr)
+          }
+          await window.electron.db.update('tasks', task.id, changes)
+          lastSavedDeadlineStr.current = deadlineStr
+          onUpdate()
+          if (closeAfter) onClose()
+        } catch (error) {
+          console.error('Failed to save task:', error)
+          window.dispatchEvent(
+            new CustomEvent('show-toast', {
+              detail: { message: `Could not save task: ${String(error)}` }
+            })
+          )
+        } finally {
+          lastSavedSubtasks.current = saved
+          setIsSaving(false)
+        }
       }
+      const next = saveChainRef.current.then(run)
+      saveChainRef.current = next
+      return next
     },
-    [title, description, deadlineStr, status, color, tags, notes, connectedTaskIds, subtasks]
+    [
+      title,
+      description,
+      deadlineStr,
+      status,
+      color,
+      tags,
+      notes,
+      connectedTaskIds,
+      subtasks,
+      task.id,
+      onUpdate,
+      onClose
+    ]
   )
+
+  // Closing with an autosave still scheduled saves first instead of
+  // silently dropping the last edits.
+  const handleClose = (): void => {
+    if (pendingSaveRef.current) void syncToDb(true)
+    else onClose()
+  }
 
   const handleSave = () => syncToDb(true)
 
   const handleUndoChanges = async () => {
     const s = initialState.current
+    pendingSaveRef.current = false
+    await saveChainRef.current
 
     // Revert state
     setTitle(s.title)
@@ -394,10 +441,9 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
 
     // Revert DB (Silently sync the initial state back)
     const revertedTask = {
-      ...task,
       title: s.title,
       description: s.description,
-      deadline: s.deadlineStr ? new Date(s.deadlineStr).getTime() : null,
+      deadline: s.deadline,
       status: s.status ? JSON.stringify(s.status) : null,
       color: s.color,
       tags: JSON.stringify(s.tags),
@@ -405,9 +451,9 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
       connectedTaskIds: JSON.stringify(s.connectedTaskIds),
       updatedAt: Date.now()
     }
-    delete revertedTask.subtasks
 
-    const currentSubtasks = subtasks
+    // Compare with what is on disk, which may differ from the editor state.
+    const currentSubtasks = lastSavedSubtasks.current
     // Delete ones that didn't exist originally
     for (const subtask of currentSubtasks) {
       if (!s.subtasks.find((original: any) => original.id === subtask.id)) {
@@ -518,6 +564,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
 
     const allTasks = await window.electron.db.findAll('tasks')
     const affectedTasks = allTasks.filter((candidate: any) => {
+      if (candidate.boardId !== task.boardId) return false
       const taskStatus =
         typeof candidate.status === 'string' && candidate.status.startsWith('{')
           ? JSON.parse(candidate.status)
@@ -741,7 +788,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
         className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
         onClick={() => {
           if (shouldIgnoreOverlayClick()) return
-          onClose()
+          handleClose()
         }}
       >
         <div
@@ -781,7 +828,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
               >
                 <Trash2 className="w-5 h-5" />
               </button>
-              <button onClick={onClose} className="aero-icon-button p-2 text-white transition">
+              <button onClick={handleClose} className="aero-icon-button p-2 text-white transition">
                 <X className="w-5 h-5" />
               </button>
             </div>

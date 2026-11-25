@@ -51,7 +51,15 @@ export const Task: React.FC<TaskProps> = ({
   // badge when it adds information.
   const showStatus =
     !!status?.name && status.name.trim().toLowerCase() !== (columnName || '').trim().toLowerCase()
-  const hasFooter = !!task.deadline || totalSubtasks > 0 || connectedIds.length > 0 || !!task.notes
+  // An emptied editor still saves markup such as "<p></p>".
+  const hasNotes =
+    typeof task.notes === 'string' &&
+    (/<(img|table|hr)\b/i.test(task.notes) ||
+      task.notes
+        .replace(/<[^>]*>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .trim().length > 0)
+  const hasFooter = !!task.deadline || totalSubtasks > 0 || connectedIds.length > 0 || hasNotes
   const taskColor = task.color || '#2563eb'
 
   useEffect(() => {
@@ -200,7 +208,7 @@ export const Task: React.FC<TaskProps> = ({
               </div>
             )}
 
-            {task.notes && (
+            {hasNotes && (
               <div
                 className="flex items-center text-[10px]"
                 style={{ color: 'var(--color-muted)' }}

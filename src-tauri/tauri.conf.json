@@ -5,7 +5,7 @@
   "identifier": "com.shipyard.app",
   "build": {
     "frontendDist": "../dist/renderer",
-    "devUrl": "http://localhost:5173",
+    "devUrl": "http://localhost:6060",
     "beforeDevCommand": "npm run dev:renderer",
     "beforeBuildCommand": "npm run build:renderer"
   },

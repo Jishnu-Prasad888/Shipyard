@@ -304,7 +304,12 @@ pub async fn export_save_folder(app: AppHandle, files: Vec<FileEntry>) -> Result
             let mut count = 0usize;
 
             for file in &files {
-                let file_path = folder_path.join(format!("{}.{}", file.name, file.ext));
+                let file_name = format!("{}.{}", file.name, file.ext);
+                // Names come from the UI; never let one escape the chosen folder.
+                if file_name.contains(['/', '\\']) || file_name.starts_with('.') {
+                    return Err(format!("invalid export file name: {file_name:?}"));
+                }
+                let file_path = folder_path.join(file_name);
                 std::fs::write(&file_path, file.content.as_bytes()).map_err(|e| e.to_string())?;
                 count += 1;
             }

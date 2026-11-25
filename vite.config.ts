@@ -14,7 +14,7 @@ export default defineConfig({
 
   // 2. tauri expects a fixed port, fail if that port is not available
   server: {
-    port: 5173,
+    port: 6060,
     strictPort: true,
     watch: {
       // 3. tell vite to ignore watching `src-tauri`
