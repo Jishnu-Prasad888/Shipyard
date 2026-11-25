@@ -14,6 +14,7 @@
 //!   statuses/<id>.json
 //!   connections/<id>.json
 //!   tags/<id>.json
+//!   assets/<uuid>.<ext>        images added to notes
 //!   .shipyard/sync-queue.jsonl pending changes for optional sync
 //! ```
 //!
@@ -37,6 +38,11 @@ pub const FORMAT_VERSION: u64 = 1;
 pub const MARKER_FILE: &str = "shipyard.json";
 const META_DIR: &str = ".shipyard";
 const SYNC_QUEUE_FILE: &str = "sync-queue.jsonl";
+pub const ASSETS_DIR: &str = "assets";
+/// Largest image accepted, before base64 encoding.
+pub const MAX_ASSET_BYTES: usize = 20 * 1024 * 1024;
+/// Image types that can be stored. SVG is excluded: it can carry scripts.
+const ASSET_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "bmp"];
 
 /// Tables stored as one-file-per-record directories.
 pub const TABLES: &[&str] = &[
@@ -96,6 +102,20 @@ pub fn validate_id(id: &str) -> Result<()> {
     }
 }
 
+/// Asset names are `<id>.<ext>` with an allowed image extension.
+pub fn validate_asset_name(name: &str) -> Result<()> {
+    let valid = name.split_once('.').is_some_and(|(stem, ext)| {
+        validate_id(stem).is_ok()
+            && !stem.contains('.')
+            && ASSET_EXTENSIONS.contains(&ext.to_ascii_lowercase().as_str())
+    });
+    if valid {
+        Ok(())
+    } else {
+        Err(Error::InvalidInput(format!("invalid asset name: {name:?}")))
+    }
+}
+
 fn validate_table(table: &str) -> Result<()> {
     if TABLES.contains(&table) {
         Ok(())
@@ -148,6 +168,7 @@ impl FileStore {
             fs::create_dir_all(root.join(table))?;
         }
         fs::create_dir_all(root.join(META_DIR))?;
+        fs::create_dir_all(root.join(ASSETS_DIR))?;
 
         Ok(Self {
             root,
@@ -555,6 +576,53 @@ impl FileStore {
         Ok(())
     }
 
+    // ── Assets (images) ──
+
+    /// Stores an image and returns its file name (`<uuid>.<ext>`), which is
+    /// what notes reference. Files are never overwritten.
+    pub fn save_asset(&self, data_base64: &str, ext: &str) -> Result<String> {
+        use base64::Engine;
+        let ext = ext.trim().trim_start_matches('.').to_ascii_lowercase();
+        if !ASSET_EXTENSIONS.contains(&ext.as_str()) {
+            return Err(Error::InvalidInput(format!(
+                "unsupported image type {ext:?}; use PNG, JPEG, GIF, WebP or BMP"
+            )));
+        }
+        // Accept a data URL as well as bare base64.
+        let encoded = data_base64
+            .split_once(";base64,")
+            .map_or(data_base64, |(_, rest)| rest)
+            .trim();
+        if encoded.len() > MAX_ASSET_BYTES / 3 * 4 + 4 {
+            return Err(Error::InvalidInput("image is larger than 20 MB".into()));
+        }
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(encoded)
+            .map_err(|e| Error::InvalidInput(format!("invalid image data: {e}")))?;
+        if bytes.is_empty() {
+            return Err(Error::InvalidInput("image is empty".into()));
+        }
+        if bytes.len() > MAX_ASSET_BYTES {
+            return Err(Error::InvalidInput("image is larger than 20 MB".into()));
+        }
+        let name = format!("{}.{ext}", Uuid::new_v4().simple());
+        write_atomic(&self.root.join(ASSETS_DIR).join(&name), &bytes)?;
+        Ok(name)
+    }
+
+    /// Reads a stored image as base64, or `None` if it does not exist.
+    pub fn read_asset(&self, name: &str) -> Result<Option<String>> {
+        use base64::Engine;
+        validate_asset_name(name)?;
+        match fs::read(self.root.join(ASSETS_DIR).join(name)) {
+            Ok(bytes) => Ok(Some(
+                base64::engine::general_purpose::STANDARD.encode(bytes),
+            )),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e.into()),
+        }
+    }
+
     /// Removes every record (used for demo seeding).
     pub fn clear(&self) -> Result<()> {
         let _guard = self.write_lock.lock().unwrap();
@@ -805,6 +873,34 @@ mod tests {
         assert_eq!(board["columns"][0]["tasks"][0]["id"], "t1");
         assert_eq!(board["columns"][0]["tasks"][0]["subtasks"][0]["id"], "s1");
         assert_eq!(board["columns"][1]["tasks"].as_array().unwrap().len(), 0);
+        fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn assets_round_trip_and_reject_bad_input() {
+        use base64::Engine;
+        let (store, dir) = temp_store();
+        let png = [0x89u8, b'P', b'N', b'G', 1, 2, 3];
+        let encoded = base64::engine::general_purpose::STANDARD.encode(png);
+
+        let name = store.save_asset(&encoded, "PNG").unwrap();
+        assert!(name.ends_with(".png"));
+        assert!(dir.join("assets").join(&name).is_file());
+        assert_eq!(store.read_asset(&name).unwrap().unwrap(), encoded);
+
+        // Data URLs are accepted too.
+        let from_url = store
+            .save_asset(&format!("data:image/png;base64,{encoded}"), "png")
+            .unwrap();
+        assert_ne!(from_url, name);
+
+        assert!(store.save_asset(&encoded, "svg").is_err());
+        assert!(store.save_asset("not base64!", "png").is_err());
+        assert!(store.save_asset("", "png").is_err());
+        assert!(store.read_asset("../shipyard.json").is_err());
+        assert!(store.read_asset("x.exe").is_err());
+        assert!(store.read_asset("a.b.png").is_err());
+        assert!(store.read_asset("missing.png").unwrap().is_none());
         fs::remove_dir_all(dir).ok();
     }
 

@@ -129,7 +129,10 @@ fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
 }
 
 fn is_write(operation: &str) -> bool {
-    matches!(operation, "create" | "update" | "delete" | "markSynced")
+    matches!(
+        operation,
+        "create" | "update" | "delete" | "markSynced" | "saveAsset"
+    )
 }
 
 fn handle(store: &FileStore, config: &ServerConfig, mut request: Request) {

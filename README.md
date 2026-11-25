@@ -91,10 +91,13 @@ my-projects/
   statuses/<id>.json
   connections/<id>.json
   tags/<id>.json
+  assets/<id>.<ext>      images added to task notes
   .shipyard/             pending sync changes (only used by Firebase/server sync)
 ```
 
 Every record is its own pretty-printed JSON file, written atomically. Files are re-read when they change on disk, so edits made outside the app (or by another computer using the same network share) show up when you next open that view. Copying the folder copies everything; deleting a file deletes that record.
+
+Images pasted, dropped or picked into task notes are saved under `assets/` (PNG, JPEG, GIF, WebP or BMP, up to 20 MB each) and work over a network share too. Firebase and server sync do not copy images yet.
 
 Per-device settings (theme, font, recent folders, sharing options) are stored separately in the app config directory, not in the data folder.
 

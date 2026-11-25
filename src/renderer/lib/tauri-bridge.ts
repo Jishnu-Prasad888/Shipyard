@@ -11,6 +11,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open as openDialog } from '@tauri-apps/plugin-dialog'
 import type { ShareStatus, SourceDescriptor, SourceStatus } from '../types/source'
+import { clearAssetCache } from './assets'
 
 // ── Type helpers ──
 interface DbArgs {
@@ -31,10 +32,19 @@ const electronBridge = {
       const selected = await openDialog({ directory: true, multiple: false })
       return typeof selected === 'string' ? selected : null
     },
-    openLocal: (path: string) => invoke<SourceDescriptor>('source_open_local', { path }),
-    openRemote: (address: string, token: string) =>
-      invoke<SourceDescriptor>('source_open_remote', { address, token }),
-    close: () => invoke<void>('source_close'),
+    // Images are cached per folder, so switching folders clears the cache.
+    openLocal: (path: string) => {
+      clearAssetCache()
+      return invoke<SourceDescriptor>('source_open_local', { path })
+    },
+    openRemote: (address: string, token: string) => {
+      clearAssetCache()
+      return invoke<SourceDescriptor>('source_open_remote', { address, token })
+    },
+    close: () => {
+      clearAssetCache()
+      return invoke<void>('source_close')
+    },
     forget: (descriptor: SourceDescriptor) => invoke<void>('source_forget', { descriptor })
   },
 
@@ -54,6 +64,14 @@ const electronBridge = {
     delete: (table: string, id: string) => dbQuery({ operation: 'delete', table, id }),
     getBoardWithDetails: (id: string) => dbQuery({ operation: 'getBoardWithDetails', id }),
     getProjectsWithWorkspaces: () => dbQuery({ operation: 'getProjectsWithWorkspaces' })
+  },
+
+  assets: {
+    /** Stores base64 image data; resolves to the stored file name. */
+    save: (data: string, ext: string) =>
+      dbQuery({ operation: 'saveAsset', data: { data, ext } }) as Promise<string>,
+    /** Base64 contents of a stored image, or null when it is missing. */
+    read: (name: string) => dbQuery({ operation: 'readAsset', id: name }) as Promise<string | null>
   },
 
   settings: {

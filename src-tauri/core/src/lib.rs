@@ -64,6 +64,11 @@ pub fn execute(store: &FileStore, args: &QueryArgs) -> Result<Value> {
             Ok(json!({ "success": true, "count": ids.len() }))
         }
         "unsyncedCount" => Ok(json!(store.pending_sync_operations()?.len())),
+        "saveAsset" => {
+            let field = |key: &str| data.get(key).and_then(Value::as_str).unwrap_or("");
+            Ok(json!(store.save_asset(field("data"), field("ext"))?))
+        }
+        "readAsset" => Ok(store.read_asset(id)?.map_or(Value::Null, Value::String)),
         other => Err(Error::InvalidInput(format!("unknown operation: {other}"))),
     }
 }

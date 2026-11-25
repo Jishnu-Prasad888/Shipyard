@@ -35,6 +35,10 @@ declare global {
         getBoardWithDetails: (id: string) => Promise<any>
         getProjectsWithWorkspaces: () => Promise<any>
       }
+      assets: {
+        save: (data: string, ext: string) => Promise<string>
+        read: (name: string) => Promise<string | null>
+      }
       settings: {
         get: () => Promise<any>
         save: (settings: any) => Promise<any>
