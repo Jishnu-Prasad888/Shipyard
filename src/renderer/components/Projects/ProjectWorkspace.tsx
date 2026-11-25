@@ -16,13 +16,12 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
 }) => {
   return (
     <div>
-      <button
-        onClick={onToggle}
-        className="nav-item w-full"
-      >
+      <button onClick={onToggle} className="nav-item w-full">
         {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         <Folder className="w-4 h-4" style={{ color: workspace.color || '#2563eb' }} />
-        <span className="flex-1 text-left text-xs font-black uppercase tracking-wider">{workspace.name}</span>
+        <span className="flex-1 text-left text-xs font-black uppercase tracking-wider">
+          {workspace.name}
+        </span>
       </button>
 
       {isExpanded && <div className="ml-5 mt-1 space-y-1">{children}</div>}

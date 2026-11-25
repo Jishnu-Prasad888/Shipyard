@@ -180,99 +180,104 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        {/* Workspace filters */}
-        <div
-          className="aero-panel w-48 shrink-0 border-r flex flex-col overflow-y-auto rounded-none!"
-          style={{
-            borderColor: 'var(--color-border-strong)',
-            background: 'var(--color-surface)',
-            boxShadow: 'var(--shadow-brutal)'
-          }}
-        >
+        {/* Workspace filters (only useful once workspaces exist) */}
+        {workspaces.length > 0 && (
           <div
-            className="aero-section-title px-4 py-3 text-[10px] font-semibold tracking-[0.12em] border-b"
-            style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-muted)' }}
+            className="aero-panel w-48 shrink-0 border-r flex flex-col overflow-y-auto rounded-none!"
+            style={{
+              borderColor: 'var(--color-border-strong)',
+              background: 'var(--color-surface)',
+              boxShadow: 'var(--shadow-brutal)'
+            }}
           >
-            Workspaces
-          </div>
-
-          <div className="space-y-2 px-2 py-3">
-            {/* All */}
-            <button
-              onClick={() => setActiveWorkspace('all')}
-              className="flex items-center gap-2 px-3 py-2.5 text-left transition-all duration-100"
-              style={{
-                border: '2px solid',
-                borderColor: activeWorkspace === 'all' ? 'var(--color-primary)' : 'transparent',
-                background: activeWorkspace === 'all' ? 'var(--color-primary-soft)' : 'transparent',
-                color: 'var(--color-text)',
-                boxShadow: activeWorkspace === 'all' ? 'var(--shadow-brutal-sm)' : 'none'
-              }}
+            <div
+              className="aero-section-title px-4 py-3 text-[10px] font-semibold tracking-[0.12em] border-b"
+              style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-muted)' }}
             >
-              <FolderOpen className="w-4 h-4 shrink-0" />
-              <span className="text-xs font-black uppercase tracking-wide flex-1">All</span>
-              <span className="text-[10px] font-black opacity-70">{projects.length}</span>
-            </button>
+              Workspaces
+            </div>
 
-            {/* Workspace tabs */}
-            {workspaces.map((workspace) => {
-              const workspaceProjectCount = projects.filter(
-                (project) => project.workspaceId === workspace.id
-              ).length
-              const isActive = activeWorkspace === workspace.id
-              return (
-                <button
-                  key={workspace.id}
-                  onClick={() => setActiveWorkspace(workspace.id)}
-                  className="flex items-center gap-2 px-3 py-2.5 text-left transition-all duration-100"
-                  style={{
-                    border: '2px solid',
-                    borderColor: isActive ? workspace.color || '#2563eb' : 'transparent',
-                    background: isActive ? (workspace.color || '#2563eb') + '1a' : 'transparent',
-                    color: 'var(--color-text)',
-                    boxShadow: isActive ? 'var(--shadow-brutal-sm)' : 'none'
-                  }}
-                >
-                  <div
-                    className="w-2.5 h-2.5 border-2 shrink-0"
-                    style={{
-                      background: workspace.color || '#2563eb',
-                      borderColor: 'var(--color-border-strong)'
-                    }}
-                  />
-                  <span className="text-xs font-black uppercase tracking-wide flex-1 truncate">
-                    {workspace.name}
-                  </span>
-                  <span className="text-[10px] font-black opacity-70">{workspaceProjectCount}</span>
-                </button>
-              )
-            })}
-
-            {/* Uncategorized */}
-            {unassignedCount > 0 && (
+            <div className="space-y-2 px-2 py-3">
+              {/* All */}
               <button
-                onClick={() => setActiveWorkspace('unassigned')}
+                onClick={() => setActiveWorkspace('all')}
                 className="flex items-center gap-2 px-3 py-2.5 text-left transition-all duration-100"
                 style={{
                   border: '2px solid',
-                  borderColor:
-                    activeWorkspace === 'unassigned' ? 'var(--color-muted)' : 'transparent',
+                  borderColor: activeWorkspace === 'all' ? 'var(--color-primary)' : 'transparent',
                   background:
-                    activeWorkspace === 'unassigned' ? 'rgba(54,80,107,0.16)' : 'transparent',
-                  color:
-                    activeWorkspace === 'unassigned' ? 'var(--color-text)' : 'var(--color-muted)',
-                  boxShadow: activeWorkspace === 'unassigned' ? 'var(--shadow-brutal-sm)' : 'none'
+                    activeWorkspace === 'all' ? 'var(--color-primary-soft)' : 'transparent',
+                  color: 'var(--color-text)',
+                  boxShadow: activeWorkspace === 'all' ? 'var(--shadow-brutal-sm)' : 'none'
                 }}
               >
-                <FolderKanban className="w-4 h-4 shrink-0 opacity-70" />
-                <span className="text-xs font-black uppercase tracking-wide flex-1">
-                  Unassigned Projects
-                </span>
-                <span className="text-[10px] font-black opacity-70">{unassignedCount}</span>
+                <FolderOpen className="w-4 h-4 shrink-0" />
+                <span className="text-xs font-black uppercase tracking-wide flex-1">All</span>
+                <span className="text-[10px] font-black opacity-70">{projects.length}</span>
               </button>
-            )}
+
+              {/* Workspace tabs */}
+              {workspaces.map((workspace) => {
+                const workspaceProjectCount = projects.filter(
+                  (project) => project.workspaceId === workspace.id
+                ).length
+                const isActive = activeWorkspace === workspace.id
+                return (
+                  <button
+                    key={workspace.id}
+                    onClick={() => setActiveWorkspace(workspace.id)}
+                    className="flex items-center gap-2 px-3 py-2.5 text-left transition-all duration-100"
+                    style={{
+                      border: '2px solid',
+                      borderColor: isActive ? workspace.color || '#2563eb' : 'transparent',
+                      background: isActive ? (workspace.color || '#2563eb') + '1a' : 'transparent',
+                      color: 'var(--color-text)',
+                      boxShadow: isActive ? 'var(--shadow-brutal-sm)' : 'none'
+                    }}
+                  >
+                    <div
+                      className="w-2.5 h-2.5 border-2 shrink-0"
+                      style={{
+                        background: workspace.color || '#2563eb',
+                        borderColor: 'var(--color-border-strong)'
+                      }}
+                    />
+                    <span className="text-xs font-black uppercase tracking-wide flex-1 truncate">
+                      {workspace.name}
+                    </span>
+                    <span className="text-[10px] font-black opacity-70">
+                      {workspaceProjectCount}
+                    </span>
+                  </button>
+                )
+              })}
+
+              {/* Uncategorized */}
+              {unassignedCount > 0 && (
+                <button
+                  onClick={() => setActiveWorkspace('unassigned')}
+                  className="flex items-center gap-2 px-3 py-2.5 text-left transition-all duration-100"
+                  style={{
+                    border: '2px solid',
+                    borderColor:
+                      activeWorkspace === 'unassigned' ? 'var(--color-muted)' : 'transparent',
+                    background:
+                      activeWorkspace === 'unassigned' ? 'rgba(54,80,107,0.16)' : 'transparent',
+                    color:
+                      activeWorkspace === 'unassigned' ? 'var(--color-text)' : 'var(--color-muted)',
+                    boxShadow: activeWorkspace === 'unassigned' ? 'var(--shadow-brutal-sm)' : 'none'
+                  }}
+                >
+                  <FolderKanban className="w-4 h-4 shrink-0 opacity-70" />
+                  <span className="text-xs font-black uppercase tracking-wide flex-1">
+                    Unassigned Projects
+                  </span>
+                  <span className="text-[10px] font-black opacity-70">{unassignedCount}</span>
+                </button>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── RIGHT: MAIN CONTENT ── */}
         <div className="flex-1 overflow-auto px-6 py-5 space-y-8">
@@ -350,6 +355,15 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 >
                   {filter ? `No results for "${filter}"` : 'No projects here yet'}
                 </p>
+                {!filter && (
+                  <p
+                    className="text-sm font-semibold mt-2 max-w-sm"
+                    style={{ color: 'var(--color-muted)' }}
+                  >
+                    Create a project, then add a board to it. Boards hold columns of tasks you can
+                    drag between stages.
+                  </p>
+                )}
                 {!filter && (
                   <button
                     onClick={() => setShowCreateProject(true)}

@@ -9,8 +9,8 @@ import {
   Eye,
   EyeOff,
   Download,
-  MoveHorizontal,
-  MoveVertical
+  GripVertical,
+  MoreHorizontal
 } from 'lucide-react'
 import { Task } from './Task'
 import { CreateTaskModal } from './CreateTaskModal'
@@ -120,16 +120,6 @@ export const Column: React.FC<ColumnProps> = ({
   }
 
   const resetWidth = () => setWidth(DEFAULT_WIDTH)
-
-  const handleHeightResizeStart = (event: React.MouseEvent) => {
-    event.stopPropagation()
-    event.preventDefault()
-    resizeYStartRef.current = { y: event.clientY, height }
-    window.addEventListener('mousemove', handleHeightResize)
-    window.addEventListener('mouseup', stopHeightResize)
-  }
-
-  const resetHeight = () => setHeight(DEFAULT_HEIGHT)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -354,6 +344,12 @@ export const Column: React.FC<ColumnProps> = ({
     setContextMenu({ x: e.clientX, y: e.clientY })
   }
 
+  const openMenuFromButton = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation()
+    const rect = e.currentTarget.getBoundingClientRect()
+    setContextMenu({ x: rect.right - 180, y: rect.bottom + 4 })
+  }
+
   const toggleHideStatus = (statusName: string) => {
     setHideStatuses((prev) =>
       prev.includes(statusName) ? prev.filter((s) => s !== statusName) : [...prev, statusName]
@@ -384,12 +380,13 @@ export const Column: React.FC<ColumnProps> = ({
           minWidth: orientation === 'vertical' ? MIN_WIDTH : MIN_WIDTH,
           maxWidth: orientation === 'vertical' ? '100%' : MAX_WIDTH,
           flexShrink: orientation === 'vertical' ? 1 : 0,
-          height: effectiveHeight,
-          maxHeight: effectiveHeight,
-          minHeight: MIN_HEIGHT,
+          height: orientation === 'vertical' ? effectiveHeight : 'auto',
+          maxHeight: orientation === 'vertical' ? effectiveHeight : '100%',
+          minHeight: orientation === 'vertical' ? MIN_HEIGHT : undefined,
+          alignSelf: orientation === 'vertical' ? undefined : 'flex-start',
           overflow: 'visible'
         }}
-        className="column relative"
+        className="column group/column relative"
         onContextMenu={openContextMenu}
       >
         {/* Column header */}
@@ -520,27 +517,25 @@ export const Column: React.FC<ColumnProps> = ({
             )}
           </div>
 
+          <button
+            onClick={openMenuFromButton}
+            className="p-1 transition-opacity opacity-60 hover:opacity-100"
+            style={{ color: 'var(--color-muted)' }}
+            title="Column actions"
+            aria-label="Column actions"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+
           {/* Drag handle */}
           <div
             {...attributes}
             {...listeners}
-            className="ml-1 cursor-grab active:cursor-grabbing opacity-40 hover:opacity-100 transition-opacity shrink-0"
+            className="cursor-grab active:cursor-grabbing opacity-40 hover:opacity-100 transition-opacity shrink-0 p-1"
+            style={{ color: 'var(--color-muted)' }}
             title="Drag to reorder"
           >
-            <div className="flex flex-col gap-0.5 p-1">
-              <div
-                className="w-4 h-0.5 rounded"
-                style={{ background: 'var(--color-border-strong)' }}
-              />
-              <div
-                className="w-4 h-0.5 rounded"
-                style={{ background: 'var(--color-border-strong)' }}
-              />
-              <div
-                className="w-4 h-0.5 rounded"
-                style={{ background: 'var(--color-border-strong)' }}
-              />
-            </div>
+            <GripVertical className="w-4 h-4" />
           </div>
         </div>
 
@@ -577,6 +572,7 @@ export const Column: React.FC<ColumnProps> = ({
             <Task
               key={task.id}
               task={task}
+              columnName={column.name}
               onUpdate={onTasksChange}
               autoOpenId={openTaskId}
               onAutoOpenComplete={onTaskOpenComplete}
@@ -591,70 +587,32 @@ export const Column: React.FC<ColumnProps> = ({
                 background: 'var(--color-background)'
               }}
             >
-              Drag tasks here
+              No tasks yet
             </div>
           )}
         </div>
 
         {/* Add task */}
-        <div className="shrink-0 pt-2 mt-auto">
+        <div className="shrink-0">
           <button
             onClick={() => setShowCreateTask(true)}
-            className="btn-secondary flex items-center justify-center gap-2 w-full px-3 py-2 border border-dashed transition-all duration-150 group text-xs"
-            style={{
-              borderColor: 'var(--color-border)',
-              color: 'var(--color-muted)'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.borderColor = 'var(--color-primary)'
-              e.currentTarget.style.color = 'var(--color-primary)'
-              e.currentTarget.style.background = 'var(--color-primary-soft)'
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.borderColor = 'var(--color-border)'
-              e.currentTarget.style.color = 'var(--color-muted)'
-              e.currentTarget.style.background = 'transparent'
-            }}
+            className="add-task-button flex items-center justify-center gap-2 w-full px-3 py-2 text-xs font-bold"
           >
-            <Plus className="w-4 h-4 stroke-[3px] group-hover:rotate-90 transition-transform" />
-            Add Task
+            <Plus className="w-4 h-4 stroke-[3px]" />
+            Add task
           </button>
         </div>
 
-        {/* Horizontal resize handle (only in horizontal layout) */}
+        {/* Width resize edge (side-by-side layout only) */}
         {orientation === 'horizontal' && (
-          <button
-            type="button"
+          <div
+            role="separator"
+            aria-orientation="vertical"
             onMouseDown={handleResizeStart}
             onDoubleClick={resetWidth}
-            className="absolute -right-3 top-1/2 -translate-y-1/2 w-7 h-10 rounded-md flex items-center justify-center cursor-ew-resize"
-            style={{
-              border: '2px solid var(--color-border-strong)',
-              background: 'var(--color-background)',
-              boxShadow: '1px 1px 0 var(--color-border-strong)'
-            }}
-            title="Drag to resize · Double-click to reset"
-          >
-            <MoveHorizontal className="w-4 h-4" style={{ color: 'var(--color-muted)' }} />
-          </button>
-        )}
-
-        {/* Vertical resize handle, used when row height is not shared. */}
-        {orientation === 'horizontal' && (
-          <button
-            type="button"
-            onMouseDown={handleHeightResizeStart}
-            onDoubleClick={resetHeight}
-            className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-16 h-7 rounded-md flex items-center justify-center cursor-ns-resize"
-            style={{
-              border: '2px solid var(--color-border-strong)',
-              background: 'var(--color-background)',
-              boxShadow: '1px 1px 0 var(--color-border-strong)'
-            }}
-            title="Drag to change height · Double-click to reset"
-          >
-            <MoveVertical className="w-4 h-4" style={{ color: 'var(--color-muted)' }} />
-          </button>
+            className="column-resize-edge"
+            title="Drag to resize, double-click to reset"
+          />
         )}
       </div>
 
@@ -681,13 +639,24 @@ export const Column: React.FC<ColumnProps> = ({
             className="context-menu-item border-b-2"
             style={{ borderColor: 'var(--color-border)' }}
             onClick={() => {
+              setShowCreateTask(true)
+              setContextMenu(null)
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            Add task
+          </button>
+          <button
+            className="context-menu-item border-b-2"
+            style={{ borderColor: 'var(--color-border)' }}
+            onClick={() => {
               setEditedName(column.name)
               setIsEditing(true)
               setContextMenu(null)
             }}
           >
             <Edit2 className="w-4 h-4" />
-            Edit Column
+            Rename column
           </button>
           <button
             className="context-menu-item border-b-2"
@@ -695,25 +664,11 @@ export const Column: React.FC<ColumnProps> = ({
             onClick={handleExportColumn}
           >
             <Download className="w-4 h-4" />
-            Export Column
+            Export column
           </button>
-          <button
-            className="context-menu-item border-b-2 danger"
-            style={{ borderColor: 'var(--color-border)' }}
-            onClick={handleDeleteColumn}
-          >
+          <button className="context-menu-item danger" onClick={handleDeleteColumn}>
             <Trash2 className="w-4 h-4" />
-            Delete Column
-          </button>
-          <button
-            className="context-menu-item"
-            onClick={() => {
-              setShowCreateTask(true)
-              setContextMenu(null)
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            Add Task
+            Delete column
           </button>
         </div>
       )}

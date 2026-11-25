@@ -924,30 +924,42 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
                   {/* Status chips */}
                   <div className="flex flex-wrap gap-2 mb-3">
                     {availableStatuses
-                      .filter((s) => s && typeof s === 'object' && s.id) // Ensure valid objects
+                      .filter((s) => s && typeof s === 'object' && s.id)
+                      .filter(
+                        (s: { name?: unknown }, index: number, all: Array<{ name?: unknown }>) =>
+                          all.findIndex(
+                            (other) =>
+                              String(other.name).toLowerCase() === String(s.name).toLowerCase()
+                          ) === index
+                      )
                       .map((s: any) => {
                         const isSelected = status?.id === s.id || status?.name === s.name
 
                         return (
-                          <div key={s.id} className="inline-flex items-center gap-1">
+                          <div
+                            key={s.id}
+                            className="status-chip inline-flex items-stretch border-2"
+                            style={{
+                              backgroundColor: isSelected ? s.color : s.color + '15',
+                              borderColor: s.color
+                            }}
+                          >
                             <button
                               onClick={() => setStatus(isSelected ? null : s)}
-                              className="text-[10px] px-2 py-1 font-black uppercase tracking-wider border-2"
-                              style={{
-                                backgroundColor: isSelected ? s.color : s.color + '15',
-                                color: isSelected ? 'white' : s.color,
-                                borderColor: s.color
-                              }}
+                              className="text-[10px] px-2 py-1 font-black uppercase tracking-wider"
+                              style={{ color: isSelected ? 'white' : s.color }}
+                              aria-pressed={isSelected}
                             >
                               {s.name}
                             </button>
-
-                            {/* Trash icon now shows for ALL statuses (including default) */}
                             <button
                               onClick={() => handleDeleteStatus(s)}
-                              className="p-1 rounded hover:bg-red-500/10"
+                              className="status-chip-remove px-1"
+                              style={{ color: isSelected ? 'white' : s.color }}
+                              title={`Remove "${s.name}" status from this board`}
+                              aria-label={`Remove ${s.name} status`}
                             >
-                              <Trash2 className="w-4 h-4 text-red-500" />
+                              <X className="w-3 h-3" />
                             </button>
                           </div>
                         )

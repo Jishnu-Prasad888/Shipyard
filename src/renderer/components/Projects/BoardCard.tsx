@@ -42,13 +42,6 @@ export const BoardCard: React.FC<BoardCardProps> = ({ board, onClick, onContextM
         {board.name}
       </h3>
 
-      <span
-        className="text-[9px] uppercase tracking-widest font-black"
-        style={{ color: 'var(--color-muted)' }}
-      >
-        Board #{board.id.substring(0, 6)}
-      </span>
-
       {board.description && (
         <p
           className="text-xs mt-2 leading-relaxed line-clamp-2"
@@ -66,6 +59,7 @@ export const BoardCard: React.FC<BoardCardProps> = ({ board, onClick, onContextM
         <div className="meta">
           <Calendar className="w-3 h-3" />
           <span className="font-black">
+            Created{' '}
             {new Date(board.createdAt).toLocaleDateString('en-US', {
               month: 'short',
               day: 'numeric',
@@ -73,17 +67,6 @@ export const BoardCard: React.FC<BoardCardProps> = ({ board, onClick, onContextM
             })}
           </span>
         </div>
-
-        <span
-          className="text-[9px] font-black uppercase px-2 py-0.5 border"
-          style={{
-            borderColor: boardColor,
-            color: boardColor,
-            background: boardColor + '15'
-          }}
-        >
-          Kanban
-        </span>
       </div>
 
       {/* Bottom accent */}

@@ -16,8 +16,6 @@ import {
 } from '@dnd-kit/sortable'
 import {
   Plus,
-  LayoutList,
-  Hash,
   Pencil,
   Check,
   X,
@@ -612,132 +610,95 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     <div className="h-full flex flex-col">
       {/* ── Board header ── */}
       <div
-        className="aero-panel mb-5 p-4"
+        className="aero-panel mb-4 px-4 py-3"
         style={{
           borderColor: 'var(--color-border-strong)',
           background: 'var(--color-surface)',
           boxShadow: 'var(--shadow-brutal)'
         }}
       >
-        {/* Back button */}
-        {onGoBack && (
-          <button
-            onClick={onGoBack}
-            className="btn-secondary flex items-center gap-1.5 mb-4 px-3 py-2 text-[10px] font-semibold transition duration-150"
-            style={{
-              borderColor: 'var(--color-border)',
-              color: 'var(--color-muted)',
-              background: 'var(--color-surface-2)',
-              boxShadow: 'var(--shadow-brutal-sm)'
-            }}
-          >
-            <ChevronLeft className="w-3.5 h-3.5" />
-            Back to Project
-          </button>
-        )}
-
         {!editing ? (
-          /* View mode */
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3 min-w-0">
+              {onGoBack && (
+                <button
+                  onClick={onGoBack}
+                  className="btn-secondary p-2 shrink-0"
+                  title="Back to project"
+                  aria-label="Back to project"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+              )}
               <div
-                className="w-2 h-12 shrink-0 self-stretch"
-                style={{ background: boardColor, boxShadow: `var(--shadow-brutal-sm)` }}
+                className="w-1.5 self-stretch shrink-0 rounded-sm"
+                style={{ background: boardColor }}
               />
               <div className="min-w-0">
                 <h1
-                  className="text-3xl font-black uppercase tracking-tight"
+                  className="text-xl font-black uppercase tracking-tight truncate"
                   style={{ color: 'var(--color-text)' }}
                 >
                   {board.name}
                 </h1>
-                <div className="flex items-center gap-3 mt-2 flex-wrap">
-                  <span
-                    className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide px-3 py-1 border-2"
-                    style={{
-                      borderColor: 'var(--color-primary)',
-                      color: 'var(--color-primary)',
-                      background: 'var(--color-primary-soft)'
-                    }}
-                  >
-                    <LayoutList className="w-3 h-3" />
-                    {columns.length} Columns
-                  </span>
-                  <span
-                    className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wide px-3 py-1 border-2"
-                    style={{
-                      borderColor: 'var(--color-cyan, #0891b2)',
-                      color: 'var(--color-cyan, #0891b2)',
-                      background: 'rgba(53,194,255,0.12)'
-                    }}
-                  >
-                    <Hash className="w-3 h-3" />
-                    {totalTasks} Tasks
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 mt-3 flex-wrap">
-                  <span
-                    className="text-[10px] font-black uppercase tracking-widest"
-                    style={{ color: 'var(--color-muted)' }}
-                  >
-                    Arrange Columns
-                  </span>
-                  <div
-                    className="flex rounded-lg overflow-hidden border-2"
-                    style={{
-                      borderColor: 'var(--color-border-strong)',
-                      background: 'var(--color-surface-2)'
-                    }}
-                  >
-                    <button
-                      className="flex items-center gap-1 px-3 py-1 text-[11px] font-black uppercase tracking-wide transition-all"
-                      style={{
-                        background: !isVerticalLayout ? 'var(--color-primary-soft)' : 'transparent',
-                        color: !isVerticalLayout ? 'var(--color-text)' : 'var(--color-muted)',
-                        borderRight: '2px solid var(--color-border-strong)'
-                      }}
-                      onClick={() => setColumnOrientation('horizontal')}
-                    >
-                      <MoveHorizontal className="w-3.5 h-3.5" />
-                      Horizontal
-                    </button>
-                    <button
-                      className="flex items-center gap-1 px-3 py-1 text-[11px] font-black uppercase tracking-wide transition-all"
-                      style={{
-                        background: isVerticalLayout ? 'var(--color-primary-soft)' : 'transparent',
-                        color: isVerticalLayout ? 'var(--color-text)' : 'var(--color-muted)'
-                      }}
-                      onClick={() => setColumnOrientation('vertical')}
-                    >
-                      <MoveVertical className="w-3.5 h-3.5" />
-                      Vertical
-                    </button>
-                  </div>
-                </div>
+                <p className="text-xs font-semibold" style={{ color: 'var(--color-muted)' }}>
+                  {columns.length} {columns.length === 1 ? 'column' : 'columns'}, {totalTasks}{' '}
+                  {totalTasks === 1 ? 'task' : 'tasks'}
+                </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
-              <button onClick={openEdit} className="btn-secondary text-xs px-4">
+              <div
+                className="flex overflow-hidden border-2 rounded-md"
+                style={{
+                  borderColor: 'var(--color-border-strong)',
+                  background: 'var(--color-surface-2)'
+                }}
+                role="group"
+                aria-label="Column layout"
+              >
+                {(
+                  [
+                    ['horizontal', MoveHorizontal, 'Side by side'],
+                    ['vertical', MoveVertical, 'Stacked in rows']
+                  ] as const
+                ).map(([value, Icon, label], index) => {
+                  const active = columnOrientation === value
+                  return (
+                    <button
+                      key={value}
+                      onClick={() => setColumnOrientation(value)}
+                      className="p-2 transition-colors"
+                      title={label}
+                      aria-label={label}
+                      aria-pressed={active}
+                      style={{
+                        background: active ? 'var(--color-primary-soft)' : 'transparent',
+                        color: active ? 'var(--color-text)' : 'var(--color-muted)',
+                        borderLeft: index ? '2px solid var(--color-border-strong)' : undefined
+                      }}
+                    >
+                      <Icon className="w-4 h-4" />
+                    </button>
+                  )
+                })}
+              </div>
+              <button onClick={openEdit} className="btn-secondary text-xs px-3">
                 <Pencil className="w-3.5 h-3.5" />
-                Edit Board
+                Edit
               </button>
               <button
                 onClick={handleDeleteBoard}
-                className="flex items-center gap-1.5 px-4 py-2 text-xs font-black uppercase tracking-wide border-2 transition-all duration-100"
-                style={{
-                  borderColor: 'rgba(217,76,87,0.4)',
-                  color: '#d94c57',
-                  background: 'rgba(217,76,87,0.12)'
-                }}
+                className="btn-secondary p-2 board-delete-button"
+                title="Delete board"
+                aria-label="Delete board"
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                Delete
+                <Trash2 className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setShowCreateColumn(true)}
-                className="btn-primary text-xs uppercase tracking-wider px-5"
+                className="btn-primary text-xs uppercase tracking-wider px-4"
               >
                 <Plus className="w-4 h-4 stroke-[3px]" />
                 Add Column
@@ -878,7 +839,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       >
         <div
           ref={gridRef}
-          className={isVerticalLayout ? 'flex-1 overflow-y-auto' : 'flex-1 overflow-x-auto'}
+          className={
+            isVerticalLayout ? 'flex-1 min-h-0 overflow-y-auto' : 'flex-1 min-h-0 overflow-x-auto'
+          }
         >
           <SortableContext
             items={columns.map((column) => column.id)}
@@ -941,7 +904,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
               </div>
             ) : (
               <div
-                className="flex flex-nowrap gap-5 pb-6 h-full"
+                className="flex flex-nowrap gap-4 pb-3 h-full"
                 style={{ minWidth: 'max-content' }}
               >
                 {filteredColumns.map((column) => (
@@ -957,14 +920,10 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 ))}
                 <button
                   onClick={() => setShowCreateColumn(true)}
-                  className="btn-secondary w-80 shrink-0 h-fit p-5 border border-dashed"
+                  className="add-column-ghost w-64 shrink-0 h-fit p-4 flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider"
                 >
-                  <div className="flex items-center justify-center gap-3">
-                    <div className="w-8 h-8 border flex items-center justify-center rounded-sm">
-                      <Plus className="w-5 h-5 stroke-[3px]" />
-                    </div>
-                    <span className="font-black text-sm uppercase tracking-wider">Add Column</span>
-                  </div>
+                  <Plus className="w-4 h-4 stroke-[3px]" />
+                  Add Column
                 </button>
               </div>
             )}

@@ -983,3 +983,101 @@
 .obsidian-content .ProseMirror[contenteditable='false'] *::selection {
   background: var(--color-primary-soft);
 }
+
+/* ── Board: quiet affordances ── */
+.add-task-button,
+.add-column-ghost {
+  border: 1px dashed var(--color-border);
+  border-radius: 3px;
+  color: var(--color-muted);
+  background: transparent;
+  transition:
+    color 0.12s,
+    border-color 0.12s,
+    background 0.12s;
+}
+
+.add-task-button:hover,
+.add-column-ghost:hover,
+.add-task-button:focus-visible,
+.add-column-ghost:focus-visible {
+  color: var(--color-primary);
+  border-color: var(--color-primary);
+  border-style: solid;
+  background: var(--color-primary-soft);
+}
+
+.column-resize-edge {
+  position: absolute;
+  top: 8px;
+  bottom: 8px;
+  right: -9px;
+  width: 10px;
+  cursor: col-resize;
+  border-radius: 3px;
+  z-index: 5;
+}
+
+.column-resize-edge::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--color-primary);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.column-resize-edge:hover::after,
+.column-resize-edge:active::after {
+  opacity: 1;
+}
+
+.board-delete-button:hover {
+  color: var(--color-alert);
+  border-color: var(--color-alert);
+  background: color-mix(in srgb, var(--color-alert) 10%, var(--color-surface));
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-secondary);
+  outline-offset: 2px;
+}
+
+/* Status chips: remove control appears on hover or keyboard focus */
+.status-chip-remove {
+  opacity: 0;
+  width: 0;
+  padding: 0;
+  overflow: hidden;
+  transition: opacity 0.12s;
+}
+
+.status-chip:hover .status-chip-remove,
+.status-chip:focus-within .status-chip-remove {
+  opacity: 0.85;
+  width: auto;
+  padding: 0 4px;
+}
+
+/* Settings section tabs */
+.settings-tab {
+  color: var(--color-muted);
+  border: 1px solid transparent;
+  border-radius: 3px;
+}
+
+.settings-tab:hover {
+  color: var(--color-text);
+  background: var(--color-primary-soft);
+}
+
+.settings-tab[aria-current='page'] {
+  color: var(--color-text);
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-control);
+}

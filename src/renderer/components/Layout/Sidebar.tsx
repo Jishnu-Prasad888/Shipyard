@@ -59,6 +59,15 @@ const MIN_WIDTH = 220
 const MAX_WIDTH = 420
 const DEFAULT_WIDTH = 280
 
+const readStoredExpansion = (): string[] | null => {
+  try {
+    const raw = localStorage.getItem('shipyard:sidebar-expanded')
+    return raw ? (JSON.parse(raw) as string[]) : null
+  } catch {
+    return null
+  }
+}
+
 export const Sidebar: React.FC<SidebarProps> = ({
   onSelectProject,
   selectedProjectId,
@@ -80,7 +89,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const resizeCleanupRef = useRef<(() => void) | null>(null)
   const [projects, setProjects] = useState<any[]>([])
   const [workspaces, setWorkspaces] = useState<any[]>([])
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  // Expanded workspaces are remembered; on first run every workspace starts
+  // open so projects are visible without hunting for them.
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set(readStoredExpansion() || []))
+  const expandAllOnLoad = useRef(readStoredExpansion() === null)
+  useEffect(() => {
+    try {
+      localStorage.setItem('shipyard:sidebar-expanded', JSON.stringify([...expanded]))
+    } catch {
+      // Storage can be unavailable; expansion just won't be remembered.
+    }
+  }, [expanded])
   const [menu, setMenu] = useState<MenuTarget | null>(null)
   const [showProjectModal, setShowProjectModal] = useState(false)
   const [editingProject, setEditingProject] = useState<any>(null)
@@ -116,6 +135,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
     ])
     setProjects(projectRows)
     setWorkspaces(workspaceRows)
+    if (expandAllOnLoad.current) {
+      expandAllOnLoad.current = false
+      setExpanded(new Set(workspaceRows.map((workspace: { id: string }) => workspace.id)))
+    }
   }
 
   useEffect(() => {
