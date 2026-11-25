@@ -1,4 +1,4 @@
-import { type ReactElement, useEffect, useState } from 'react'
+import { type ReactElement, useEffect, useRef, useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { KeyboardShortcutAction, Settings } from '@shared/types'
 import { Sidebar } from './components/Layout/Sidebar'
@@ -8,6 +8,9 @@ import { KanbanBoard } from './components/Board/KanbanBoard'
 import { SettingsModal } from './components/Settings/SettingsModal'
 import { HomeScreen } from './components/Home/HomeScreen'
 import { CalendarView } from './components/Calendar/CalendarView'
+import { PaneTarget, SplitPane } from './components/Layout/SplitPane'
+import { DATA_WRITTEN_EVENT } from './lib/tauri-bridge'
+import { loadSplitLayout, saveSplitLayout, clampSplitRatio } from './lib/splitLayout'
 import { Toast } from './components/common/Toast'
 import { RootState } from './store'
 import { setSettings } from './store/settingsSlice'
@@ -31,6 +34,10 @@ function App(): ReactElement {
   const [showCalendar, setShowCalendar] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [dataVersion, setDataVersion] = useState(0)
+  // Split view: the second pane's content (null = closed) and its share of the width.
+  const [split, setSplit] = useState<PaneTarget | null>(() => loadSplitLayout().target)
+  const [splitRatio, setSplitRatio] = useState(() => loadSplitLayout().ratio)
+  const splitContainerRef = useRef<HTMLDivElement>(null)
   const [toast, setToast] = useState<{ message: string; onUndo?: () => void } | null>(null)
   const [pendingOpenTaskId, setPendingOpenTaskId] = useState<string | null>(null)
   const [quickCreateType, setQuickCreateType] = useState<QuickCreateType | null | undefined>(
@@ -136,6 +143,61 @@ function App(): ReactElement {
     void window.electron.darkMode.toggle(colorMode === 'dark')
   }, [settings.colorMode, settings.theme, settings.themeStyle])
 
+  useEffect(() => {
+    saveSplitLayout({ target: split, ratio: splitRatio })
+  }, [split, splitRatio])
+
+  // With two panes open, a change in one must show in the other: reload
+  // both shortly after any write.
+  useEffect(() => {
+    if (!split) return
+    let timer: number | undefined
+    const handleWrite = (): void => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => setDataVersion((version) => version + 1), 400)
+    }
+    window.addEventListener(DATA_WRITTEN_EVENT, handleWrite)
+    return () => {
+      window.removeEventListener(DATA_WRITTEN_EVENT, handleWrite)
+      window.clearTimeout(timer)
+    }
+  }, [split])
+
+  const toggleSplit = (): void => setSplit((current) => (current ? null : { kind: 'empty' }))
+
+  useEffect(() => {
+    const handleKey = (event: KeyboardEvent): void => {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key === '\\') {
+        event.preventDefault()
+        toggleSplit()
+      }
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [])
+
+  const startSplitResize = (event: React.PointerEvent<HTMLDivElement>): void => {
+    event.preventDefault()
+    const container = splitContainerRef.current
+    if (!container) return
+    const rect = container.getBoundingClientRect()
+    const handle = event.currentTarget
+    handle.setPointerCapture(event.pointerId)
+    const move = (moveEvent: PointerEvent): void => {
+      setSplitRatio(clampSplitRatio((rect.right - moveEvent.clientX) / rect.width))
+    }
+    const stop = (): void => {
+      handle.removeEventListener('pointermove', move)
+      handle.removeEventListener('pointerup', stop)
+      handle.removeEventListener('pointercancel', stop)
+      document.body.style.cursor = ''
+    }
+    document.body.style.cursor = 'col-resize'
+    handle.addEventListener('pointermove', move)
+    handle.addEventListener('pointerup', stop)
+    handle.addEventListener('pointercancel', stop)
+  }
+
   const handleSelectProject = (projectId: string): void => {
     setSelectedProjectId(projectId)
     setSelectedBoardId(null)
@@ -162,6 +224,24 @@ function App(): ReactElement {
     if (board) setSelectedProjectId(board.projectId)
     setSelectedBoardId(boardId)
     setPendingOpenTaskId(null)
+  }
+
+  // What the main pane shows, when it is something the split pane can show too.
+  const mainTarget: PaneTarget | null = showCalendar
+    ? null
+    : selectedBoardId
+      ? { kind: 'board', boardId: selectedBoardId }
+      : selectedProjectId
+        ? { kind: 'project', projectId: selectedProjectId }
+        : null
+
+  const handleSwapPanes = (): void => {
+    if (!split || !mainTarget) return
+    const previousMain = mainTarget
+    if (split.kind === 'board') void handleHomeSelectBoard(split.boardId)
+    else if (split.kind === 'project') handleSelectProject(split.projectId)
+    else handleGoHome()
+    setSplit(previousMain)
   }
 
   const handleGoHome = (): void => {
@@ -318,6 +398,8 @@ function App(): ReactElement {
         onSearch={setSearchQuery}
         onSelectProject={handleSelectProject}
         onSelectBoard={handleSearchSelectBoard}
+        onToggleSplit={toggleSplit}
+        isSplit={!!split}
       />
 
       <div className="flex-1 flex overflow-hidden">
@@ -334,37 +416,69 @@ function App(): ReactElement {
           onDataChange={handleDataChange}
         />
 
-        <main className="flex-1 overflow-auto" style={{ background: 'var(--color-background)' }}>
-          {showCalendar ? (
-            <CalendarView dataVersion={dataVersion} />
-          ) : selectedBoardId ? (
-            <div className="p-6 h-full">
-              <KanbanBoard
-                boardId={selectedBoardId}
+        <div ref={splitContainerRef} className="flex-1 flex min-w-0 overflow-hidden">
+          <main
+            className="flex-1 min-w-0 overflow-auto"
+            style={{ background: 'var(--color-background)' }}
+          >
+            {showCalendar ? (
+              <CalendarView dataVersion={dataVersion} />
+            ) : selectedBoardId ? (
+              <div className="p-6 h-full">
+                <KanbanBoard
+                  boardId={selectedBoardId}
+                  dataVersion={dataVersion}
+                  searchQuery={searchQuery}
+                  onGoBack={() => setSelectedBoardId(null)}
+                  openTaskId={pendingOpenTaskId}
+                  onTaskOpenComplete={() => setPendingOpenTaskId(null)}
+                />
+              </div>
+            ) : selectedProjectId ? (
+              <div className="p-6">
+                <ProjectView
+                  projectId={selectedProjectId}
+                  onSelectBoard={handleSelectBoard}
+                  searchQuery={searchQuery}
+                />
+              </div>
+            ) : (
+              <HomeScreen
+                onSelectProject={handleSelectProject}
+                onSelectBoard={handleHomeSelectBoard}
                 dataVersion={dataVersion}
-                searchQuery={searchQuery}
-                onGoBack={() => setSelectedBoardId(null)}
-                openTaskId={pendingOpenTaskId}
-                onTaskOpenComplete={() => setPendingOpenTaskId(null)}
+                onDataChange={handleDataChange}
               />
-            </div>
-          ) : selectedProjectId ? (
-            <div className="p-6">
-              <ProjectView
-                projectId={selectedProjectId}
-                onSelectBoard={handleSelectBoard}
-                searchQuery={searchQuery}
+            )}
+          </main>
+          {split && (
+            <>
+              <div
+                role="separator"
+                aria-orientation="vertical"
+                aria-label="Resize split view"
+                title="Drag to resize. Double-click to reset."
+                onPointerDown={startSplitResize}
+                onDoubleClick={() => setSplitRatio(0.5)}
+                className="w-1.5 shrink-0 cursor-col-resize hover:opacity-100 opacity-70"
+                style={{ background: 'var(--color-border-strong)', touchAction: 'none' }}
               />
-            </div>
-          ) : (
-            <HomeScreen
-              onSelectProject={handleSelectProject}
-              onSelectBoard={handleHomeSelectBoard}
-              dataVersion={dataVersion}
-              onDataChange={handleDataChange}
-            />
+              <aside
+                className="shrink-0 min-w-0 overflow-hidden"
+                style={{ width: `${splitRatio * 100}%` }}
+              >
+                <SplitPane
+                  target={split}
+                  onChange={setSplit}
+                  onClose={() => setSplit(null)}
+                  onSwap={mainTarget ? handleSwapPanes : undefined}
+                  dataVersion={dataVersion}
+                  searchQuery={searchQuery}
+                />
+              </aside>
+            </>
           )}
-        </main>
+        </div>
       </div>
 
       {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
