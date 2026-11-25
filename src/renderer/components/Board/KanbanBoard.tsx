@@ -371,8 +371,17 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
 
     computeColumns()
+    // The board's own width changes with the window and with split view.
+    const observer =
+      typeof ResizeObserver !== 'undefined' && gridRef.current
+        ? new ResizeObserver(() => computeColumns())
+        : null
+    if (observer && gridRef.current) observer.observe(gridRef.current)
     window.addEventListener('resize', computeColumns)
-    return () => window.removeEventListener('resize', computeColumns)
+    return () => {
+      observer?.disconnect()
+      window.removeEventListener('resize', computeColumns)
+    }
   }, [isVerticalLayout, filteredColumns.length])
 
   useEffect(() => {

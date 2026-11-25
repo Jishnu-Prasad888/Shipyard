@@ -420,7 +420,7 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={onToggleSplit}
               className="aero-icon-button p-2.5 text-white transition-all duration-150"
-              title={isSplit ? 'Close split view (Ctrl+\\)' : 'Split view (Ctrl+\\)'}
+              title={isSplit ? 'Close split view' : 'Split view'}
               aria-pressed={!!isSplit}
               style={isSplit ? { background: 'rgba(255,255,255,0.25)' } : undefined}
             >

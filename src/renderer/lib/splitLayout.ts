@@ -38,10 +38,18 @@ export const parseSplitLayout = (stored: string | null): SplitLayout => {
   }
 }
 
-export const loadSplitLayout = (): SplitLayout =>
-  parseSplitLayout(typeof localStorage === 'undefined' ? null : localStorage.getItem(STORAGE_KEY))
+export const loadSplitLayout = (): SplitLayout => {
+  try {
+    return parseSplitLayout(localStorage.getItem(STORAGE_KEY))
+  } catch {
+    return parseSplitLayout(null)
+  }
+}
 
 export const saveSplitLayout = (layout: SplitLayout): void => {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(layout))
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(layout))
+  } catch {
+    // Storage full or unavailable: the layout just isn't remembered.
+  }
 }

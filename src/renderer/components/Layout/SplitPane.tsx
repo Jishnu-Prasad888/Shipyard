@@ -119,7 +119,7 @@ export const SplitPane: React.FC<Props> = ({
         <button
           type="button"
           onClick={onSwap}
-          disabled={!onSwap}
+          disabled={!onSwap || missing || target.kind === 'empty'}
           className="btn-secondary text-xs px-2 disabled:opacity-40"
           title="Swap with the main pane"
           aria-label="Swap panes"
@@ -169,6 +169,7 @@ export const SplitPane: React.FC<Props> = ({
             <ProjectView
               key={target.projectId}
               projectId={target.projectId}
+              dataVersion={dataVersion}
               onSelectBoard={(boardId) => onChange({ kind: 'board', boardId })}
               searchQuery={searchQuery}
             />

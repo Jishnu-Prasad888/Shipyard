@@ -151,30 +151,45 @@ function App(): ReactElement {
   // both shortly after any write.
   useEffect(() => {
     if (!split) return
+    // Writes come in bursts (a drop saves several task orders), so wait for
+    // a quiet moment, and never reload while a button is held (mid-drag),
+    // which would snap the dragged item back.
     let timer: number | undefined
-    const handleWrite = (): void => {
-      window.clearTimeout(timer)
-      timer = window.setTimeout(() => setDataVersion((version) => version + 1), 400)
+    let pointerDown = false
+    let pending = false
+    const reload = (): void => {
+      if (pointerDown) {
+        pending = true
+        return
+      }
+      pending = false
+      setDataVersion((version) => version + 1)
     }
-    window.addEventListener(DATA_WRITTEN_EVENT, handleWrite)
+    const schedule = (): void => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(reload, 400)
+    }
+    const handlePointerDown = (): void => {
+      pointerDown = true
+    }
+    const handlePointerUp = (): void => {
+      pointerDown = false
+      if (pending) schedule()
+    }
+    window.addEventListener(DATA_WRITTEN_EVENT, schedule)
+    window.addEventListener('pointerdown', handlePointerDown, true)
+    window.addEventListener('pointerup', handlePointerUp, true)
+    window.addEventListener('pointercancel', handlePointerUp, true)
     return () => {
-      window.removeEventListener(DATA_WRITTEN_EVENT, handleWrite)
+      window.removeEventListener(DATA_WRITTEN_EVENT, schedule)
+      window.removeEventListener('pointerdown', handlePointerDown, true)
+      window.removeEventListener('pointerup', handlePointerUp, true)
+      window.removeEventListener('pointercancel', handlePointerUp, true)
       window.clearTimeout(timer)
     }
   }, [split])
 
   const toggleSplit = (): void => setSplit((current) => (current ? null : { kind: 'empty' }))
-
-  useEffect(() => {
-    const handleKey = (event: KeyboardEvent): void => {
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key === '\\') {
-        event.preventDefault()
-        toggleSplit()
-      }
-    }
-    window.addEventListener('keydown', handleKey)
-    return () => window.removeEventListener('keydown', handleKey)
-  }, [])
 
   const startSplitResize = (event: React.PointerEvent<HTMLDivElement>): void => {
     event.preventDefault()
@@ -215,15 +230,18 @@ function App(): ReactElement {
     setPendingOpenTaskId(null)
   }
 
-  const handleHomeSelectBoard = async (boardId: string): Promise<void> => {
+  /** Opens a board from anywhere; resolves to false if it doesn't exist. */
+  const handleHomeSelectBoard = async (boardId: string): Promise<boolean> => {
     const allBoards = (await window.electron.db.findAll('boards')) as Array<{
       id: string
       projectId: string
     }>
     const board = allBoards.find((candidate) => candidate.id === boardId)
-    if (board) setSelectedProjectId(board.projectId)
+    if (!board) return false
+    setSelectedProjectId(board.projectId)
     setSelectedBoardId(boardId)
     setPendingOpenTaskId(null)
+    return true
   }
 
   // What the main pane shows, when it is something the split pane can show too.
@@ -235,11 +253,19 @@ function App(): ReactElement {
         ? { kind: 'project', projectId: selectedProjectId }
         : null
 
-  const handleSwapPanes = (): void => {
+  const handleSwapPanes = async (): Promise<void> => {
     if (!split || !mainTarget) return
     const previousMain = mainTarget
-    if (split.kind === 'board') void handleHomeSelectBoard(split.boardId)
-    else if (split.kind === 'project') handleSelectProject(split.projectId)
+    if (split.kind === 'board') {
+      // Switch both panes together, and only if the board still exists.
+      let opened = false
+      try {
+        opened = await handleHomeSelectBoard(split.boardId)
+      } catch {
+        opened = false
+      }
+      if (!opened) return
+    } else if (split.kind === 'project') handleSelectProject(split.projectId)
     else handleGoHome()
     setSplit(previousMain)
   }
@@ -312,6 +338,9 @@ function App(): ReactElement {
           break
         case 'openCalendar':
           handleOpenCalendar()
+          break
+        case 'toggleSplit':
+          toggleSplit()
           break
         case 'toggleTheme': {
           const currentMode = settings.colorMode || settings.theme || 'light'
@@ -438,6 +467,7 @@ function App(): ReactElement {
               <div className="p-6">
                 <ProjectView
                   projectId={selectedProjectId}
+                  dataVersion={dataVersion}
                   onSelectBoard={handleSelectBoard}
                   searchQuery={searchQuery}
                 />
@@ -471,7 +501,7 @@ function App(): ReactElement {
                   target={split}
                   onChange={setSplit}
                   onClose={() => setSplit(null)}
-                  onSwap={mainTarget ? handleSwapPanes : undefined}
+                  onSwap={mainTarget ? () => void handleSwapPanes() : undefined}
                   dataVersion={dataVersion}
                   searchQuery={searchQuery}
                 />
