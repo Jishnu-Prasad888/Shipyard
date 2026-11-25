@@ -48,7 +48,8 @@ impl RemoteClient {
     pub fn new(address: &str, token: &str) -> Result<Self> {
         let agent = ureq::AgentBuilder::new()
             .timeout_connect(Duration::from_secs(5))
-            .timeout(Duration::from_secs(60))
+            // Long enough for a 20 MB image over a slow link.
+            .timeout(Duration::from_secs(300))
             .build();
         Ok(Self {
             base_url: normalize_address(address)?,
@@ -90,6 +91,11 @@ impl RemoteClient {
                 .get("error")
                 .and_then(Value::as_str)
                 .unwrap_or("request failed");
+            if message.starts_with("unknown operation") {
+                return Err(Error::Remote(format!(
+                    "{message}. The computer sharing this folder runs an older Shipyard; update it to use this feature."
+                )));
+            }
             Err(Error::Remote(message.to_string()))
         }
     }

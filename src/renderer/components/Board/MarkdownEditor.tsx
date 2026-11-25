@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent, Extension, Mark } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Placeholder from '@tiptap/extension-placeholder'
@@ -29,9 +29,58 @@ import {
   Edit3,
   Minus,
   RotateCcw,
-  RotateCw
+  RotateCw,
+  ImagePlus
 } from 'lucide-react'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
+import type { EditorView } from '@tiptap/pm/view'
+import { Fragment, Slice } from '@tiptap/pm/model'
+import { AssetImage } from './AssetImage'
+import { isSupportedImage, uploadImage } from '../../lib/assets'
+
+const notify = (message: string): void => {
+  window.dispatchEvent(new CustomEvent('show-toast', { detail: { message } }))
+}
+
+/**
+ * Saves image files into the data folder, then inserts them together, in
+ * order, at `pos` (or at the selection). Unsupported or oversized files are
+ * reported, not inserted.
+ */
+const insertImageFiles = async (view: EditorView, files: File[], pos?: number): Promise<void> => {
+  const startDoc = view.state.doc
+  const sources: { src: string; alt: string | null }[] = []
+  for (const file of files) {
+    try {
+      sources.push({ src: await uploadImage(file), alt: file.name || null })
+    } catch (error) {
+      notify(error instanceof Error ? error.message : `Could not add image: ${String(error)}`)
+    }
+  }
+  const imageType = view.state.schema.nodes.image
+  if (view.isDestroyed || !imageType || sources.length === 0) return
+  // If the notes changed during the upload the drop position is stale, so
+  // use wherever the cursor is now.
+  const at =
+    pos !== undefined && view.state.doc.eq(startDoc)
+      ? Math.min(pos, view.state.doc.content.size)
+      : view.state.selection.from
+  const nodes = sources.map((attrs) => imageType.create(attrs))
+  // replaceRange splits the surrounding paragraph where needed and keeps order.
+  view.dispatch(
+    view.state.tr.replaceRange(at, at, new Slice(Fragment.from(nodes), 0, 0)).scrollIntoView()
+  )
+}
+
+/**
+ * True when the clipboard holds only image data. Office and some browsers
+ * put a picture of copied text next to the text itself; then the text wins.
+ */
+const isImageOnlyPaste = (data: DataTransfer | null): boolean =>
+  !!data && !data.getData('text/plain').trim() && imageFilesFrom(data.files).length > 0
+
+const imageFilesFrom = (list: FileList | null | undefined): File[] =>
+  Array.from(list || []).filter((file) => isSupportedImage(file))
 
 // ── WikiLink Extension (click handler via ProseMirror plugin) ────────
 const WikiLinkExtension = Extension.create({
@@ -174,6 +223,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   const [showLinkDialog, setShowLinkDialog] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [linkText, setLinkText] = useState('')
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const editor = useEditor({
     extensions: [
@@ -195,7 +245,8 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       Highlight.configure({ multicolor: true }),
       Typography,
       WikiLinkMark,
-      WikiLinkExtension
+      WikiLinkExtension,
+      AssetImage
     ],
     content: value || '',
     editable: true,
@@ -203,6 +254,28 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       attributes: {
         class: 'obsidian-editor focus:outline-none',
         style: `min-height: ${minHeight}; padding: 1rem;`
+      },
+      // Pasted or dropped image files are saved into the data folder.
+      handlePaste: (view, event) => {
+        if (!view.editable || !isImageOnlyPaste(event.clipboardData)) return false
+        event.preventDefault()
+        void insertImageFiles(view, imageFilesFrom(event.clipboardData?.files))
+        return true
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved) return false
+        const dropped = event.dataTransfer?.files
+        // Never let a dropped file through: the window would navigate to it.
+        if (!view.editable) return !!dropped?.length
+        const files = imageFilesFrom(dropped)
+        if (!files.length) {
+          if (dropped?.length) notify('Only PNG, JPEG, GIF, WebP and BMP images can be added')
+          return !!dropped?.length
+        }
+        event.preventDefault()
+        const pos = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos
+        void insertImageFiles(view, files, pos)
+        return true
       }
     },
     onUpdate: ({ editor: e }) => {
@@ -404,6 +477,26 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
           <Link2 className="w-3.5 h-3.5" />
         </ToolBtn>
 
+        <ToolBtn
+          onClick={() => fileInputRef.current?.click()}
+          title="Add image (or paste / drop one into the notes)"
+          disabled={mode !== 'edit'}
+        >
+          <ImagePlus className="w-3.5 h-3.5" />
+        </ToolBtn>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/gif,image/webp,image/bmp"
+          multiple
+          hidden
+          onChange={(event) => {
+            const files = imageFilesFrom(event.target.files)
+            event.target.value = ''
+            if (files.length) void insertImageFiles(editor.view, files)
+          }}
+        />
+
         {/* WikiLink insert button */}
         <button
           type="button"
@@ -514,7 +607,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
           <code className="px-1 border" style={{ borderColor: 'var(--color-border)' }}>
             - [ ]
           </code>{' '}
-          task
+          task · paste or drop images
         </div>
       )}
     </div>

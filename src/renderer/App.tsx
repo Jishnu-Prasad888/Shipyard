@@ -40,6 +40,23 @@ function App(): ReactElement {
 
   const handleDataChange = (): void => setDataVersion((version) => version + 1)
 
+  // Dropping a file anywhere outside a drop target would make the window
+  // navigate to it and replace the app. Drop targets (the notes editor)
+  // handle their own drops before this runs.
+  useEffect(() => {
+    const isFileDrag = (event: DragEvent): boolean =>
+      !!event.dataTransfer && Array.from(event.dataTransfer.types).includes('Files')
+    const block = (event: DragEvent): void => {
+      if (isFileDrag(event)) event.preventDefault()
+    }
+    window.addEventListener('dragover', block)
+    window.addEventListener('drop', block)
+    return () => {
+      window.removeEventListener('dragover', block)
+      window.removeEventListener('drop', block)
+    }
+  }, [])
+
   useEffect(() => {
     const handleShowToast = (event: Event): void => {
       const detail = (event as CustomEvent<{ message: string; onUndo?: () => void }>).detail
