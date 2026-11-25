@@ -18,7 +18,9 @@ import {
   DndContext,
   DragEndEvent,
   DragStartEvent,
+  MeasuringStrategy,
   PointerSensor,
+  pointerWithin,
   useDraggable,
   useDroppable,
   useSensor,
@@ -385,10 +387,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )
       return
     }
-    await window.electron.db.update('workspaces', workspaceId, { parentWorkspaceId: parentId })
-    if (parentId) setExpanded((previous) => new Set(previous).add(parentId))
-    await refresh()
+    try {
+      await window.electron.db.update('workspaces', workspaceId, { parentWorkspaceId: parentId })
+      if (parentId) setExpanded((previous) => new Set(previous).add(parentId))
+      await refresh()
+    } catch (error) {
+      showMoveError(error)
+    }
   }
+
+  const showMoveError = (error: unknown) =>
+    window.dispatchEvent(
+      new CustomEvent('show-toast', { detail: { message: `Could not move: ${String(error)}` } })
+    )
 
   const handleDragEnd = async ({ active, over }: DragEndEvent) => {
     setDraggingType(null)
@@ -400,14 +411,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const workspaceId = over.id === 'unassigned' ? null : String(over.id)
       const project = projects.find((candidate) => candidate.id === String(active.id))
       if (project && (project.workspaceId || null) === workspaceId) return
-      await window.electron.db.update('projects', String(active.id), { workspaceId })
-      if (workspaceId) setExpanded((previous) => new Set(previous).add(workspaceId))
-      await refresh()
+      try {
+        await window.electron.db.update('projects', String(active.id), { workspaceId })
+        if (workspaceId) setExpanded((previous) => new Set(previous).add(workspaceId))
+        await refresh()
+      } catch (error) {
+        showMoveError(error)
+      }
       return
     }
 
     if (activeType === 'workspace-item') {
       const workspaceId = String(active.data.current?.workspaceId)
+      // Let go over its own row: nothing to do.
+      if (String(over.id) === workspaceId) return
       if (overType === 'workspace-root') await moveWorkspace(workspaceId, null)
       else if (overType === 'workspace' && over.id !== 'unassigned')
         await moveWorkspace(workspaceId, String(over.id))
@@ -538,12 +555,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex-1 overflow-auto px-3 py-4 space-y-2">
         <DndContext
           sensors={sensors}
+          collisionDetection={pointerWithin}
+          measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           onDragCancel={() => setDraggingType(null)}
         >
-          {draggingType === 'workspace' && <WorkspaceRootDropZone />}
           {renderWorkspaces()}
+          {/* Below the tree so showing it never shifts the rows being dropped on. */}
+          {draggingType === 'workspace' && <WorkspaceRootDropZone />}
           <UnassignedDropZone
             projects={unassigned}
             onContextMenu={(event) => openMenu(event, 'unassigned', null)}

@@ -14,7 +14,10 @@ import {
 import {
   DndContext,
   DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
   PointerSensor,
+  pointerWithin,
   useDraggable,
   useDroppable,
   useSensor,
@@ -27,6 +30,7 @@ interface HomeScreenProps {
   onSelectProject: (projectId: string) => void
   onSelectBoard: (boardId: string) => void
   dataVersion?: number
+  onDataChange?: () => void
 }
 
 interface Workspace {
@@ -56,7 +60,8 @@ interface BoardSummary {
 export const HomeScreen: React.FC<HomeScreenProps> = ({
   onSelectProject,
   onSelectBoard,
-  dataVersion
+  dataVersion,
+  onDataChange
 }) => {
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [projects, setProjects] = useState<Project[]>([])
@@ -129,24 +134,37 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   }
   const visited = new Set<string>()
   visit(null, 0, visited)
-  // Workspaces whose parent no longer exists are shown at the top level.
+  // Workspaces whose parent no longer exists are shown at the top level,
+  // with their own sub-workspaces still nested under them.
   for (const workspace of workspaces) {
-    if (!visited.has(workspace.id)) orderedWorkspaces.push({ workspace, depth: 0 })
+    if (visited.has(workspace.id)) continue
+    visited.add(workspace.id)
+    orderedWorkspaces.push({ workspace, depth: 0 })
+    visit(workspace.id, 1, visited)
   }
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
-  const [draggingProject, setDraggingProject] = useState(false)
+  const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null)
+  const draggingProject = draggingProjectId !== null
+  const draggedProject = projects.find((candidate) => candidate.id === draggingProjectId)
 
   const handleDragEnd = async ({ active, over }: DragEndEvent) => {
-    setDraggingProject(false)
+    setDraggingProjectId(null)
     if (!over || active.data.current?.type !== 'home-project') return
     const workspaceId =
       over.id === 'home-unassigned' ? null : String(over.data.current?.workspaceId)
     const project = projects.find((candidate) => candidate.id === active.data.current?.projectId)
     if (!project || (project.workspaceId || null) === workspaceId) return
-    await window.electron.db.update('projects', project.id, { workspaceId })
-    await loadAll()
-    window.dispatchEvent(new CustomEvent('reload-projects'))
+    try {
+      await window.electron.db.update('projects', project.id, { workspaceId })
+      await loadAll()
+      window.dispatchEvent(new CustomEvent('reload-projects'))
+      onDataChange?.()
+    } catch (error) {
+      window.dispatchEvent(
+        new CustomEvent('show-toast', { detail: { message: `Could not move: ${String(error)}` } })
+      )
+    }
   }
 
   return (
@@ -230,9 +248,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
       <DndContext
         sensors={sensors}
-        onDragStart={() => setDraggingProject(true)}
+        // The drop target is whatever is under the pointer, not whatever the
+        // (large) project card overlaps most.
+        collisionDetection={pointerWithin}
+        onDragStart={({ active }: DragStartEvent) =>
+          setDraggingProjectId(String(active.data.current?.projectId ?? ''))
+        }
         onDragEnd={handleDragEnd}
-        onDragCancel={() => setDraggingProject(false)}
+        onDragCancel={() => setDraggingProjectId(null)}
       >
         <div className="flex-1 flex overflow-hidden">
           {/* Workspace filters (only useful once workspaces exist) */}
@@ -273,8 +296,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
                 {/* Workspace tabs (drop a project on one to move it there) */}
                 {orderedWorkspaces.map(({ workspace, depth }) => {
+                  // Matches the list shown when it is selected (includes sub-workspaces).
+                  const subtree = workspaceWithDescendants(workspaces, workspace.id)
                   const workspaceProjectCount = projects.filter(
-                    (project) => project.workspaceId === workspace.id
+                    (project) => !!project.workspaceId && subtree.has(project.workspaceId)
                   ).length
                   const isActive = activeWorkspace === workspace.id
                   return (
@@ -593,6 +618,25 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             )}
           </div>
         </div>
+        <DragOverlay dropAnimation={null}>
+          {draggedProject && (
+            <div
+              className="aero-panel px-3 py-2 text-xs font-black uppercase tracking-wide inline-flex items-center gap-2"
+              style={{
+                background: 'var(--color-surface)',
+                border: `2px solid ${draggedProject.color || '#2563eb'}`,
+                boxShadow: 'var(--shadow-brutal)',
+                color: 'var(--color-text)'
+              }}
+            >
+              <FolderKanban
+                className="w-4 h-4"
+                style={{ color: draggedProject.color || '#2563eb' }}
+              />
+              {draggedProject.name}
+            </div>
+          )}
+        </DragOverlay>
       </DndContext>
 
       {showCreateProject && (
