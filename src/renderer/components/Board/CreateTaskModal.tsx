@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { X, Plus } from 'lucide-react'
 import { useResizableDialog } from '../../hooks/useResizableDialog'
 import { ResizeHandle } from '../common/ResizeHandle'
+import { fromDateInputValue } from '../../lib/dates'
 
 interface CreateTaskModalProps {
   onClose: () => void
@@ -57,7 +58,7 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onCre
       title: title.trim(),
       description: description.trim(),
       color,
-      deadline: deadline ? new Date(deadline).getTime() : null,
+      deadline: fromDateInputValue(deadline),
       tags: JSON.stringify(tags),
       boardId,
       notes: '',

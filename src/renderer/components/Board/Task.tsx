@@ -39,6 +39,14 @@ export const Task: React.FC<TaskProps> = ({ task, onUpdate, autoOpenId, onAutoOp
       : task.status
 
   const isOverdue = task.deadline && task.deadline < Date.now()
+  // An emptied editor still saves markup such as "<p></p>".
+  const hasNotes =
+    typeof task.notes === 'string' &&
+    (/<(img|table|hr)\b/i.test(task.notes) ||
+      task.notes
+        .replace(/<[^>]*>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .trim().length > 0)
   const taskColor = task.color || '#2563eb'
 
   useEffect(() => {
@@ -180,7 +188,7 @@ export const Task: React.FC<TaskProps> = ({ task, onUpdate, autoOpenId, onAutoOp
             </div>
           )}
 
-          {task.notes && (
+          {hasNotes && (
             <div className="flex items-center text-[10px]" style={{ color: 'var(--color-muted)' }}>
               <FileText className="w-3 h-3" />
             </div>

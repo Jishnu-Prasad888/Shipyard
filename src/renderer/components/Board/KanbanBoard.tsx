@@ -413,7 +413,31 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     }
   }
 
-  const handleDragStart = (event: DragStartEvent) => setActiveId(event.active.id as string)
+  // The snapshot is taken once when a drag starts. Intermediate drag-over
+  // steps only add to the set of touched columns, so the drop is saved
+  // against the original order and a cancel restores the original layout.
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string)
+    dragStateRef.current =
+      event.active.data.current?.type === 'task'
+        ? { previousColumns: columns, changedColumnIds: [] }
+        : null
+  }
+
+  const recordDragChange = (changedColumnIds: string[]) => {
+    if (!dragStateRef.current) return
+    dragStateRef.current.changedColumnIds = Array.from(
+      new Set([...dragStateRef.current.changedColumnIds, ...changedColumnIds])
+    )
+  }
+
+  const handleDragCancel = () => {
+    setActiveId(null)
+    if (dragStateRef.current?.previousColumns) {
+      setColumns(dragStateRef.current.previousColumns)
+    }
+    dragStateRef.current = null
+  }
 
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event
@@ -425,12 +449,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     if (isActiveTask && isOverTask) {
       setColumns((previous) => {
         const result = reorderTasks(active.id as string, over.id as string, previous)
-        if (result.moved) {
-          dragStateRef.current = {
-            previousColumns: previous,
-            changedColumnIds: result.changedColumnIds
-          }
-        }
+        if (result.moved) recordDragChange(result.changedColumnIds)
         return result.moved ? result.columns : previous
       })
       return
@@ -440,12 +459,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       const targetColumnId = over.data.current?.columnId as string
       setColumns((previous) => {
         const result = moveTaskToColumnEnd(active.id as string, targetColumnId, previous)
-        if (result.moved) {
-          dragStateRef.current = {
-            previousColumns: previous,
-            changedColumnIds: result.changedColumnIds
-          }
-        }
+        if (result.moved) recordDragChange(result.changedColumnIds)
         return result.moved ? result.columns : previous
       })
     }
@@ -455,10 +469,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     setActiveId(null)
     const { active, over } = event
     if (!over) {
-      if (dragStateRef.current?.previousColumns) {
-        setColumns(dragStateRef.current.previousColumns)
-      }
-      dragStateRef.current = null
+      handleDragCancel()
       return
     }
 
@@ -466,19 +477,19 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       const dragState = dragStateRef.current
       dragStateRef.current = null
 
-      if (dragState?.changedColumnIds?.length) {
+      if (dragState?.changedColumnIds.length) {
+        // Drag-over already applied the move; save it against the start state.
         void persistTaskOrder(columns, dragState.changedColumnIds, dragState.previousColumns)
-      } else {
-        const {
-          columns: nextColumns,
-          changedColumnIds,
-          moved
-        } = reorderTasks(active.id as string, over.id as string, columns)
-
-        if (moved) {
-          setColumns(nextColumns)
-          void persistTaskOrder(nextColumns, changedColumnIds, columns)
-        }
+        return
+      }
+      const {
+        columns: nextColumns,
+        changedColumnIds,
+        moved
+      } = reorderTasks(active.id as string, over.id as string, columns)
+      if (moved) {
+        setColumns(nextColumns)
+        void persistTaskOrder(nextColumns, changedColumnIds, columns)
       }
       return
     }
@@ -488,7 +499,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
       dragStateRef.current = null
 
       const targetColumnId = over.data.current?.columnId as string
-      if (dragState?.changedColumnIds?.length) {
+      if (dragState?.changedColumnIds.length) {
         void persistTaskOrder(columns, dragState.changedColumnIds, dragState.previousColumns)
         return
       }
@@ -547,22 +558,30 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
   }
 
   const handleDeleteBoard = async () => {
-    // Snapshot for undo
+    // Snapshot everything the delete cascade removes, so undo restores it all.
     const boardSnapshot = await window.electron.db.findById('boards', boardId)
     if (!boardSnapshot) return
 
-    const allTasks = await window.electron.db.findAll('tasks')
-    const boardTasks = allTasks.filter((task: any) => task.boardId === boardId)
-    const allSubtasks = await window.electron.db.findAll('subtasks')
-    const boardSubtasks = allSubtasks.filter((subtask: any) =>
-      boardTasks.some((task: any) => task.id === subtask.taskId)
-    )
-    const allColumns = await window.electron.db.findAll('columns')
+    const [allColumns, allTasks, allSubtasks, allStatuses, allConnections] = await Promise.all([
+      window.electron.db.findAll('columns'),
+      window.electron.db.findAll('tasks'),
+      window.electron.db.findAll('subtasks'),
+      window.electron.db.findAll('statuses'),
+      window.electron.db.findAll('connections')
+    ])
     const boardColumns = allColumns.filter((column: any) => column.boardId === boardId)
+    const columnIds = new Set(boardColumns.map((column: any) => column.id))
+    // Tasks are removed with their column, whatever their boardId says.
+    const boardTasks = allTasks.filter((task: any) => columnIds.has(task.columnId))
+    const taskIds = new Set(boardTasks.map((task: any) => task.id))
+    const boardSubtasks = allSubtasks.filter((subtask: any) => taskIds.has(subtask.taskId))
+    const boardStatuses = allStatuses.filter((status: any) => status.boardId === boardId)
+    const boardConnections = allConnections.filter(
+      (connection: any) => connection.boardId === boardId
+    )
 
-    // Delete everything
-    for (const task of boardTasks) await window.electron.db.delete('tasks', task.id)
-    for (const column of boardColumns) await window.electron.db.delete('columns', column.id)
+    // Deleting the board cascades to its columns, tasks, subtasks, statuses
+    // and connections.
     await window.electron.db.delete('boards', boardId)
 
     if (onGoBack) onGoBack()
@@ -577,6 +596,9 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
             for (const task of boardTasks) await window.electron.db.create('tasks', task)
             for (const subtask of boardSubtasks)
               await window.electron.db.create('subtasks', subtask)
+            for (const status of boardStatuses) await window.electron.db.create('statuses', status)
+            for (const connection of boardConnections)
+              await window.electron.db.create('connections', connection)
             window.dispatchEvent(new CustomEvent('reload-projects'))
           }
         }
@@ -852,6 +874,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
         onDragStart={handleDragStart}
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
       >
         <div
           ref={gridRef}

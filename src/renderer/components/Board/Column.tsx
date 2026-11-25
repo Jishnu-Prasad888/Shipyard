@@ -185,22 +185,36 @@ export const Column: React.FC<ColumnProps> = ({
     setBoardStatuses([...DEFAULT_STATUSES, ...filtered])
   }
 
+  // Enter and the blur that follows both call this; only the first saves.
+  const savingNameRef = useRef(false)
   const handleUpdateColumn = async () => {
-    if (editedName.trim() && editedName !== column.name) {
-      await window.electron.db.update('columns', column.id, {
-        name: editedName,
-        updatedAt: Date.now()
-      })
-      column.name = editedName
-    }
+    if (savingNameRef.current) return
+    const name = editedName.trim()
     setIsEditing(false)
+    if (!name || name === column.name) return
+    savingNameRef.current = true
+    try {
+      await window.electron.db.update('columns', column.id, { name, updatedAt: Date.now() })
+      onTasksChange()
+    } finally {
+      savingNameRef.current = false
+    }
+  }
+
+  // The board passes search-filtered tasks; these read the whole column.
+  const loadAllColumnTasks = async (): Promise<any[]> => {
+    const allTasks = await window.electron.db.findAll('tasks')
+    return allTasks.filter((task: any) => task.columnId === column.id)
   }
 
   const handleDeleteColumn = async () => {
     setContextMenu(null)
-    // Snapshot for undo
-    const columnSnapshot = { ...column }
-    const taskSnapshots = [...(column.tasks || [])]
+    // Snapshot for undo, from disk so hidden or filtered-out tasks are kept.
+    const columnSnapshot = (await window.electron.db.findById('columns', column.id)) || {
+      ...column
+    }
+    delete columnSnapshot.tasks
+    const taskSnapshots = await loadAllColumnTasks()
     const allSubtasks = await window.electron.db.findAll('subtasks')
     const subtaskSnapshots = allSubtasks.filter((subtask: any) =>
       taskSnapshots.some((task: any) => task.id === subtask.taskId)
@@ -218,13 +232,7 @@ export const Column: React.FC<ColumnProps> = ({
         detail: {
           message: `Column "${column.name}" deleted`,
           onUndo: async () => {
-            await window.electron.db.create('columns', {
-              id: columnSnapshot.id,
-              name: columnSnapshot.name,
-              boardId: columnSnapshot.boardId,
-              order: columnSnapshot.order,
-              createdAt: columnSnapshot.createdAt
-            })
+            await window.electron.db.create('columns', columnSnapshot)
             for (const task of taskSnapshots) {
               await window.electron.db.create('tasks', task)
             }
@@ -321,11 +329,16 @@ export const Column: React.FC<ColumnProps> = ({
   }
 
   const handleCreateTask = async (taskData: any) => {
+    const existing = await loadAllColumnTasks()
+    const nextOrder = existing.reduce(
+      (max: number, task: any) => Math.max(max, (Number(task.order) || 0) + 1),
+      0
+    )
     const newTask = {
       ...taskData,
       columnId: column.id,
       boardId,
-      order: column.tasks?.length || 0,
+      order: nextOrder,
       createdAt: Date.now(),
       updatedAt: Date.now()
     }
@@ -668,6 +681,7 @@ export const Column: React.FC<ColumnProps> = ({
             className="context-menu-item border-b-2"
             style={{ borderColor: 'var(--color-border)' }}
             onClick={() => {
+              setEditedName(column.name)
               setIsEditing(true)
               setContextMenu(null)
             }}
