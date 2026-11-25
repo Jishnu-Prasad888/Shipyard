@@ -339,6 +339,7 @@ function App(): ReactElement {
               onSelectProject={handleSelectProject}
               onSelectBoard={handleHomeSelectBoard}
               dataVersion={dataVersion}
+              onDataChange={handleDataChange}
             />
           )}
         </main>

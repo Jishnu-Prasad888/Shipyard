@@ -6,6 +6,7 @@ import {
   Edit2,
   Folder,
   FolderKanban,
+  GripVertical,
   Home,
   KanbanSquare,
   Palette,
@@ -16,13 +17,17 @@ import {
 import {
   DndContext,
   DragEndEvent,
+  DragStartEvent,
+  MeasuringStrategy,
   PointerSensor,
+  pointerWithin,
   useDraggable,
   useDroppable,
   useSensor,
   useSensors
 } from '@dnd-kit/core'
 import { ProjectModal } from '../Projects/ProjectModal'
+import { canMoveWorkspace } from '../../lib/hierarchy'
 
 interface SidebarProps {
   onSelectProject: (projectId: string) => void
@@ -362,12 +367,68 @@ export const Sidebar: React.FC<SidebarProps> = ({
     )
   }
 
+  const [draggingType, setDraggingType] = useState<'project' | 'workspace' | null>(null)
+
+  const handleDragStart = ({ active }: DragStartEvent) => {
+    const type = active.data.current?.type
+    if (type === 'project') setDraggingType('project')
+    else if (type === 'workspace-item') setDraggingType('workspace')
+    else setDraggingType(null)
+  }
+
+  const moveWorkspace = async (workspaceId: string, parentId: string | null) => {
+    const workspace = workspaces.find((candidate) => candidate.id === workspaceId)
+    if (!workspace || (workspace.parentWorkspaceId || null) === parentId) return
+    if (!canMoveWorkspace(workspaces, workspaceId, parentId)) {
+      window.dispatchEvent(
+        new CustomEvent('show-toast', {
+          detail: { message: "A workspace can't be moved into one of its own sub-workspaces" }
+        })
+      )
+      return
+    }
+    try {
+      await window.electron.db.update('workspaces', workspaceId, { parentWorkspaceId: parentId })
+      if (parentId) setExpanded((previous) => new Set(previous).add(parentId))
+      await refresh()
+    } catch (error) {
+      showMoveError(error)
+    }
+  }
+
+  const showMoveError = (error: unknown) =>
+    window.dispatchEvent(
+      new CustomEvent('show-toast', { detail: { message: `Could not move: ${String(error)}` } })
+    )
+
   const handleDragEnd = async ({ active, over }: DragEndEvent) => {
-    if (!over || active.data.current?.type !== 'project') return
-    if (over.data.current?.type !== 'workspace') return
-    const workspaceId = over.id === 'unassigned' ? null : String(over.id)
-    await window.electron.db.update('projects', String(active.id), { workspaceId })
-    await refresh()
+    setDraggingType(null)
+    if (!over) return
+    const activeType = active.data.current?.type
+    const overType = over.data.current?.type
+
+    if (activeType === 'project' && overType === 'workspace') {
+      const workspaceId = over.id === 'unassigned' ? null : String(over.id)
+      const project = projects.find((candidate) => candidate.id === String(active.id))
+      if (project && (project.workspaceId || null) === workspaceId) return
+      try {
+        await window.electron.db.update('projects', String(active.id), { workspaceId })
+        if (workspaceId) setExpanded((previous) => new Set(previous).add(workspaceId))
+        await refresh()
+      } catch (error) {
+        showMoveError(error)
+      }
+      return
+    }
+
+    if (activeType === 'workspace-item') {
+      const workspaceId = String(active.data.current?.workspaceId)
+      // Let go over its own row: nothing to do.
+      if (String(over.id) === workspaceId) return
+      if (overType === 'workspace-root') await moveWorkspace(workspaceId, null)
+      else if (overType === 'workspace' && over.id !== 'unassigned')
+        await moveWorkspace(workspaceId, String(over.id))
+    }
   }
 
   const openMenu = (event: React.MouseEvent, type: MenuTarget['type'], id: string | null) => {
@@ -492,8 +553,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
       <div className="flex-1 overflow-auto px-3 py-4 space-y-2">
-        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={pointerWithin}
+          measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setDraggingType(null)}
+        >
           {renderWorkspaces()}
+          {/* Below the tree so showing it never shifts the rows being dropped on. */}
+          {draggingType === 'workspace' && <WorkspaceRootDropZone />}
           <UnassignedDropZone
             projects={unassigned}
             onContextMenu={(event) => openMenu(event, 'unassigned', null)}
@@ -709,25 +779,70 @@ const WorkspaceRow = ({
   onContextMenu: (event: React.MouseEvent) => void
 }) => {
   const { isOver, setNodeRef } = useDroppable({ id: workspace.id, data: { type: 'workspace' } })
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setDragRef,
+    isDragging
+  } = useDraggable({
+    id: `workspace-item:${workspace.id}`,
+    data: { type: 'workspace-item', workspaceId: workspace.id }
+  })
   return (
-    <button
-      ref={setNodeRef}
-      onClick={onToggle}
+    <div
+      ref={(node) => {
+        setNodeRef(node)
+        setDragRef(node)
+      }}
+      className={`flex ${isDragging ? 'opacity-40' : ''}`}
       onContextMenu={onContextMenu}
-      className="nav-item w-full"
       style={{
-        paddingLeft: `${depth * 12 + 8}px`,
+        background: isOver && !isDragging ? 'rgba(95,182,255,0.2)' : undefined,
+        borderRadius: 6
+      }}
+    >
+      <button
+        onClick={onToggle}
+        className="nav-item flex-1 min-w-0"
+        style={{ paddingLeft: `${depth * 12 + 8}px` }}
+      >
+        {expanded ? (
+          <ChevronDown className="w-3.5 h-3.5" />
+        ) : (
+          <ChevronRight className="w-3.5 h-3.5" />
+        )}
+        <Folder className="w-4 h-4" style={{ color: workspace.color || '#2563eb' }} />
+        <span className="truncate">{workspace.name}</span>
+      </button>
+      <button
+        {...listeners}
+        {...attributes}
+        className="px-1.5 text-white/40 hover:text-white/80 cursor-grab"
+        title="Drag onto another workspace to nest it"
+        aria-label={`Move workspace ${workspace.name}`}
+      >
+        <GripVertical className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  )
+}
+
+const WorkspaceRootDropZone = () => {
+  const { isOver, setNodeRef } = useDroppable({
+    id: 'workspace-root',
+    data: { type: 'workspace-root' }
+  })
+  return (
+    <div
+      ref={setNodeRef}
+      className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-center border border-dashed rounded-md text-white/70"
+      style={{
+        borderColor: isOver ? 'var(--color-primary)' : 'rgba(255,255,255,0.3)',
         background: isOver ? 'rgba(95,182,255,0.2)' : undefined
       }}
     >
-      {expanded ? (
-        <ChevronDown className="w-3.5 h-3.5" />
-      ) : (
-        <ChevronRight className="w-3.5 h-3.5" />
-      )}
-      <Folder className="w-4 h-4" style={{ color: workspace.color || '#2563eb' }} />
-      <span className="truncate">{workspace.name}</span>
-    </button>
+      Drop here to move to top level
+    </div>
   )
 }
 
