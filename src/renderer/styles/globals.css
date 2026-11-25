@@ -1132,3 +1132,13 @@
 .obsidian-editor [data-resize-state='true'] [data-resize-handle] {
   opacity: 1;
 }
+
+/* Dashboard chart series (validated for colour-vision deficiency on both surfaces). */
+:root {
+  --chart-created: #2a78d6;
+  --chart-finished: #1baf7a;
+}
+.dark {
+  --chart-created: #3987e5;
+  --chart-finished: #199e70;
+}

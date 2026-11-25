@@ -1,3 +1,4 @@
+import { Dashboard } from '../Dashboard/Dashboard'
 import React, { useEffect, useState, useCallback } from 'react'
 import {
   LayoutDashboard,
@@ -385,6 +386,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
 
           {/* ── RIGHT: MAIN CONTENT ── */}
           <div className="flex-1 overflow-auto px-6 py-5 space-y-8">
+            {/* Dashboard widgets; "follow the overview" widgets use the workspace tab */}
+            <Dashboard dataVersion={dataVersion ?? 0} overview={activeWorkspace} />
+
             {/* Recent boards */}
             {recentBoards.length > 0 && activeWorkspace === 'all' && !filter && (
               <section>
