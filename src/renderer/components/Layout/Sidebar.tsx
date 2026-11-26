@@ -594,7 +594,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div
             className="px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-on-primary)] border-b"
             style={{
-              background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
+              background: 'var(--color-primary)',
               borderColor: 'var(--color-border-strong)'
             }}
           >

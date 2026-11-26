@@ -221,8 +221,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div
             className="w-10 h-10 flex items-center justify-center border border-white/60 rounded-md"
             style={{
-              background:
-                'linear-gradient(180deg, var(--color-secondary), var(--color-primary-hover))',
+              background: 'var(--color-primary)',
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,.65), 0 2px 5px rgba(0,0,0,.35)'
             }}
           >
