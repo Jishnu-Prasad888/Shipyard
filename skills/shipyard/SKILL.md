@@ -34,8 +34,13 @@ The client needs `SHIPYARD_URL` (default `http://127.0.0.1:7420`) and
   the background:
 
   ```bash
-  shipyard-serve /path/to/folder --host 127.0.0.1 --port 7420 --token "$SHIPYARD_TOKEN"
+  export SHIPYARD_TOKEN="$(python3 -c 'import secrets; print(secrets.token_hex(16))')"
+  shipyard-serve /path/to/folder --host 127.0.0.1 --port 7420
   ```
+
+  `shipyard-serve` reads the token from `SHIPYARD_TOKEN`, so it stays off the
+  command line (where `ps` would show it). Use the same environment for the
+  client.
 
   `shipyard-serve` is built from the Shipyard repo with `npm run build:serve`
   (output: `src-tauri/target/release/shipyard-serve`). The folder is the one
@@ -84,12 +89,13 @@ $S add-subtask <task-id> "Write tests"
 $S check <subtask-id>                                  # --undo to uncheck
 
 $S update project "Website" --data '{"name": "Website 2.0", "workspace": "Clients"}'
-$S update board "Sprint 1" --data '{"name": "Sprint 2"}'
+$S update board "Sprint 1" --data '{"name": "Sprint 2", "project": "Website"}'
 $S delete task <id> --yes
 ```
 
-Long text (`--notes`, `--description`, `--data`) can be `@file.md` or `-` to
-read stdin. Deadlines are `YYYY-MM-DD` (stored as the end of that day, local
+Long text (`--notes`, `--append-notes`, `--description`, `--data`) can be
+`-` to read stdin, or `@file.md` to read a file that exists (other text that
+starts with `@` is kept as is; write `@@` for a literal leading `@`). Deadlines are `YYYY-MM-DD` (stored as the end of that day, local
 time). Statuses: `To Do`, `In Progress` and `Done` are built in; any other
 name is created as a status on that board.
 
@@ -119,7 +125,8 @@ sends a query directly. Operations: `findAll`, `findById`, `create`, `update`,
 
 ## Typical requests
 
-- *"What's on my plate this week?"* → `due --days 7`, group by board, call out
+- *"What's on my plate this week?"* → `due --days 7` (`--days 0` = today and
+  overdue; tasks with status Done or in a column named Done are left out), group by board, call out
   overdue items first.
 - *"Plan out feature X"* → `tree` to find the project, create or pick a board,
   add tasks with subtasks and deadlines, then show the result with `board`.

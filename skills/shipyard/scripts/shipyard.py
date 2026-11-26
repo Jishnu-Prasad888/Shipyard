@@ -152,7 +152,23 @@ def is_done(value):
 
 
 def label(record):
-    return record.get("title") or record.get("name") or record.get("id")
+    return str(record.get("title") or record.get("name") or record.get("id"))
+
+
+def num(value):
+    """A number from a number or numeric string (the app accepts both), else None."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return value
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def order_key(record):
+    return (num(record.get("order")) or 0, num(record.get("createdAt")) or 0)
 
 
 def resolve(client, table, ref, within=None):
@@ -206,7 +222,8 @@ def parse_deadline(text):
 
 
 def format_deadline(value):
-    if not isinstance(value, (int, float)):
+    value = num(value)
+    if value is None:
         return None
     return dt.datetime.fromtimestamp(value / 1000).strftime("%Y-%m-%d")
 
@@ -243,17 +260,21 @@ def tag_for(client, name, existing):
 
 
 def next_order(records, field, value):
-    orders = [r.get("order") for r in records if r.get(field) == value]
-    return max([int(o) + 1 for o in orders if isinstance(o, (int, float))] or [0])
+    orders = [num(r.get("order")) for r in records if r.get(field) == value]
+    return max([int(o) + 1 for o in orders if o is not None] or [0])
 
 
 def read_text(value):
-    """`@path` reads a file, `-` reads stdin, anything else is the text itself."""
+    """`-` reads stdin and `@path` reads that file when it exists; anything
+    else (including "@alice agreed") is the text itself. `@@` at the start
+    stands for a literal "@"."""
     if value is None:
         return None
     if value == "-":
         return sys.stdin.read()
-    if value.startswith("@"):
+    if value.startswith("@@"):
+        return value[1:]
+    if value.startswith("@") and os.path.isfile(value[1:]):
         with open(value[1:], encoding="utf-8") as handle:
             return handle.read()
     return value
@@ -312,17 +333,29 @@ def cmd_tree(client, args):
             "boards": [{"id": b["id"], "name": b.get("name")} for b in boards if b.get("projectId") == project["id"]],
         }
 
+    seen = set()
+
     def node_workspace(ws):
+        seen.add(ws["id"])
         return {
             "id": ws["id"],
             "name": ws.get("name"),
-            "workspaces": [node_workspace(c) for c in workspaces if c.get("parentWorkspaceId") == ws["id"]],
+            "workspaces": [
+                node_workspace(c) for c in workspaces
+                if c.get("parentWorkspaceId") == ws["id"] and c["id"] not in seen
+            ],
             "projects": [node_project(p) for p in projects if p.get("workspaceId") == ws["id"]],
         }
 
     roots = [w for w in workspaces if not w.get("parentWorkspaceId") or w.get("parentWorkspaceId") not in ws_ids]
+    tree = [node_workspace(w) for w in roots]
+    # A workspace whose parents form a loop is never reached from a root;
+    # list it at the top level rather than hiding it and its projects.
+    for ws in workspaces:
+        if ws["id"] not in seen:
+            tree.append(node_workspace(ws))
     unassigned = [p for p in projects if not p.get("workspaceId") or p.get("workspaceId") not in ws_ids]
-    data = {"workspaces": [node_workspace(w) for w in roots], "unassignedProjects": [node_project(p) for p in unassigned]}
+    data = {"workspaces": tree, "unassignedProjects": [node_project(p) for p in unassigned]}
 
     lines = []
 
@@ -390,18 +423,27 @@ def cmd_find(client, args):
 
 
 def cmd_due(client, args):
-    horizon = now_ms() + args.days * 86400000
+    # Deadlines are the end of a local day, so the window ends at the end of
+    # the last day: --days 0 is "due today or overdue".
+    last_day = dt.datetime.now() + dt.timedelta(days=max(args.days, 0))
+    horizon = last_day.replace(hour=23, minute=59, second=59, microsecond=999000).timestamp() * 1000
     columns = {c["id"]: c for c in client.all("columns")}
     boards = {b["id"]: b for b in client.all("boards")}
     rows = []
     for task in client.all("tasks"):
-        deadline = task.get("deadline")
-        status = (as_obj(task.get("status")) or {}).get("name", "")
-        if not isinstance(deadline, (int, float)) or deadline > horizon:
-            continue
-        if not args.include_done and status.lower() == "done":
+        deadline = num(task.get("deadline"))
+        status_obj = as_obj(task.get("status")) or {}
+        status = str(status_obj.get("name") or "")
+        if deadline is None or deadline > horizon:
             continue
         column = columns.get(task.get("columnId"), {})
+        finished = (
+            status.lower() == "done"
+            or status_obj.get("id") == "__done__"
+            or str(column.get("name") or "").strip().lower() == "done"
+        )
+        if finished and not args.include_done:
+            continue
         board = boards.get(task.get("boardId") or column.get("boardId"), {})
         rows.append({
             "id": task["id"], "title": task.get("title"), "deadline": format_deadline(deadline),
@@ -530,23 +572,36 @@ def cmd_move_task(client, args):
     task = client.get("tasks", args.task)
     if not task:
         raise ShipyardError(f"no task with id {args.task}")
-    board_ref = args.board or board_of_task(client, task)
-    column = find_column(client, args.column, board_ref)
+    old_board = board_of_task(client, task)
+    column = find_column(client, args.column, args.board or old_board)
+    tasks = client.all("tasks")
     siblings = sorted(
-        (t for t in client.all("tasks") if t.get("columnId") == column["id"] and t["id"] != task["id"]),
-        key=lambda t: (t.get("order") if isinstance(t.get("order"), (int, float)) else 0, t.get("createdAt") or 0),
+        (t for t in tasks if t.get("columnId") == column["id"] and t["id"] != task["id"]), key=order_key
     )
     position = len(siblings) if args.position is None else max(0, min(args.position, len(siblings)))
     siblings.insert(position, task)
-    for index, sibling in enumerate(siblings):
-        if sibling["id"] == task["id"]:
-            changes = {"order": index, "columnId": column["id"], "boardId": column["boardId"]}
-            if args.status:
-                changes["status"] = resolve_status(client, column["boardId"], args.status)
-            client.update("tasks", task["id"], changes)
-        elif sibling.get("order") != index:
-            # Renumbering a neighbour is not an edit of it; keep its updatedAt.
-            client.update("tasks", sibling["id"], {"order": index, "updatedAt": sibling.get("updatedAt") or now_ms()})
+
+    changes = {"order": position, "columnId": column["id"], "boardId": column["boardId"]}
+    status = as_obj(task.get("status"))
+    if args.status:
+        changes["status"] = resolve_status(client, column["boardId"], args.status)
+    elif column["boardId"] != old_board and status and status.get("boardId"):
+        # A board's own statuses don't exist on another board: use (or make)
+        # the status with the same name there.
+        changes["status"] = resolve_status(client, column["boardId"], str(status.get("name") or ""))
+    client.update("tasks", task["id"], changes)
+
+    def renumber(records):
+        for index, record in enumerate(records):
+            if record["id"] != task["id"] and num(record.get("order")) != index:
+                # Renumbering a neighbour is not an edit of it; keep its updatedAt.
+                client.update("tasks", record["id"], {"order": index, "updatedAt": record.get("updatedAt") or now_ms()})
+
+    renumber(siblings)
+    if task.get("columnId") != column["id"]:
+        renumber(sorted(
+            (t for t in tasks if t.get("columnId") == task.get("columnId") and t["id"] != task["id"]), key=order_key
+        ))
     emit(args, {"id": task["id"], "columnId": column["id"], "order": position},
          [f"moved {task.get('title')} to {column['name']} at position {position}"])
 
@@ -611,7 +666,18 @@ def cmd_update(client, args):
     if table == "projects" and "workspace" in data:
         ref = data.pop("workspace")
         data["workspaceId"] = resolve(client, "workspaces", ref)["id"] if ref else None
-    updated = client.update(table, resolve(client, table, args.id)["id"], data)
+    if table == "boards" and "project" in data:
+        data["projectId"] = resolve(client, "projects", data.pop("project"))["id"]
+    record = resolve(client, table, args.id)
+    if table == "boards" and data.get("projectId") and data["projectId"] != record.get("projectId"):
+        # Keep both projects' boardIds in step with the move.
+        old = client.get("projects", record.get("projectId") or "")
+        if old:
+            client.update("projects", old["id"], {"boardIds": [i for i in as_list(old.get("boardIds")) if i != record["id"]]})
+        new = resolve(client, "projects", data["projectId"])
+        ids = [i for i in as_list(new.get("boardIds")) if i != record["id"]] + [record["id"]]
+        client.update("projects", new["id"], {"boardIds": ids})
+    updated = client.update(table, record["id"], data)
     emit(args, updated, [f"updated {args.kind} {label(updated)}: " + ", ".join(data)])
 
 
@@ -649,7 +715,8 @@ def build_parser():
     p.add_argument("--limit", type=int, default=50)
     p = command("due", cmd_due, "Tasks that are overdue or due soon")
     p.add_argument("--days", type=int, default=7, help="look this many days ahead (default 7)")
-    p.add_argument("--include-done", action="store_true", help="include tasks whose status is Done")
+    p.add_argument("--include-done", action="store_true",
+                   help="include finished tasks (status Done, or in a column named Done)")
 
     p = command("add-workspace", cmd_add_workspace, "Create a workspace")
     p.add_argument("name")
@@ -731,7 +798,7 @@ def main(argv=None):
     except ShipyardError as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
-    except (ValueError, OSError) as error:
+    except (ValueError, OSError, TypeError, KeyError, AttributeError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1
     return 0
