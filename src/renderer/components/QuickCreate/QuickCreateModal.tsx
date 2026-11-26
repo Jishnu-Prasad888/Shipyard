@@ -558,7 +558,7 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
                   onClick={() => setType(item.id)}
                   className="w-full flex items-center gap-3 p-3 border text-left transition-all"
                   style={{
-                    borderColor: selected ? item.color : 'var(--color-border)',
+                    borderColor: selected ? ink(item.color) : 'var(--color-border)',
                     background: selected ? `${ink(item.color)}18` : 'var(--color-background)',
                     boxShadow: selected ? `inset 4px 0 ${ink(item.color)}` : 'none'
                   }}

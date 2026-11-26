@@ -219,8 +219,8 @@ export const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onCre
                     className="text-xs px-2 py-0.5 font-black uppercase tracking-wider border-2 flex items-center gap-1"
                     style={{
                       backgroundColor: ink(tag.color) + '15',
-                      color: tag.color,
-                      borderColor: tag.color
+                      color: ink(tag.color),
+                      borderColor: ink(tag.color)
                     }}
                   >
                     {tag.name}

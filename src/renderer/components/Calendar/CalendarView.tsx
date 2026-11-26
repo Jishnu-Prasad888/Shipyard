@@ -258,7 +258,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
               _columnName: column?.name || '',
               _projectName: project?.name || '',
               _projectId: project?.id || null,
-              _boardColor: ink(board?.color, '#2D82B7')
+              _boardColor: board?.color || '#2D82B7'
             }
           })
           .sort((a: any, b: any) => a.deadline - b.deadline)

@@ -80,7 +80,7 @@ export const Header: React.FC<HeaderProps> = ({
             type: 'workspace',
             name: f.name,
             subtitle: 'Workspace',
-            color: ink(f.color, '#2563eb')
+            color: f.color || '#2563eb'
           })
         })
 
@@ -94,7 +94,7 @@ export const Header: React.FC<HeaderProps> = ({
             type: 'project',
             name: d.name,
             subtitle: workspace ? `in ${workspace.name}` : 'Unassigned Project',
-            color: ink(d.color, '#2563eb')
+            color: d.color || '#2563eb'
           })
         })
 
@@ -109,7 +109,7 @@ export const Header: React.FC<HeaderProps> = ({
             type: 'board',
             name: b.name,
             subtitle: project ? `Board in ${project.name}` : 'Board',
-            color: ink(b.color, '#0891b2'),
+            color: b.color || '#0891b2',
             projectId: b.projectId
           })
         })
@@ -336,7 +336,7 @@ export const Header: React.FC<HeaderProps> = ({
                               style={{
                                 borderColor: 'var(--color-border)',
                                 background: isHot
-                                  ? result.color || 'var(--color-primary)'
+                                  ? ink(result.color, 'var(--color-primary)')
                                   : 'transparent',
                                 color: isHot ? '#041020' : 'var(--color-text)'
                               }}
@@ -349,11 +349,13 @@ export const Header: React.FC<HeaderProps> = ({
                                 style={{
                                   borderColor: isHot
                                     ? '#041020'
-                                    : result.color || 'var(--color-primary)',
+                                    : ink(result.color, 'var(--color-primary)'),
                                   background: isHot
                                     ? 'rgba(255,255,255,0.8)'
                                     : ink(result.color, '#2563eb') + '12',
-                                  color: isHot ? '#041020' : result.color || 'var(--color-primary)',
+                                  color: isHot
+                                    ? '#041020'
+                                    : ink(result.color, 'var(--color-primary)'),
                                   boxShadow: isHot
                                     ? 'var(--shadow-control)'
                                     : `0 2px 6px ${ink(result.color, '#2563eb')}45`

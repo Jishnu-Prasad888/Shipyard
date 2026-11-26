@@ -362,6 +362,8 @@
   }
 
   ::-webkit-scrollbar-thumb {
+    /* Plain fallback for web views without color-mix(). */
+    background: rgba(128, 128, 140, 0.5);
     background: color-mix(in oklab, var(--color-muted) 55%, transparent);
     border: 2px solid transparent;
     background-clip: padding-box;

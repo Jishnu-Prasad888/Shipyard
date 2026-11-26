@@ -62,8 +62,9 @@ const SETTINGS_TABS: Array<{
 
 // ── System font detection via canvas ──
 // Measuring ~150 fonts makes the web view resolve each one, which can take a
-// noticeable moment. It runs once per session, only when the Appearance tab
-// is opened, in small batches between frames so the dialog stays responsive.
+// noticeable moment. It runs only when the Appearance tab is opened (once per
+// Settings visit), in small batches between frames so the dialog stays
+// responsive.
 const CANDIDATE_FONTS = [
   // Windows
   'Arial',
@@ -237,7 +238,17 @@ const detectSystemFonts = (): Promise<string[]> => {
     }
     return found.sort((x, y) => x.localeCompare(y))
   })()
-  return detectedFonts
+  const scan = detectedFonts
+  // Don't keep an empty result: the next visit scans again.
+  void scan.then((fonts) => {
+    if (fonts.length === 0 && detectedFonts === scan) detectedFonts = null
+  })
+  return scan
+}
+
+/** Forgets the scan so fonts installed meanwhile show up next time. */
+const forgetSystemFonts = (): void => {
+  detectedFonts = null
 }
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
@@ -293,6 +304,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
   useEffect(() => {
     loadStatus()
+    // Settings is reopened rarely; rescan fonts on the next open.
+    return forgetSystemFonts
   }, [])
 
   useEffect(() => {

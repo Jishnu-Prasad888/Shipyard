@@ -471,7 +471,7 @@ export const Column: React.FC<ColumnProps> = ({
                 <div
                   className="aero-titlebar px-3 py-2 text-[10px] font-semibold border-b"
                   style={{
-                    color: 'white',
+                    color: 'var(--color-on-primary)',
                     background: 'var(--color-primary)',
                     borderColor: 'var(--color-border-strong)'
                   }}

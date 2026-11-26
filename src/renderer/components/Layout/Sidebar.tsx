@@ -761,7 +761,7 @@ const NavButton = ({
     style={{
       borderColor: active ? 'var(--color-primary)' : 'rgba(255,255,255,0.18)',
       background: active ? 'var(--color-primary)' : 'rgba(255,255,255,0.06)',
-      color: active ? 'var(--color-on-primary)' : 'white'
+      color: active ? 'var(--color-on-primary)' : 'var(--color-sidebar-foreground)'
     }}
   >
     {icon}
