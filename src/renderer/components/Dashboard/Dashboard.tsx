@@ -1,21 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import {
-  DndContext,
-  DragEndEvent,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors
-} from '@dnd-kit/core'
-import {
-  SortableContext,
-  arrayMove,
-  rectSortingStrategy,
-  sortableKeyboardCoordinates,
-  useSortable
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+import ReactGridLayout, {
+  useContainerWidth,
+  verticalCompactor,
+  type Layout
+} from 'react-grid-layout'
+import 'react-grid-layout/css/styles.css'
+import 'react-resizable/css/styles.css'
+import { useDispatch, useSelector } from 'react-redux'
 import {
   Check,
   ChevronDown,
@@ -34,32 +25,56 @@ import {
   DEFAULT_LAYOUT,
   OverviewFilter,
   parseLayout,
+  parseLayoutValue,
+  placeWidgets,
+  applyPositions,
+  readingOrder,
+  defaultWidgetHeight,
+  GRID_COLS,
+  MIN_WIDGET_W,
+  MIN_WIDGET_H,
+  MAX_WIDGET_H,
   WIDGET_KINDS,
   WidgetConfig,
   widgetKindInfo,
-  WidgetKind,
-  WidgetSize
+  WidgetKind
 } from '../../lib/dashboard'
+import { RootState } from '../../store'
+import { setSettings } from '../../store/settingsSlice'
+import type { Settings } from '@shared/types'
 import { parseTask } from '../../lib/data'
 import { WidgetBody } from './Widgets'
 
-const LAYOUT_KEY = 'shipyard:dashboard-layout'
+/** Where layouts were kept before they moved into the app settings. */
+const LEGACY_LAYOUT_KEY = 'shipyard:dashboard-layout'
 const COLLAPSED_KEY = 'shipyard:dashboard-collapsed'
 
-const loadLayout = (): WidgetConfig[] => {
+/** Grid row height and gap, in pixels. */
+const ROW_HEIGHT = 36
+const GAP = 16
+/** Below this width widgets are simply stacked (and the layout isn't changed). */
+const MIN_GRID_WIDTH = 720
+
+const loadLegacyLayout = (): WidgetConfig[] | null => {
   try {
-    return parseLayout(localStorage.getItem(LAYOUT_KEY))
+    const stored = localStorage.getItem(LEGACY_LAYOUT_KEY)
+    return stored ? parseLayout(stored) : null
   } catch {
-    return DEFAULT_LAYOUT
+    return null
   }
 }
 
-const saveLayout = (layout: WidgetConfig[]): void => {
-  try {
-    localStorage.setItem(LAYOUT_KEY, JSON.stringify(layout))
-  } catch {
-    // Storage unavailable: the layout just isn't remembered.
-  }
+// Saves run one after another, each reading the stored settings first, so a
+// save never overwrites settings that haven't reached this window yet.
+let saveChain: Promise<unknown> = Promise.resolve()
+const persistLayout = (layout: WidgetConfig[]): Promise<unknown> => {
+  saveChain = saveChain
+    .catch(() => undefined)
+    .then(async () => {
+      const current = ((await window.electron.settings.get()) || {}) as Partial<Settings>
+      await window.electron.settings.save({ ...current, dashboardLayout: layout })
+    })
+  return saveChain
 }
 
 const EMPTY_DATA: DashboardData = {
@@ -175,12 +190,6 @@ const scopeLabel = (scope: DashboardScope, data: DashboardData, overview: Overvi
   }
 }
 
-const SIZE_CLASS: Record<WidgetSize, string> = {
-  1: 'lg:col-span-1',
-  2: 'lg:col-span-2',
-  3: 'lg:col-span-3'
-}
-
 const WidgetSettings: React.FC<{
   widget: WidgetConfig
   data: DashboardData
@@ -235,20 +244,6 @@ const WidgetSettings: React.FC<{
         </select>
       </label>
       <div className="flex flex-wrap gap-3">
-        <label>
-          <span className={field} style={{ color: 'var(--color-muted)' }}>
-            Width
-          </span>
-          <select
-            value={widget.size}
-            onChange={(e) => onChange({ ...widget, size: Number(e.target.value) as WidgetSize })}
-            className="aero-input px-2 py-1.5"
-          >
-            <option value={1}>Narrow</option>
-            <option value={2}>Wide</option>
-            <option value={3}>Full</option>
-          </select>
-        </label>
         {showDays && (
           <label>
             <span className={field} style={{ color: 'var(--color-muted)' }}>
@@ -336,30 +331,19 @@ const WidgetCard: React.FC<{
   overview: OverviewFilter
   now: number
   editing: boolean
+  /** Whether the grid lets it be dragged and resized. */
+  movable: boolean
+  onNudge: (key: string, resize: boolean) => void
   onChange: (widget: WidgetConfig) => void
   onRemove: () => void
-}> = ({ widget, data, overview, now, editing, onChange, onRemove }) => {
+}> = ({ widget, data, overview, now, editing, movable, onNudge, onChange, onRemove }) => {
   const [configuring, setConfiguring] = useState(false)
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    setActivatorNodeRef,
-    transform,
-    transition,
-    isDragging
-  } = useSortable({ id: widget.id, disabled: !editing })
   const title = widget.title || widgetKindInfo(widget.kind).label
 
   return (
     <section
-      ref={setNodeRef}
-      className={`aero-panel flex flex-col min-w-0 ${SIZE_CLASS[widget.size]}`}
+      className="aero-panel flex flex-col min-w-0 h-full"
       style={{
-        transform: CSS.Translate.toString(transform),
-        transition,
-        opacity: isDragging ? 0.6 : 1,
-        zIndex: isDragging ? 10 : undefined,
         borderColor: editing ? 'var(--color-primary)' : 'var(--color-border)',
         borderStyle: editing ? 'dashed' : undefined,
         boxShadow: 'var(--shadow-brutal-sm)'
@@ -367,22 +351,35 @@ const WidgetCard: React.FC<{
       aria-label={title}
     >
       <header
-        className="flex items-center gap-2 px-3 py-2 border-b"
-        style={{ borderColor: 'var(--color-border)' }}
+        className={`flex items-center gap-2 px-3 py-2 border-b ${
+          movable ? 'widget-drag-handle cursor-grab active:cursor-grabbing' : ''
+        }`}
+        style={{ borderColor: 'var(--color-border)', touchAction: movable ? 'none' : undefined }}
+        title={movable ? 'Drag to move' : undefined}
       >
-        {editing && (
-          <button
-            type="button"
-            ref={setActivatorNodeRef}
-            {...attributes}
-            {...listeners}
-            className="p-0.5 cursor-grab active:cursor-grabbing"
-            style={{ color: 'var(--color-muted)', touchAction: 'none' }}
-            aria-label={`Move ${title}`}
-          >
-            <GripVertical className="w-4 h-4" />
-          </button>
-        )}
+        {movable &&
+          (editing ? (
+            <button
+              type="button"
+              className="p-0.5 rounded shrink-0 cursor-grab"
+              style={{ color: 'var(--color-muted)' }}
+              aria-label={`Move ${title}. Arrow keys move it, Shift and arrow keys resize it.`}
+              title="Drag the header to move. Keyboard: arrows move, Shift+arrows resize."
+              onKeyDown={(event) => {
+                if (!event.key.startsWith('Arrow')) return
+                event.preventDefault()
+                onNudge(event.key, event.shiftKey)
+              }}
+            >
+              <GripVertical className="w-4 h-4" aria-hidden />
+            </button>
+          ) : (
+            <GripVertical
+              className="w-4 h-4 shrink-0"
+              style={{ color: 'var(--color-muted)' }}
+              aria-hidden
+            />
+          ))}
         <h3
           className="text-xs font-black uppercase tracking-wider truncate"
           style={{ color: 'var(--color-text)' }}
@@ -422,7 +419,7 @@ const WidgetCard: React.FC<{
           </>
         )}
       </header>
-      <div className="p-3 flex-1 min-h-0 max-h-[360px] overflow-y-auto">
+      <div className={`p-3 flex-1 min-h-0 overflow-y-auto ${movable ? '' : 'max-h-[400px]'}`}>
         {editing && configuring ? (
           <WidgetSettings
             widget={widget}
@@ -444,7 +441,17 @@ export const Dashboard: React.FC<{ dataVersion: number; overview: OverviewFilter
   overview
 }) => {
   const [data, setData] = useState<DashboardData>(EMPTY_DATA)
-  const [layout, setLayout] = useState<WidgetConfig[]>(loadLayout)
+  const dispatch = useDispatch()
+  const storedLayout = useSelector((state: RootState) => state.settings.dashboardLayout)
+  const [layout, setLayout] = useState<WidgetConfig[]>(() =>
+    storedLayout ? parseLayoutValue(storedLayout) : loadLegacyLayout() || DEFAULT_LAYOUT
+  )
+  // The layout this window last saved, to tell our own saves from changes
+  // that arrive with freshly loaded settings.
+  const savedRef = useRef<string | null>(storedLayout ? JSON.stringify(storedLayout) : null)
+  const dirtyRef = useRef(false)
+  const { width, containerRef, mounted } = useContainerWidth({ measureBeforeMount: true })
+  const gridMode = mounted && width >= MIN_GRID_WIDTH
   const [editing, setEditing] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [collapsed, setCollapsed] = useState(() => {
@@ -506,12 +513,69 @@ export const Dashboard: React.FC<{ dataVersion: number; overview: OverviewFilter
   }, [])
 
   const updateLayout = (next: WidgetConfig[] | ((current: WidgetConfig[]) => WidgetConfig[])) => {
-    setLayout((current) => {
-      const value = typeof next === 'function' ? next(current) : next
-      saveLayout(value)
-      return value
-    })
+    dirtyRef.current = true
+    setLayout(next)
   }
+
+  // Settings load after the first render (and can change elsewhere): adopt a
+  // stored layout that isn't the one this window saved.
+  useEffect(() => {
+    if (!storedLayout || dirtyRef.current) return
+    const text = JSON.stringify(storedLayout)
+    if (text === savedRef.current) return
+    savedRef.current = text
+    dirtyRef.current = false
+    setLayout(parseLayoutValue(storedLayout))
+  }, [storedLayout])
+
+  // One-time move of a layout kept in browser storage into the settings.
+  // It runs in the save queue (so it can't overwrite a newer save) and
+  // also updates the store, so whole-settings saves elsewhere keep it.
+  useEffect(() => {
+    const legacy = loadLegacyLayout()
+    if (!legacy) return
+    saveChain = saveChain
+      .catch(() => undefined)
+      .then(async () => {
+        const current = ((await window.electron.settings.get()) || {}) as Partial<Settings>
+        if (!current.dashboardLayout) {
+          await window.electron.settings.save({ ...current, dashboardLayout: legacy })
+          dispatch(setSettings({ dashboardLayout: legacy } as Settings))
+        }
+        try {
+          localStorage.removeItem(LEGACY_LAYOUT_KEY)
+        } catch {
+          // ignore
+        }
+      })
+      .catch((error) => console.error('Could not move the dashboard layout', error))
+  }, [dispatch])
+
+  // Save changes made here (debounced: resizing reports many small steps).
+  useEffect(() => {
+    if (!dirtyRef.current) return
+    const timer = window.setTimeout(() => {
+      dirtyRef.current = false
+      const text = JSON.stringify(layout)
+      savedRef.current = text
+      dispatch(setSettings({ dashboardLayout: JSON.parse(text) } as Settings))
+      void persistLayout(layout).catch((error) =>
+        console.error('Could not save the dashboard layout', error)
+      )
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [layout, dispatch])
+
+  const gridLayout = useMemo<Layout>(
+    () =>
+      placeWidgets(layout).map((item) => ({
+        ...item,
+        minW: MIN_WIDGET_W,
+        minH: MIN_WIDGET_H,
+        maxH: MAX_WIDGET_H
+      })),
+    [layout]
+  )
 
   const toggleCollapsed = () => {
     setCollapsed((value) => {
@@ -525,7 +589,11 @@ export const Dashboard: React.FC<{ dataVersion: number; overview: OverviewFilter
   }
 
   const addWidget = (kind: WidgetKind) => {
-    updateLayout([...layout, createWidget(kind)])
+    const widget = createWidget(kind)
+    // New widgets go to the bottom; the grid moves them up into place.
+    const w = Math.min(GRID_COLS, Math.max(MIN_WIDGET_W, widget.size * (GRID_COLS / 3)))
+    widget.pos = { x: 0, y: 10_000, w, h: defaultWidgetHeight(kind) }
+    updateLayout([...layout, widget])
     setShowAdd(false)
     setEditing(true)
   }
@@ -550,21 +618,58 @@ export const Dashboard: React.FC<{ dataVersion: number; overview: OverviewFilter
     )
   }
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  )
-
-  const handleDragEnd = ({ active, over }: DragEndEvent) => {
-    if (!over || active.id === over.id) return
-    const from = layout.findIndex((widget) => widget.id === active.id)
-    const to = layout.findIndex((widget) => widget.id === over.id)
-    if (from < 0 || to < 0) return
-    updateLayout(arrayMove(layout, from, to))
+  const saveGridPositions = (items: Layout) => {
+    const next = applyPositions(layout, items)
+    if (next !== layout) updateLayout(next)
   }
 
+  /**
+   * Keyboard arranging: arrows swap a widget with its neighbour in reading
+   * order (left/up = earlier); with Shift they resize it.
+   */
+  const nudgeWidget = (id: string, key: string, resize: boolean) => {
+    const items = placeWidgets(layout).map((item) => ({ ...item }))
+    const item = items.find((candidate) => candidate.i === id)
+    if (!item) return
+    if (resize) {
+      if (key === 'ArrowRight') item.w = Math.min(GRID_COLS - item.x, item.w + 1)
+      if (key === 'ArrowLeft') item.w = Math.max(MIN_WIDGET_W, item.w - 1)
+      if (key === 'ArrowDown') item.h = Math.min(MAX_WIDGET_H, item.h + 1)
+      if (key === 'ArrowUp') item.h = Math.max(MIN_WIDGET_H, item.h - 1)
+    } else {
+      const order = [...items].sort((a, b) => a.y - b.y || a.x - b.x)
+      const index = order.indexOf(item)
+      const other = order[key === 'ArrowLeft' || key === 'ArrowUp' ? index - 1 : index + 1]
+      if (!other) return
+      const [x, y] = [item.x, item.y]
+      item.x = Math.min(other.x, GRID_COLS - item.w)
+      item.y = other.y
+      other.x = Math.min(x, GRID_COLS - other.w)
+      other.y = y
+    }
+    updateLayout(applyPositions(layout, verticalCompactor.compact(items, GRID_COLS)))
+  }
+
+  const renderWidget = (widget: WidgetConfig, movable: boolean) => (
+    <WidgetCard
+      widget={widget}
+      data={data}
+      overview={overview}
+      now={now}
+      editing={editing}
+      movable={movable}
+      onNudge={(key, resize) => nudgeWidget(widget.id, key, resize)}
+      onChange={(next) =>
+        updateLayout((current) =>
+          current.map((candidate) => (candidate.id === next.id ? next : candidate))
+        )
+      }
+      onRemove={() => removeWidget(widget)}
+    />
+  )
+
   return (
-    <section>
+    <section ref={containerRef as React.RefObject<HTMLDivElement>}>
       <div className="flex flex-wrap items-center gap-2 mb-3">
         <button
           type="button"
@@ -691,35 +796,42 @@ export const Dashboard: React.FC<{ dataVersion: number; overview: OverviewFilter
             </div>
           </div>
         ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={layout.map((widget) => widget.id)}
-              strategy={rectSortingStrategy}
-            >
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+          <>
+            {gridMode ? (
+              <ReactGridLayout
+                className="dashboard-grid"
+                width={width}
+                layout={gridLayout}
+                gridConfig={{
+                  cols: GRID_COLS,
+                  rowHeight: ROW_HEIGHT,
+                  margin: [GAP, GAP],
+                  containerPadding: [0, 0]
+                }}
+                dragConfig={{
+                  enabled: true,
+                  threshold: 6,
+                  handle: '.widget-drag-handle',
+                  cancel: 'button, input, select, textarea, a'
+                }}
+                resizeConfig={{ enabled: true, handles: ['se'] }}
+                // Only moves and resizes the user makes are saved, not the
+                // positions the grid works out when it mounts.
+                onDragStop={saveGridPositions}
+                onResizeStop={saveGridPositions}
+              >
                 {layout.map((widget) => (
-                  <WidgetCard
-                    key={widget.id}
-                    widget={widget}
-                    data={data}
-                    overview={overview}
-                    now={now}
-                    editing={editing}
-                    onChange={(next) =>
-                      updateLayout(
-                        layout.map((candidate) => (candidate.id === next.id ? next : candidate))
-                      )
-                    }
-                    onRemove={() => removeWidget(widget)}
-                  />
+                  <div key={widget.id}>{renderWidget(widget, true)}</div>
+                ))}
+              </ReactGridLayout>
+            ) : (
+              <div className="flex flex-col gap-4">
+                {readingOrder(layout).map((widget) => (
+                  <div key={widget.id}>{renderWidget(widget, false)}</div>
                 ))}
               </div>
-            </SortableContext>
-          </DndContext>
+            )}
+          </>
         ))}
     </section>
   )

@@ -364,13 +364,30 @@ export type WidgetKind =
 
 export type WidgetSize = 1 | 2 | 3
 
+/** Columns in the dashboard grid. */
+export const GRID_COLS = 12
+export const MIN_WIDGET_W = 3
+export const MIN_WIDGET_H = 3
+export const MAX_WIDGET_H = 30
+
+/** A widget's place on the grid, in columns and rows. */
+export interface WidgetPosition {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
 export interface WidgetConfig {
   id: string
   kind: WidgetKind
   /** Custom title; the kind's name is used when empty. */
   title?: string
   scope: DashboardScope
+  /** Width (thirds of the grid) for a widget that has no position yet. */
   size: WidgetSize
+  /** Where the user put it; widgets without one are placed automatically. */
+  pos?: WidgetPosition
   /** Days ahead (deadlines) or back (activity). */
   days?: number
   /** Rows to list. */
@@ -499,7 +516,18 @@ const parseScope = (value: unknown): DashboardScope => {
   return { kind: 'overview' }
 }
 
-/** Validates a stored layout; anything unusable is dropped. */
+const parsePosition = (value: unknown): WidgetPosition | undefined => {
+  if (!value || typeof value !== 'object') return undefined
+  const raw = value as Record<string, unknown>
+  const w = clampInt(raw.w, MIN_WIDGET_W, GRID_COLS)
+  const h = clampInt(raw.h, MIN_WIDGET_H, MAX_WIDGET_H)
+  const x = clampInt(raw.x, 0, GRID_COLS - 1)
+  const y = clampInt(raw.y, 0, 10_000)
+  if (w === undefined || h === undefined || x === undefined || y === undefined) return undefined
+  return { x: Math.min(x, GRID_COLS - w), y, w, h }
+}
+
+/** Validates a stored layout (JSON text); anything unusable is dropped. */
 export const parseLayout = (stored: string | null): WidgetConfig[] => {
   if (!stored) return DEFAULT_LAYOUT
   let raw: unknown
@@ -508,6 +536,11 @@ export const parseLayout = (stored: string | null): WidgetConfig[] => {
   } catch {
     return DEFAULT_LAYOUT
   }
+  return parseLayoutValue(raw)
+}
+
+/** Validates a stored layout value; anything unusable is dropped. */
+export const parseLayoutValue = (raw: unknown): WidgetConfig[] => {
   if (!Array.isArray(raw)) return DEFAULT_LAYOUT
   const seen = new Set<string>()
   const widgets: WidgetConfig[] = []
@@ -526,6 +559,7 @@ export const parseLayout = (stored: string | null): WidgetConfig[] => {
       title: typeof (item as any).title === 'string' ? (item as any).title.slice(0, 80) : undefined,
       scope: parseScope((item as any).scope),
       size: (clampInt((item as any).size, 1, 3) || 1) as WidgetSize,
+      pos: parsePosition((item as any).pos),
       days: clampInt((item as any).days, 1, 365),
       limit: clampInt((item as any).limit, 1, 50),
       groupBy: groupBy === 'board' || groupBy === 'project' ? groupBy : undefined,
@@ -534,4 +568,65 @@ export const parseLayout = (stored: string | null): WidgetConfig[] => {
   }
   // An empty array is a deliberate "no widgets" choice and is kept.
   return widgets
+}
+
+/** Default height in grid rows. */
+export const defaultWidgetHeight = (kind: WidgetKind): number => (kind === 'summary' ? 4 : 8)
+
+/**
+ * Every widget's grid position. Stored positions are used as they are;
+ * widgets without one go, in list order, to the highest free spot (then the
+ * leftmost), which reproduces the old flowing three-column arrangement.
+ */
+export const placeWidgets = (layout: WidgetConfig[]): Array<WidgetPosition & { i: string }> => {
+  const skyline = new Array<number>(GRID_COLS).fill(0)
+  const occupy = ({ x, y, w, h }: WidgetPosition): void => {
+    for (let col = x; col < x + w; col++) skyline[col] = Math.max(skyline[col], y + h)
+  }
+  for (const widget of layout) if (widget.pos) occupy(widget.pos)
+  return layout.map((widget) => {
+    if (widget.pos) return { i: widget.id, ...widget.pos }
+    const w = Math.min(GRID_COLS, Math.max(MIN_WIDGET_W, widget.size * (GRID_COLS / 3)))
+    let best = { x: 0, y: Infinity }
+    for (let x = 0; x + w <= GRID_COLS; x++) {
+      const y = Math.max(...skyline.slice(x, x + w))
+      if (y < best.y) best = { x, y }
+    }
+    const pos = { x: best.x, y: best.y, w, h: defaultWidgetHeight(widget.kind) }
+    occupy(pos)
+    return { i: widget.id, ...pos }
+  })
+}
+
+/**
+ * The layout with positions taken from the grid. Returns the same array when
+ * nothing moved, so callers can skip saving.
+ */
+export const applyPositions = (
+  layout: WidgetConfig[],
+  items: ReadonlyArray<{ i: string; x: number; y: number; w: number; h: number }>
+): WidgetConfig[] => {
+  const byId = new Map(items.map((item) => [item.i, item]))
+  let changed = false
+  const next = layout.map((widget) => {
+    const item = byId.get(widget.id)
+    if (!item) return widget
+    const pos = { x: item.x, y: item.y, w: item.w, h: item.h }
+    const old = widget.pos
+    if (old && old.x === pos.x && old.y === pos.y && old.w === pos.w && old.h === pos.h)
+      return widget
+    changed = true
+    return { ...widget, pos }
+  })
+  return changed ? next : layout
+}
+
+/** Widgets in reading order (top to bottom, then left to right). */
+export const readingOrder = (layout: WidgetConfig[]): WidgetConfig[] => {
+  const positions = new Map(placeWidgets(layout).map((item) => [item.i, item]))
+  return [...layout].sort((a, b) => {
+    const pa = positions.get(a.id)!
+    const pb = positions.get(b.id)!
+    return pa.y - pb.y || pa.x - pb.x
+  })
 }

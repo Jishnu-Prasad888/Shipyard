@@ -137,4 +137,6 @@ export interface Settings {
   keyboardShortcuts?: KeyboardShortcut[]
   /** GitHub personal access token for this device. */
   githubToken?: string
+  /** Overview dashboard widgets and their positions (validated on load). */
+  dashboardLayout?: unknown[]
 }
