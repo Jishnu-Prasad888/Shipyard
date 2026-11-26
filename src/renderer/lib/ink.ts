@@ -11,8 +11,8 @@ export const DARK_MIN_LIGHTNESS = 0.75
 
 const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i
 
-const toLinear = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
-const toGamma = (c: number) => (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055)
+const toLinear = (c: number): number => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)
+const toGamma = (c: number): number => (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055)
 
 const parseHex = (hex: string): [number, number, number] => {
   let h = hex.slice(1)
@@ -23,7 +23,11 @@ const parseHex = (hex: string): [number, number, number] => {
 const toHex = (rgb: number[]): string =>
   '#' +
   rgb
-    .map((c) => Math.round(Math.min(1, Math.max(0, c)) * 255).toString(16).padStart(2, '0'))
+    .map((c) =>
+      Math.round(Math.min(1, Math.max(0, c)) * 255)
+        .toString(16)
+        .padStart(2, '0')
+    )
     .join('')
 
 /** sRGB (0..1) to OKLab. */
@@ -51,7 +55,7 @@ const oklabToRgb = ([L, a, b]: number[]): number[] => {
   ].map(toGamma)
 }
 
-const inGamut = (rgb: number[]) => rgb.every((c) => c >= -0.0005 && c <= 1.0005)
+const inGamut = (rgb: number[]): boolean => rgb.every((c) => c >= -0.0005 && c <= 1.0005)
 
 /** Raises a hex colour's OKLCH lightness to at least `minL`, keeping its hue. */
 export const liftLightness = (hex: string, minL: number): string => {

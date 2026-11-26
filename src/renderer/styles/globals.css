@@ -757,20 +757,28 @@
    ANIMATIONS
  ====================== */
 
+/* Dialogs fade and slide in. No scaling: on Linux (WebKitGTK) a scale
+   forces the whole dialog, shadows included, to be repainted every frame. */
 @keyframes brutal-in {
   from {
     opacity: 0;
-    transform: translateY(-4px) scale(0.99);
+    transform: translateY(-4px);
   }
 
   to {
     opacity: 1;
-    transform: translate(0, 0);
+    transform: none;
   }
 }
 
 .animate-brutal-in {
-  animation: brutal-in 0.16s ease-out forwards;
+  animation: brutal-in 0.12s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-brutal-in {
+    animation: none;
+  }
 }
 
 /* ======================================================
