@@ -1,19 +1,21 @@
 //! Folder-backed record store.
 //!
-//! Every record lives in its own pretty-printed JSON file:
+//! Every record lives in its own Markdown file: fields in YAML front matter,
+//! and a task's notes (or a project's or board's description) as the body.
+//! See [`crate::record_md`].
 //!
 //! ```text
 //! <folder>/
 //!   shipyard.json              folder marker + format version
-//!   workspaces/<id>.json
-//!   projects/<id>.json
-//!   boards/<id>.json
-//!   columns/<id>.json
-//!   tasks/<id>.json
-//!   subtasks/<id>.json
-//!   statuses/<id>.json
-//!   connections/<id>.json
-//!   tags/<id>.json
+//!   workspaces/<id>.md
+//!   projects/<id>.md
+//!   boards/<id>.md
+//!   columns/<id>.md
+//!   tasks/<id>.md
+//!   subtasks/<id>.md
+//!   statuses/<id>.md
+//!   connections/<id>.md
+//!   tags/<id>.md
 //!   assets/<uuid>.<ext>        images added to notes
 //!   .shipyard/sync-queue.jsonl pending changes for optional sync
 //! ```
@@ -31,10 +33,12 @@ use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use uuid::Uuid;
 
+use crate::record_md;
 use crate::{Error, Result};
 
 pub const FORMAT: &str = "shipyard-folder";
-pub const FORMAT_VERSION: u64 = 1;
+/// Version 2 stores records as Markdown; version 1 used JSON files.
+pub const FORMAT_VERSION: u64 = 2;
 pub const MARKER_FILE: &str = "shipyard.json";
 const META_DIR: &str = ".shipyard";
 const SYNC_QUEUE_FILE: &str = "sync-queue.jsonl";
@@ -154,6 +158,21 @@ impl FileStore {
                     "this folder uses format version {version}; update Shipyard to open it"
                 )));
             }
+            if version < FORMAT_VERSION {
+                // JSON records are not read any more. Refuse rather than
+                // showing the folder as empty and mixing formats in it.
+                if has_json_records(&root) {
+                    return Err(Error::InvalidInput(
+                        "this folder stores records as JSON files (format version 1), which this \
+                         version of Shipyard no longer reads; open or create another folder"
+                            .into(),
+                    ));
+                }
+                let mut meta = meta.as_object().cloned().unwrap_or_default();
+                meta.insert("format".into(), json!(FORMAT));
+                meta.insert("version".into(), json!(FORMAT_VERSION));
+                write_atomic(&marker, &serde_json::to_vec_pretty(&Value::Object(meta))?)?;
+            }
         } else {
             let meta = json!({
                 "format": FORMAT,
@@ -186,7 +205,9 @@ impl FileStore {
     }
 
     fn record_path(&self, table: &str, id: &str) -> PathBuf {
-        self.root.join(table).join(format!("{id}.json"))
+        self.root
+            .join(table)
+            .join(format!("{id}.{}", record_md::EXTENSION))
     }
 
     fn sync_queue_path(&self) -> PathBuf {
@@ -204,10 +225,27 @@ impl FileStore {
             }
         }
 
-        let raw = fs::read(path).ok()?;
-        let value: Value = match serde_json::from_slice(&raw) {
-            Ok(v @ Value::Object(_)) => v,
-            _ => {
+        let bytes = fs::read(path).ok()?;
+        // A file saved in another encoding still loads (odd characters are
+        // replaced) instead of disappearing.
+        let raw = match String::from_utf8(bytes) {
+            Ok(text) => text,
+            Err(error) => {
+                eprintln!(
+                    "shipyard: {} is not UTF-8; reading it lossily",
+                    path.display()
+                );
+                String::from_utf8_lossy(error.as_bytes()).into_owned()
+            }
+        };
+        let table = path
+            .parent()
+            .and_then(Path::file_name)
+            .and_then(|name| name.to_str())
+            .unwrap_or("");
+        let value = match record_md::decode(table, &raw) {
+            Some(value) => value,
+            None => {
                 eprintln!("shipyard: skipping unreadable file {}", path.display());
                 return None;
             }
@@ -234,7 +272,7 @@ impl FileStore {
 
     fn write_record(&self, table: &str, id: &str, record: &Value) -> Result<()> {
         let path = self.record_path(table, id);
-        write_atomic(&path, &serde_json::to_vec_pretty(record)?)?;
+        write_atomic(&path, record_md::encode(table, record)?.as_bytes())?;
         self.cache.lock().unwrap().remove(&path);
         Ok(())
     }
@@ -265,12 +303,12 @@ impl FileStore {
         };
         for entry in entries.flatten() {
             let path = entry.path();
-            let is_json = path.extension().and_then(|e| e.to_str()) == Some("json");
+            let is_record = path.extension().and_then(|e| e.to_str()) == Some(record_md::EXTENSION);
             let hidden = path
                 .file_name()
                 .and_then(|n| n.to_str())
                 .is_none_or(|n| n.starts_with('.'));
-            if !is_json || hidden {
+            if !is_record || hidden {
                 continue;
             }
             if let Some(mut value) = self.read_file(&path) {
@@ -629,7 +667,9 @@ impl FileStore {
             let dir = self.root.join(table);
             if let Ok(entries) = fs::read_dir(&dir) {
                 for entry in entries.flatten() {
-                    if entry.path().extension().and_then(|e| e.to_str()) == Some("json") {
+                    if entry.path().extension().and_then(|e| e.to_str())
+                        == Some(record_md::EXTENSION)
+                    {
                         fs::remove_file(entry.path())?;
                     }
                 }
@@ -642,6 +682,17 @@ impl FileStore {
 }
 
 // ── Helpers ──
+
+/// True when any table folder still holds format-1 JSON records.
+fn has_json_records(root: &Path) -> bool {
+    TABLES.iter().any(|table| {
+        fs::read_dir(root.join(table)).is_ok_and(|entries| {
+            entries
+                .flatten()
+                .any(|entry| entry.path().extension().and_then(|e| e.to_str()) == Some("json"))
+        })
+    })
+}
 
 fn str_field<'a>(value: &'a Value, field: &str) -> &'a str {
     value.get(field).and_then(Value::as_str).unwrap_or("")
@@ -719,7 +770,7 @@ mod tests {
     }
 
     #[test]
-    fn crud_round_trip_uses_plain_json_files() {
+    fn crud_round_trip_uses_markdown_files() {
         let (store, dir) = temp_store();
         let created = store
             .create(
@@ -730,9 +781,12 @@ mod tests {
         assert_eq!(created["tags"][0]["name"], "docs");
         assert!(created["createdAt"].is_number());
 
-        let on_disk: Value =
-            serde_json::from_slice(&fs::read(dir.join("tasks/t1.json")).unwrap()).unwrap();
-        assert_eq!(on_disk["title"], "Write docs");
+        let on_disk = fs::read_to_string(dir.join("tasks/t1.md")).unwrap();
+        assert!(
+            on_disk.starts_with("---\nid: t1\ntitle: Write docs\n"),
+            "{on_disk}"
+        );
+        assert!(on_disk.contains("tags:\n- name: docs\n"), "{on_disk}");
 
         let updated = store
             .update("tasks", "t1", &json!({"title": "Edited"}))
@@ -740,14 +794,16 @@ mod tests {
         assert_eq!(updated["title"], "Edited");
         assert_eq!(updated["columnId"], "c1");
 
-        // Edits made directly to the file are picked up.
-        let mut edited = on_disk.clone();
-        edited["title"] = json!("Changed outside the app, with a longer title");
-        fs::write(dir.join("tasks/t1.json"), edited.to_string()).unwrap();
-        assert_eq!(
-            store.find_by_id("tasks", "t1").unwrap().unwrap()["title"],
-            "Changed outside the app, with a longer title"
-        );
+        // Edits made directly to the file are picked up, notes included.
+        fs::write(
+            dir.join("tasks/t1.md"),
+            "---\ntitle: Changed outside the app\ncolumnId: c1\n---\n\n- [ ] new note\n",
+        )
+        .unwrap();
+        let reread = store.find_by_id("tasks", "t1").unwrap().unwrap();
+        assert_eq!(reread["title"], "Changed outside the app");
+        assert_eq!(reread["notes"], "- [ ] new note");
+        assert_eq!(reread["id"], "t1");
 
         assert!(store
             .create("tasks", &json!({"id": "t1", "title": "dup"}))
@@ -919,6 +975,30 @@ mod tests {
         let pending = store.find_all(SYNC_QUEUE).unwrap();
         assert_eq!(pending.len(), 1);
         assert_eq!(pending[0]["operation"], "UPDATE");
+        fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn json_folders_are_refused_and_empty_old_folders_upgraded() {
+        let dir = std::env::temp_dir().join(format!("shipyard-v1-{}", Uuid::new_v4()));
+        fs::create_dir_all(dir.join("tasks")).unwrap();
+        fs::write(
+            dir.join(MARKER_FILE),
+            r#"{"format":"shipyard-folder","version":1}"#,
+        )
+        .unwrap();
+        fs::write(dir.join("tasks/t1.json"), r#"{"title":"old"}"#).unwrap();
+        let error = FileStore::open(&dir)
+            .err()
+            .expect("JSON folder must be refused");
+        assert!(error.to_string().contains("JSON"), "{error}");
+
+        // Without JSON records the folder is simply upgraded.
+        fs::remove_file(dir.join("tasks/t1.json")).unwrap();
+        FileStore::open(&dir).unwrap();
+        let marker: Value =
+            serde_json::from_str(&fs::read_to_string(dir.join(MARKER_FILE)).unwrap()).unwrap();
+        assert_eq!(marker["version"], FORMAT_VERSION);
         fs::remove_dir_all(dir).ok();
     }
 }

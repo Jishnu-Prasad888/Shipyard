@@ -2,6 +2,7 @@
 //! app and the network server, and the client used to open a folder that is
 //! shared from another machine.
 
+pub mod record_md;
 pub mod remote;
 pub mod server;
 pub mod store;

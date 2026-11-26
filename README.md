@@ -1,6 +1,6 @@
 # Shipyard
 
-Shipyard is a local-first desktop application for project management, Kanban planning, notes, and task tracking. There is no database: you point it at a folder and it reads and writes plain JSON files there. Folders can live anywhere (a USB drive, a synced drive, a network share, a git repo) and can be opened from other computers by IP address. Optional Firebase or self-hosted server synchronization is still available.
+Shipyard is a local-first desktop application for project management, Kanban planning, notes, and task tracking. There is no database: you point it at a folder and it reads and writes plain Markdown files there. Folders can live anywhere (a USB drive, a synced drive, a network share, a git repo) and can be opened from other computers by IP address. Optional Firebase or self-hosted server synchronization is still available.
 
 ## Organization Model
 
@@ -27,7 +27,7 @@ Projects that do not belong to a workspace remain available under **Unassigned P
 - Tags, custom colors, deadlines, statuses, task connections, and subtasks
 - JSON, CSV, and Markdown exports
 - Light and dark themes with a system font picker
-- Folder-based storage: one readable JSON file per record
+- Folder-based storage: one readable Markdown file per record (YAML front matter, notes as the body)
 - Open folders shared from another computer by IP address
 - Portable mode: keep the app and its data together on a USB drive
 - Optional Firebase and server synchronization
@@ -38,7 +38,7 @@ Projects that do not belong to a workspace remain available under **Unassigned P
 - React 18, TypeScript, and Vite
 - Tailwind CSS
 - Redux Toolkit
-- Plain JSON files (no database), shared over HTTP with `tiny_http`
+- Plain Markdown files (no database), shared over HTTP with `tiny_http`
 - Firebase Firestore
 - Optional Go sync server backed by PostgreSQL and Redis
 - Tiptap and dnd-kit
@@ -82,20 +82,44 @@ A folder looks like this:
 ```text
 my-projects/
   shipyard.json          folder marker and format version
-  workspaces/<id>.json
-  projects/<id>.json
-  boards/<id>.json
-  columns/<id>.json
-  tasks/<id>.json
-  subtasks/<id>.json
-  statuses/<id>.json
-  connections/<id>.json
-  tags/<id>.json
+  workspaces/<id>.md
+  projects/<id>.md
+  boards/<id>.md
+  columns/<id>.md
+  tasks/<id>.md
+  subtasks/<id>.md
+  statuses/<id>.md
+  connections/<id>.md
+  tags/<id>.md
   assets/<id>.<ext>      images added to task notes
   .shipyard/             pending sync changes (only used by Firebase/server sync)
 ```
 
-Every record is its own pretty-printed JSON file, written atomically. Files are re-read when they change on disk, so edits made outside the app (or by another computer using the same network share) show up when you next open that view. Copying the folder copies everything; deleting a file deletes that record.
+Every record is its own Markdown file, written atomically. Its fields are in a YAML front-matter block; a task's notes (and a project's or board's description) are the Markdown body, so the folder can be read and edited in any Markdown editor:
+
+```markdown
+---
+id: task-02b2652b6ceb
+title: Fix dashboard charts
+columnId: column-5f3d635d0d65
+deadline: 1794700764759
+status:
+  name: In Review
+  color: '#f59e0b'
+tags:
+- name: Bug
+  color: '#ef4444'
+---
+
+## Context
+
+Customers have been asking for this.
+
+- [ ] Deploy to staging
+- [x] Write spec
+```
+
+Notes use standard Markdown plus `++underline++`, `==highlight==` and `[[wiki links]]`; a coloured highlight or a resized image is written as inline HTML. Folders from Shipyard versions that stored JSON files (format version 1) are not read; Shipyard refuses to open them rather than showing them empty. Files are re-read when they change on disk, so edits made outside the app (or by another computer using the same network share) show up when you next open that view. Copying the folder copies everything; deleting a file deletes that record.
 
 Images pasted, dropped or picked into task notes are saved under `assets/` (PNG, JPEG, GIF, WebP or BMP, up to 20 MB each) and work over a network share too. Firebase and server sync do not copy images yet.
 

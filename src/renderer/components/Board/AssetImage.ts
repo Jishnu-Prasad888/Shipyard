@@ -7,7 +7,30 @@ import { isAssetRef, resolveAssetUrl } from '../../lib/assets'
  * The note HTML keeps the asset reference; only the displayed `<img>` gets a
  * temporary object URL.
  */
+const escapeAttr = (value: string): string =>
+  value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')
+
 export const AssetImage = Image.extend({
+  /** `![alt](src)`, or an `<img>` tag when the image was resized. */
+  renderMarkdown(node: any) {
+    const { src, alt, title, width, height } = node.attrs || {}
+    if (!width && !height) {
+      const label = String(alt || '').replace(/[[\]]/g, '')
+      const ref = String(src || '').replace(/ /g, '%20')
+      return title
+        ? `![${label}](${ref} "${String(title).replace(/"/g, '\\"')}")`
+        : `![${label}](${ref})`
+    }
+    const attrs = [
+      `src="${escapeAttr(String(src || ''))}"`,
+      alt ? `alt="${escapeAttr(String(alt))}"` : '',
+      title ? `title="${escapeAttr(String(title))}"` : '',
+      width ? `width="${Math.round(Number(width))}"` : '',
+      height ? `height="${Math.round(Number(height))}"` : ''
+    ].filter(Boolean)
+    return `<img ${attrs.join(' ')}>`
+  },
+
   addNodeView() {
     const parent = this.parent?.()
     if (!parent) return null

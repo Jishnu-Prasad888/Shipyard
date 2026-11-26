@@ -49,3 +49,4 @@ latest.json
 
 # Generated test data
 data_test/
+__pycache__/

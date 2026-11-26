@@ -1,14 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { useEditor, EditorContent, Extension, Mark } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
-import Placeholder from '@tiptap/extension-placeholder'
-import Link from '@tiptap/extension-link'
-import TaskList from '@tiptap/extension-task-list'
-import TaskItem from '@tiptap/extension-task-item'
-import Underline from '@tiptap/extension-underline'
-import Highlight from '@tiptap/extension-highlight'
-import Typography from '@tiptap/extension-typography'
-import { InputRule } from '@tiptap/core'
+import { useEditor, EditorContent } from '@tiptap/react'
+import { createNoteExtensions } from './noteExtensions'
 import {
   Bold,
   Italic,
@@ -32,10 +24,8 @@ import {
   RotateCw,
   ImagePlus
 } from 'lucide-react'
-import { Plugin, PluginKey } from '@tiptap/pm/state'
 import type { EditorView } from '@tiptap/pm/view'
 import { Fragment, Slice } from '@tiptap/pm/model'
-import { AssetImage } from './AssetImage'
 import { isSupportedImage, uploadImage } from '../../lib/assets'
 
 const notify = (message: string): void => {
@@ -81,80 +71,6 @@ const isImageOnlyPaste = (data: DataTransfer | null): boolean =>
 
 const imageFilesFrom = (list: FileList | null | undefined): File[] =>
   Array.from(list || []).filter((file) => isSupportedImage(file))
-
-// ── WikiLink Extension (click handler via ProseMirror plugin) ────────
-const WikiLinkExtension = Extension.create({
-  name: 'wikiLinkExtension',
-  addProseMirrorPlugins() {
-    return [
-      new Plugin({
-        key: new PluginKey('wikiLinkClick'),
-        props: {
-          handleClick(_view, _pos, event) {
-            const target = event.target as HTMLElement
-            if (target?.classList.contains('wiki-link')) {
-              const text = target.getAttribute('data-target') || ''
-              _view.dom.dispatchEvent(
-                new CustomEvent('wikiLinkClick', { detail: text, bubbles: true })
-              )
-              return true
-            }
-            return false
-          }
-        }
-      })
-    ]
-  }
-})
-
-// ── WikiLink Mark (renders [[text]] → styled span) ───────────────────
-const WikiLinkMark = Mark.create({
-  name: 'wikiLinkMark',
-  spanning: false,
-  inclusive: false,
-
-  addAttributes() {
-    return {
-      href: { default: '' }
-    }
-  },
-
-  parseHTML() {
-    return [{ tag: 'span[data-wiki-link]' }]
-  },
-
-  renderHTML({ HTMLAttributes }) {
-    return [
-      'span',
-      {
-        ...HTMLAttributes,
-        'data-wiki-link': HTMLAttributes.href,
-        'data-target': HTMLAttributes.href,
-        class: 'wiki-link'
-      },
-      0
-    ]
-  },
-
-  addInputRules() {
-    return [
-      new InputRule({
-        find: /\[\[([^\]]+)\]\]$/,
-        handler: ({ state, range, match }) => {
-          const { tr } = state
-          const linkText = match[1]
-          tr.replaceWith(
-            range.from,
-            range.to,
-            state.schema.text(linkText, [
-              state.schema.marks.wikiLinkMark.create({ href: linkText })
-            ])
-          )
-        }
-      })
-    ]
-  }
-})
 
 // ── Toolbar Button ───────────────────────────────────────────────────
 const ToolBtn = ({
@@ -224,30 +140,12 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   const [linkUrl, setLinkUrl] = useState('')
   const [linkText, setLinkText] = useState('')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  // The last Markdown this editor reported through onChange.
+  const lastEmittedRef = useRef<string | null>(null)
 
   const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        heading: { levels: [1, 2, 3] },
-        link: false,
-        underline: false
-      }),
-      Placeholder.configure({ placeholder }),
-      Link.configure({
-        openOnClick: false,
-        HTMLAttributes: { class: 'md-link', rel: 'noopener noreferrer', target: '_blank' },
-        autolink: true,
-        linkOnPaste: true
-      }),
-      TaskList,
-      TaskItem.configure({ nested: true }),
-      Underline,
-      Highlight.configure({ multicolor: true }),
-      Typography,
-      WikiLinkMark,
-      WikiLinkExtension,
-      AssetImage
-    ],
+    extensions: createNoteExtensions({ placeholder }),
+    contentType: 'markdown',
     content: value || '',
     editable: true,
     editorProps: {
@@ -279,7 +177,9 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       }
     },
     onUpdate: ({ editor: e }) => {
-      onChange(e.getHTML())
+      const markdown = e.getMarkdown()
+      lastEmittedRef.current = markdown
+      onChange(markdown)
     }
   })
 
@@ -290,8 +190,12 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
 
   // Sync external value (e.g. initial load from DB)
   useEffect(() => {
-    if (editor && value !== editor.getHTML()) {
-      editor.commands.setContent(value || '', { emitUpdate: false })
+    // Only replace the document for a value the editor didn't produce itself
+    // (e.g. a different task). Comparing with getMarkdown() would also fire
+    // for saved text that was merely normalized, resetting the cursor.
+    if (editor && value !== lastEmittedRef.current && value !== editor.getMarkdown()) {
+      lastEmittedRef.current = value
+      editor.commands.setContent(value || '', { emitUpdate: false, contentType: 'markdown' })
     }
   }, [value, editor])
 
