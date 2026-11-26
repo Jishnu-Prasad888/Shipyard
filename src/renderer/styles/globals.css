@@ -80,70 +80,115 @@
   --shadow-brutal-cyan: 0 4px 16px rgba(95, 182, 255, 0.3);
 }
 
+/* Tokens for effects and notes; light themes keep the original look. */
+:root {
+  --color-on-primary: #ffffff;
+  --btn-primary-top: var(--color-secondary);
+  --glow-rgb: 95 182 255;
+  --glow-2-rgb: 45 123 199;
+  --shade-rgb: 11 37 69;
+  --sheen: 1;
+  --text-shadow-strength: 1;
+  --note-h1: var(--color-text);
+  --note-h2: var(--color-text);
+  --note-h3: var(--color-primary);
+  --note-link: var(--color-cyan);
+  --note-link-hover: var(--color-primary);
+  --note-bullet: currentColor;
+  --note-code: var(--color-primary);
+  --note-code-bg: var(--color-primary-soft);
+  --note-pre-bg: var(--color-border-strong);
+  --note-pre-text: #e2e8f0;
+}
+
 /* ======================
    DARK AERO THEME
  ====================== */
 
 .dark {
-  /* ── Dark application palette ── */
-  --color-background: #050d1a;
-  --color-surface: #0d1f33;
-  --color-surface-2: #122946;
-  --color-surface-3: #163255;
+  /* ── Forest dark palette ──
+     Deep green surfaces, forest-green accent with dark text on it, warm
+     orange/amber and cyan highlights. */
+  --color-background: #071b10;
+  --color-surface: #0e2518;
+  --color-surface-2: #193023;
+  --color-surface-3: #243a2d;
 
-  --color-sidebar: #041223;
-  --color-header: #0a2039;
+  --color-sidebar: #07190f;
+  --color-header: #0b2115;
 
-  --color-sidebar-foreground: rgba(229, 242, 255, 0.92);
-  --color-sidebar-foreground-muted: rgba(143, 181, 214, 0.86);
-  --color-sidebar-section: rgba(229, 242, 255, 0.82);
-  --color-sidebar-divider: rgba(255, 255, 255, 0.16);
-  --color-sidebar-tile: rgba(255, 255, 255, 0.08);
-  --color-sidebar-hover-bg: rgba(75, 183, 255, 0.22);
-  --color-sidebar-hover-border: var(--color-border-strong);
-  --color-sidebar-hover-text: #f8fbff;
+  --color-sidebar-foreground: #dce6df;
+  --color-sidebar-foreground-muted: #a2b7aa;
+  --color-sidebar-section: #b7cabe;
+  --color-sidebar-divider: rgba(220, 230, 223, 0.12);
+  --color-sidebar-tile: rgba(143, 188, 143, 0.07);
+  --color-sidebar-hover-bg: rgba(68, 162, 110, 0.18);
+  --color-sidebar-hover-border: #596f61;
+  --color-sidebar-hover-text: #eef3f0;
   --color-sidebar-active-bg: var(--color-primary);
-  --color-sidebar-active-border: var(--color-secondary);
-  --color-sidebar-active-text: #0b1624;
+  --color-sidebar-active-border: #5bb882;
+  --color-sidebar-active-text: #0a1a10;
 
-  --color-header-foreground: #e5f2ff;
-  --color-header-muted: #8fb5d6;
-  --color-header-button-bg: rgba(75, 183, 255, 0.16);
-  --color-header-button-border: #8bd5ff;
+  --color-header-foreground: #eef3f0;
+  --color-header-muted: #a2b7aa;
+  --color-header-button-bg: rgba(143, 188, 143, 0.1);
+  --color-header-button-border: #596f61;
 
-  --color-border: #1f4f7a;
-  --color-border-strong: #5fb6ff;
+  --color-border: #32473a;
+  --color-border-strong: #596f61;
 
-  --color-text: #e5f2ff;
-  --color-muted: #8fb5d6;
+  --color-text: #dce6df;
+  --color-muted: #8ea596;
 
-  --color-primary: #4bb7ff;
-  --color-primary-soft: rgba(75, 183, 255, 0.16);
-  --color-primary-hover: #8bd5ff;
+  /* hsl(147 41% 45%) */
+  --color-primary: #44a26e;
+  --color-primary-soft: rgba(68, 162, 110, 0.18);
+  --color-primary-hover: #5bb882;
+  --color-on-primary: #0a1a10;
+  --btn-primary-top: #5bb882;
 
-  --color-secondary: #60f0e0;
-  --color-accent: #2aa789;
+  --color-secondary: #4ecdc4;
+  --color-accent: #8fbc8f;
 
-  --color-status-info: #4bb7ff;
-  --color-status-in-progress: #5fb6ff;
-  --color-status-blocked: #e7a188;
-  --color-status-done: #35c6a9;
+  --color-status-info: #66d9ef;
+  --color-status-in-progress: #ffb74d;
+  --color-status-blocked: #c78a7a;
+  --color-status-done: #8fbc8f;
 
-  --color-warning: #e7a188;
-  --color-alert: #f06b75;
+  --color-warning: #f39c12;
+  --color-alert: #c78a7a;
 
-  --color-cyan: #60f0e0;
-  --color-indigo: #4bb7ff;
-  --color-violet: #2d7bc7;
+  --color-cyan: #4ecdc4;
+  --color-indigo: #6b8fa3;
+  --color-violet: #b682d0;
 
-  --shadow-control: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 1px 3px rgba(0, 0, 0, 0.5);
-  --shadow-panel: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 14px rgba(0, 0, 0, 0.45);
+  /* Glows, shadows and glossy highlights used by the Aero controls. */
+  --glow-rgb: 68 162 110;
+  --glow-2-rgb: 68 162 110;
+  --shade-rgb: 0 6 3;
+  --sheen: 0.35;
+  --text-shadow-strength: 0;
+
+  /* Notes */
+  --note-h1: #f39c12;
+  --note-h2: #ffb74d;
+  --note-h3: #4ecdc4;
+  --note-link: #66d9ef;
+  --note-link-hover: #8fe3f5;
+  --note-bullet: #f39c12;
+  --note-code: #4ecdc4;
+  --note-code-bg: rgba(78, 205, 196, 0.08);
+  --note-pre-bg: #07190f;
+  --note-pre-text: #dce6df;
+
+  --shadow-control: inset 0 1px 0 rgba(220, 230, 223, 0.06), 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-panel: inset 0 1px 0 rgba(220, 230, 223, 0.04), 0 4px 14px rgba(0, 0, 0, 0.45);
   --shadow-window: 0 16px 42px rgba(0, 0, 0, 0.7), 0 2px 10px rgba(0, 0, 0, 0.55);
   --shadow-brutal: var(--shadow-panel);
   --shadow-brutal-sm: var(--shadow-control);
   --shadow-brutal-lg: var(--shadow-window);
-  --shadow-brutal-blue: 0 4px 18px rgba(75, 183, 255, 0.32);
-  --shadow-brutal-cyan: 0 4px 18px rgba(96, 240, 224, 0.28);
+  --shadow-brutal-blue: 0 4px 18px rgba(68, 162, 110, 0.3);
+  --shadow-brutal-cyan: 0 4px 18px rgba(78, 205, 196, 0.24);
 }
 
 /* ======================
@@ -298,7 +343,7 @@
     font-family: var(--font-ui, 'Segoe UI', Tahoma, 'Poppins', system-ui, sans-serif);
     color: var(--color-text);
     background:
-      radial-gradient(circle at 72% 12%, rgba(95, 182, 255, 0.16), transparent 34rem),
+      radial-gradient(circle at 72% 12%, rgb(var(--glow-rgb) / 0.16), transparent 34rem),
       var(--color-background);
   }
 
@@ -309,14 +354,14 @@
   ::-webkit-scrollbar-track {
     background: var(--color-surface-2);
     border: 1px solid var(--color-border);
-    box-shadow: inset 0 0 3px rgba(11, 37, 69, 0.2);
+    box-shadow: inset 0 0 3px rgb(var(--shade-rgb) / 0.2);
   }
 
   ::-webkit-scrollbar-thumb {
     background: linear-gradient(90deg, var(--color-primary-hover), var(--color-primary));
     border: 1px solid var(--color-border-strong);
     border-radius: 8px;
-    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / calc(0.28 * var(--sheen)));
   }
 
   ::-webkit-scrollbar-thumb:hover {
@@ -335,15 +380,15 @@
     color: var(--color-sidebar-foreground);
     background: transparent;
     border-radius: 3px;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+    text-shadow: 0 1px 1px rgb(0 0 0 / calc(0.5 * var(--text-shadow-strength)));
   }
 
   .nav-item:hover {
-    background: linear-gradient(180deg, rgba(95, 182, 255, 0.34), rgba(45, 123, 199, 0.2));
+    background: linear-gradient(180deg, rgb(var(--glow-rgb) / 0.34), rgb(var(--glow-2-rgb) / 0.2));
     border-color: var(--color-sidebar-hover-border);
     color: var(--color-sidebar-hover-text);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.24),
+      inset 0 1px 0 rgb(255 255 255 / calc(0.24 * var(--sheen))),
       0 1px 2px rgba(0, 0, 0, 0.25);
   }
 
@@ -357,7 +402,7 @@
     border-color: var(--color-sidebar-active-border);
     color: var(--color-sidebar-active-text);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.48),
+      inset 0 1px 0 rgb(255 255 255 / calc(0.48 * var(--sheen))),
       0 0 0 1px var(--color-border-strong),
       0 2px 5px rgba(0, 0, 0, 0.3);
   }
@@ -389,14 +434,14 @@
   .card:hover {
     border-color: var(--color-primary);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.85),
-      0 0 0 1px rgba(95, 182, 255, 0.28),
-      0 4px 10px rgba(11, 37, 69, 0.22);
+      inset 0 1px 0 rgb(255 255 255 / calc(0.85 * var(--sheen))),
+      0 0 0 1px rgb(var(--glow-rgb) / 0.28),
+      0 4px 10px rgb(var(--shade-rgb) / 0.22);
   }
 
   .card:active {
     background: var(--color-primary-soft);
-    box-shadow: inset 0 1px 3px rgba(11, 37, 69, 0.24);
+    box-shadow: inset 0 1px 3px rgb(var(--shade-rgb) / 0.24);
   }
 
   /* ===== Windows-style buttons ===== */
@@ -404,31 +449,31 @@
     @apply flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold transition-all duration-150 border;
     background: linear-gradient(
       180deg,
-      var(--color-secondary),
+      var(--btn-primary-top),
       var(--color-primary) 48%,
       var(--color-primary-hover)
     );
     border-color: var(--color-border-strong);
-    color: white;
+    color: var(--color-on-primary);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.58),
+      inset 0 1px 0 rgb(255 255 255 / calc(0.58 * var(--sheen))),
       inset 0 -1px 0 rgba(0, 0, 0, 0.12),
-      0 1px 2px rgba(11, 37, 69, 0.3);
+      0 1px 2px rgb(var(--shade-rgb) / 0.3);
     border-radius: 3px;
-    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.42);
+    text-shadow: 0 1px 1px rgb(0 0 0 / calc(0.42 * var(--text-shadow-strength)));
   }
 
   .btn-primary:hover {
     filter: brightness(1.08);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.7),
-      0 0 0 1px rgba(95, 182, 255, 0.35),
-      0 2px 5px rgba(11, 37, 69, 0.32);
+      inset 0 1px 0 rgb(255 255 255 / calc(0.7 * var(--sheen))),
+      0 0 0 1px rgb(var(--glow-rgb) / 0.35),
+      0 2px 5px rgb(var(--shade-rgb) / 0.32);
   }
 
   .btn-primary:active {
     filter: brightness(0.94);
-    box-shadow: inset 0 2px 4px rgba(4, 18, 35, 0.34);
+    box-shadow: inset 0 2px 4px rgb(var(--shade-rgb) / 0.34);
   }
 
   .btn-secondary {
@@ -444,12 +489,12 @@
     background: linear-gradient(180deg, var(--color-primary-soft), var(--color-surface-2));
     border-color: var(--color-primary);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.85),
-      0 0 4px rgba(95, 182, 255, 0.4);
+      inset 0 1px 0 rgb(255 255 255 / calc(0.85 * var(--sheen))),
+      0 0 4px rgb(var(--glow-rgb) / 0.4);
   }
 
   .btn-secondary:active {
-    box-shadow: inset 0 2px 4px rgba(11, 37, 69, 0.2);
+    box-shadow: inset 0 2px 4px rgb(var(--shade-rgb) / 0.2);
   }
 
   /* ===== Surface / Panel ===== */
@@ -473,7 +518,7 @@
     color: var(--color-primary);
     border-color: var(--color-primary);
     border-radius: 3px;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / calc(0.55 * var(--sheen)));
   }
 
   /* ===== Metadata ===== */
@@ -485,8 +530,8 @@
   /* ===== Aero highlight bar ===== */
   .brutal-accent {
     @apply h-px w-full;
-    background: rgba(255, 255, 255, 0.42);
-    box-shadow: 0 1px 0 rgba(11, 37, 69, 0.55);
+    background: rgb(255 255 255 / calc(0.42 * var(--sheen)));
+    box-shadow: 0 1px 0 rgb(var(--shade-rgb) / 0.55);
   }
 
   /* ===== Context Menu ===== */
@@ -510,7 +555,7 @@
   }
 
   .context-menu-item:hover {
-    background: linear-gradient(180deg, rgba(95, 182, 255, 0.28), var(--color-primary-soft));
+    background: linear-gradient(180deg, rgb(var(--glow-rgb) / 0.28), var(--color-primary-soft));
     border-color: var(--color-primary);
     color: var(--color-text);
   }
@@ -527,29 +572,29 @@
   /* ===== Shared Aero frames ===== */
   .aero-shell {
     background:
-      radial-gradient(circle at 75% 0%, rgba(95, 182, 255, 0.2), transparent 34rem),
+      radial-gradient(circle at 75% 0%, rgb(var(--glow-rgb) / 0.2), transparent 34rem),
       var(--color-background);
   }
 
   .aero-toolbar {
     background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.18), transparent 48%),
+      linear-gradient(180deg, rgb(255 255 255 / calc(0.18 * var(--sheen))), transparent 48%),
       linear-gradient(180deg, var(--color-header), var(--color-sidebar)) !important;
     border-color: var(--color-border-strong) !important;
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.22),
-      0 2px 7px rgba(4, 18, 35, 0.34) !important;
+      inset 0 1px 0 rgb(255 255 255 / calc(0.22 * var(--sheen))),
+      0 2px 7px rgb(var(--shade-rgb) / 0.34) !important;
   }
 
   .aero-sidebar {
     background:
-      linear-gradient(90deg, rgba(255, 255, 255, 0.04), transparent 45%),
+      linear-gradient(90deg, rgb(255 255 255 / calc(0.04 * var(--sheen))), transparent 45%),
       linear-gradient(180deg, var(--color-sidebar), var(--color-header)) !important;
     border-width: 0 1px 0 0 !important;
-    border-color: rgba(255, 255, 255, 0.2) !important;
+    border-color: rgb(255 255 255 / calc(0.2 * var(--sheen))) !important;
     box-shadow:
       inset -1px 0 0 rgba(0, 0, 0, 0.35),
-      2px 0 8px rgba(4, 18, 35, 0.24) !important;
+      2px 0 8px rgb(var(--shade-rgb) / 0.24) !important;
   }
 
   .aero-panel {
@@ -575,8 +620,8 @@
     background:
       linear-gradient(
         180deg,
-        rgba(255, 255, 255, 0.42),
-        rgba(255, 255, 255, 0.08) 48%,
+        rgb(255 255 255 / calc(0.42 * var(--sheen))),
+        rgb(255 255 255 / calc(0.08 * var(--sheen))) 48%,
         rgba(0, 0, 0, 0.08) 52%
       ),
       linear-gradient(
@@ -587,35 +632,35 @@
       ) !important;
     border-width: 0 0 1px !important;
     border-color: var(--color-border-strong) !important;
-    color: white;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.62);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+    color: var(--color-on-primary);
+    text-shadow: 0 1px 2px rgb(0 0 0 / calc(0.62 * var(--text-shadow-strength)));
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / calc(0.5 * var(--sheen)));
   }
 
   .aero-section-title {
     background: linear-gradient(180deg, var(--color-surface), var(--color-surface-3));
     border: 1px solid var(--color-border);
     border-radius: 3px 3px 0 0;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / calc(0.7 * var(--sheen)));
   }
 
   .aero-icon-button {
-    border: 1px solid rgba(255, 255, 255, 0.45) !important;
+    border: 1px solid rgb(255 255 255 / calc(0.45 * var(--sheen))) !important;
     border-radius: 3px;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.04));
+    background: linear-gradient(180deg, rgb(255 255 255 / calc(0.18 * var(--sheen))), rgb(255 255 255 / calc(0.04 * var(--sheen))));
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      inset 0 1px 0 rgb(255 255 255 / calc(0.22 * var(--sheen))),
       0 1px 2px rgba(0, 0, 0, 0.3);
   }
 
   .aero-icon-button:hover {
-    background: linear-gradient(180deg, rgba(95, 182, 255, 0.52), rgba(45, 123, 199, 0.3));
-    border-color: rgba(255, 255, 255, 0.75) !important;
+    background: linear-gradient(180deg, rgb(var(--glow-rgb) / 0.52), rgb(var(--glow-2-rgb) / 0.3));
+    border-color: rgb(255 255 255 / calc(0.75 * var(--sheen))) !important;
   }
 
   .aero-titlebar .aero-icon-button:last-child:hover {
     background: linear-gradient(180deg, #f06b75, var(--color-alert));
-    border-color: rgba(255, 255, 255, 0.8) !important;
+    border-color: rgb(255 255 255 / calc(0.8 * var(--sheen))) !important;
   }
 
   .aero-input {
@@ -623,15 +668,15 @@
     border-radius: 2px !important;
     background: var(--color-surface) !important;
     box-shadow:
-      inset 0 1px 3px rgba(11, 37, 69, 0.18),
-      0 1px 0 rgba(255, 255, 255, 0.7) !important;
+      inset 0 1px 3px rgb(var(--shade-rgb) / 0.18),
+      0 1px 0 rgb(255 255 255 / calc(0.7 * var(--sheen))) !important;
   }
 
   .aero-input:focus {
     border-color: var(--color-primary) !important;
     box-shadow:
-      inset 0 1px 2px rgba(11, 37, 69, 0.14),
-      0 0 4px rgba(95, 182, 255, 0.75) !important;
+      inset 0 1px 2px rgb(var(--shade-rgb) / 0.14),
+      0 0 4px rgb(var(--glow-rgb) / 0.75) !important;
   }
 }
 
@@ -668,7 +713,7 @@
 .win7-theme textarea,
 .win7-theme select {
   border-radius: 2px;
-  box-shadow: inset 0 1px 3px rgba(11, 37, 69, 0.16);
+  box-shadow: inset 0 1px 3px rgb(var(--shade-rgb) / 0.16);
 }
 
 /* ======================
@@ -754,7 +799,7 @@
   border-bottom: 3px solid var(--color-primary);
   padding-bottom: 0.25rem;
   margin: 1.2rem 0 0.6rem;
-  color: var(--color-text);
+  color: var(--note-h1);
 }
 
 .obsidian-content .ProseMirror h2 {
@@ -765,7 +810,7 @@
   border-left: 4px solid var(--color-primary);
   padding-left: 0.6rem;
   margin: 1rem 0 0.5rem;
-  color: var(--color-text);
+  color: var(--note-h2);
 }
 
 .obsidian-content .ProseMirror h3 {
@@ -773,7 +818,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--color-primary);
+  color: var(--note-h3);
   margin: 0.8rem 0 0.4rem;
 }
 
@@ -813,17 +858,17 @@
 .obsidian-content .ProseMirror code {
   font-family: 'Courier New', monospace;
   font-size: 0.8em;
-  background: var(--color-primary-soft);
-  color: var(--color-primary);
+  background: var(--note-code-bg);
+  color: var(--note-code);
   padding: 1px 5px;
-  border: 1px solid var(--color-primary);
+  border: 1px solid var(--note-code);
   border-radius: 0;
 }
 
 /* ── Code Block ── */
 .obsidian-content .ProseMirror pre {
-  background: var(--color-border-strong);
-  color: #e2e8f0;
+  background: var(--note-pre-bg);
+  color: var(--note-pre-text);
   padding: 1rem;
   margin: 0.75rem 0;
   overflow-x: auto;
@@ -925,7 +970,7 @@
 .obsidian-content .ProseMirror ul[data-type='taskList'] input[type='checkbox']:checked::after {
   content: '✓';
   position: absolute;
-  color: white;
+  color: var(--color-on-primary);
   font-size: 0.65rem;
   font-weight: 900;
   top: -1px;
@@ -952,22 +997,22 @@
 .obsidian-content .ProseMirror .wiki-link:hover,
 .obsidian-content .wiki-link:hover {
   background: var(--color-primary);
-  color: white;
+  color: var(--color-on-primary);
 }
 
 /* ── External Links ── */
 .obsidian-content .ProseMirror a.md-link,
 .obsidian-content .ProseMirror a {
-  color: var(--color-cyan);
+  color: var(--note-link);
   text-decoration: underline;
-  text-decoration-color: var(--color-cyan);
+  text-decoration-color: var(--note-link);
   text-underline-offset: 2px;
   font-weight: 600;
   transition: color 0.1s;
 }
 
 .obsidian-content .ProseMirror a:hover {
-  color: var(--color-primary);
+  color: var(--note-link-hover);
 }
 
 /* ── Selection ── */
@@ -1139,6 +1184,12 @@
   --chart-finished: #1baf7a;
 }
 .dark {
-  --chart-created: #3987e5;
-  --chart-finished: #199e70;
+  --chart-created: #38a9c4;
+  --chart-finished: #d98a12;
+}
+
+/* List bullets in notes */
+.obsidian-content .ProseMirror ul:not([data-type='taskList']) > li::marker,
+.obsidian-content .ProseMirror ol > li::marker {
+  color: var(--note-bullet);
 }

@@ -591,7 +591,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={(event) => event.stopPropagation()}
         >
           <div
-            className="px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white border-b"
+            className="px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-on-primary)] border-b"
             style={{
               background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
               borderColor: 'var(--color-border-strong)'
@@ -756,10 +756,11 @@ const NavButton = ({
 }) => (
   <button
     onClick={onClick}
-    className="nav-item w-full flex items-center gap-2 px-3 py-2 mt-2 text-xs text-white"
+    className="nav-item w-full flex items-center gap-2 px-3 py-2 mt-2 text-xs"
     style={{
       borderColor: active ? 'var(--color-primary)' : 'rgba(255,255,255,0.18)',
-      background: active ? 'var(--color-primary)' : 'rgba(255,255,255,0.06)'
+      background: active ? 'var(--color-primary)' : 'rgba(255,255,255,0.06)',
+      color: active ? 'var(--color-on-primary)' : 'white'
     }}
   >
     {icon}

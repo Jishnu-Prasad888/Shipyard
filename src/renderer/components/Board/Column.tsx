@@ -630,7 +630,7 @@ export const Column: React.FC<ColumnProps> = ({
           onClick={(e) => e.stopPropagation()}
         >
           <div
-            className="px-4 py-2 text-xs font-black uppercase tracking-widest text-white border-b-2"
+            className="px-4 py-2 text-xs font-black uppercase tracking-widest text-[var(--color-on-primary)] border-b-2"
             style={{
               background: 'var(--color-primary)',
               borderColor: 'var(--color-border-strong)'
