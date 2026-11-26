@@ -1,5 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import ReactGridLayout, { useContainerWidth, type Layout } from 'react-grid-layout'
+import ReactGridLayout, {
+  useContainerWidth,
+  verticalCompactor,
+  type Layout
+} from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
 import { useDispatch, useSelector } from 'react-redux'
@@ -329,9 +333,10 @@ const WidgetCard: React.FC<{
   editing: boolean
   /** Whether the grid lets it be dragged and resized. */
   movable: boolean
+  onNudge: (key: string, resize: boolean) => void
   onChange: (widget: WidgetConfig) => void
   onRemove: () => void
-}> = ({ widget, data, overview, now, editing, movable, onChange, onRemove }) => {
+}> = ({ widget, data, overview, now, editing, movable, onNudge, onChange, onRemove }) => {
   const [configuring, setConfiguring] = useState(false)
   const title = widget.title || widgetKindInfo(widget.kind).label
 
@@ -352,13 +357,29 @@ const WidgetCard: React.FC<{
         style={{ borderColor: 'var(--color-border)', touchAction: movable ? 'none' : undefined }}
         title={movable ? 'Drag to move' : undefined}
       >
-        {movable && (
-          <GripVertical
-            className="w-4 h-4 shrink-0"
-            style={{ color: 'var(--color-muted)' }}
-            aria-hidden
-          />
-        )}
+        {movable &&
+          (editing ? (
+            <button
+              type="button"
+              className="p-0.5 rounded shrink-0 cursor-grab"
+              style={{ color: 'var(--color-muted)' }}
+              aria-label={`Move ${title}. Arrow keys move it, Shift and arrow keys resize it.`}
+              title="Drag the header to move. Keyboard: arrows move, Shift+arrows resize."
+              onKeyDown={(event) => {
+                if (!event.key.startsWith('Arrow')) return
+                event.preventDefault()
+                onNudge(event.key, event.shiftKey)
+              }}
+            >
+              <GripVertical className="w-4 h-4" aria-hidden />
+            </button>
+          ) : (
+            <GripVertical
+              className="w-4 h-4 shrink-0"
+              style={{ color: 'var(--color-muted)' }}
+              aria-hidden
+            />
+          ))}
         <h3
           className="text-xs font-black uppercase tracking-wider truncate"
           style={{ color: 'var(--color-text)' }}
@@ -499,7 +520,7 @@ export const Dashboard: React.FC<{ dataVersion: number; overview: OverviewFilter
   // Settings load after the first render (and can change elsewhere): adopt a
   // stored layout that isn't the one this window saved.
   useEffect(() => {
-    if (!storedLayout) return
+    if (!storedLayout || dirtyRef.current) return
     const text = JSON.stringify(storedLayout)
     if (text === savedRef.current) return
     savedRef.current = text
@@ -508,19 +529,27 @@ export const Dashboard: React.FC<{ dataVersion: number; overview: OverviewFilter
   }, [storedLayout])
 
   // One-time move of a layout kept in browser storage into the settings.
+  // It runs in the save queue (so it can't overwrite a newer save) and
+  // also updates the store, so whole-settings saves elsewhere keep it.
   useEffect(() => {
     const legacy = loadLegacyLayout()
     if (!legacy) return
-    void (async () => {
-      const current = ((await window.electron.settings.get()) || {}) as Partial<Settings>
-      if (!current.dashboardLayout) await persistLayout(legacy)
-      try {
-        localStorage.removeItem(LEGACY_LAYOUT_KEY)
-      } catch {
-        // ignore
-      }
-    })()
-  }, [])
+    saveChain = saveChain
+      .catch(() => undefined)
+      .then(async () => {
+        const current = ((await window.electron.settings.get()) || {}) as Partial<Settings>
+        if (!current.dashboardLayout) {
+          await window.electron.settings.save({ ...current, dashboardLayout: legacy })
+          dispatch(setSettings({ dashboardLayout: legacy } as Settings))
+        }
+        try {
+          localStorage.removeItem(LEGACY_LAYOUT_KEY)
+        } catch {
+          // ignore
+        }
+      })
+      .catch((error) => console.error('Could not move the dashboard layout', error))
+  }, [dispatch])
 
   // Save changes made here (debounced: resizing reports many small steps).
   useEffect(() => {
@@ -589,6 +618,38 @@ export const Dashboard: React.FC<{ dataVersion: number; overview: OverviewFilter
     )
   }
 
+  const saveGridPositions = (items: Layout) => {
+    const next = applyPositions(layout, items)
+    if (next !== layout) updateLayout(next)
+  }
+
+  /**
+   * Keyboard arranging: arrows swap a widget with its neighbour in reading
+   * order (left/up = earlier); with Shift they resize it.
+   */
+  const nudgeWidget = (id: string, key: string, resize: boolean) => {
+    const items = placeWidgets(layout).map((item) => ({ ...item }))
+    const item = items.find((candidate) => candidate.i === id)
+    if (!item) return
+    if (resize) {
+      if (key === 'ArrowRight') item.w = Math.min(GRID_COLS - item.x, item.w + 1)
+      if (key === 'ArrowLeft') item.w = Math.max(MIN_WIDGET_W, item.w - 1)
+      if (key === 'ArrowDown') item.h = Math.min(MAX_WIDGET_H, item.h + 1)
+      if (key === 'ArrowUp') item.h = Math.max(MIN_WIDGET_H, item.h - 1)
+    } else {
+      const order = [...items].sort((a, b) => a.y - b.y || a.x - b.x)
+      const index = order.indexOf(item)
+      const other = order[key === 'ArrowLeft' || key === 'ArrowUp' ? index - 1 : index + 1]
+      if (!other) return
+      const [x, y] = [item.x, item.y]
+      item.x = Math.min(other.x, GRID_COLS - item.w)
+      item.y = other.y
+      other.x = Math.min(x, GRID_COLS - other.w)
+      other.y = y
+    }
+    updateLayout(applyPositions(layout, verticalCompactor.compact(items, GRID_COLS)))
+  }
+
   const renderWidget = (widget: WidgetConfig, movable: boolean) => (
     <WidgetCard
       widget={widget}
@@ -597,6 +658,7 @@ export const Dashboard: React.FC<{ dataVersion: number; overview: OverviewFilter
       now={now}
       editing={editing}
       movable={movable}
+      onNudge={(key, resize) => nudgeWidget(widget.id, key, resize)}
       onChange={(next) =>
         updateLayout((current) =>
           current.map((candidate) => (candidate.id === next.id ? next : candidate))
@@ -748,14 +810,15 @@ export const Dashboard: React.FC<{ dataVersion: number; overview: OverviewFilter
                 }}
                 dragConfig={{
                   enabled: true,
+                  threshold: 6,
                   handle: '.widget-drag-handle',
                   cancel: 'button, input, select, textarea, a'
                 }}
                 resizeConfig={{ enabled: true, handles: ['se'] }}
-                onLayoutChange={(items) => {
-                  const next = applyPositions(layout, items)
-                  if (next !== layout) updateLayout(next)
-                }}
+                // Only moves and resizes the user makes are saved, not the
+                // positions the grid works out when it mounts.
+                onDragStop={saveGridPositions}
+                onResizeStop={saveGridPositions}
               >
                 {layout.map((widget) => (
                   <div key={widget.id}>{renderWidget(widget, true)}</div>
