@@ -105,14 +105,6 @@ export const Task: React.FC<TaskProps> = ({
         }}
         aria-label={`Open task ${task.title}`}
       >
-        {/* Top accent line */}
-        {task.color && (
-          <div
-            className="absolute top-0 left-0 right-0 h-0.5"
-            style={{ background: `linear-gradient(90deg, ${taskColor}, transparent)` }}
-          />
-        )}
-
         {/* Status badge */}
         {showStatus && (
           <div className="mb-2">
