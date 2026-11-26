@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { ink } from '../../lib/ink'
 import {
   Search,
   Settings,
@@ -9,7 +10,8 @@ import {
   KanbanSquare,
   X,
   ArrowRight,
-  Columns2
+  Columns2,
+  ShipWheel
 } from 'lucide-react'
 
 interface SearchResult {
@@ -224,7 +226,11 @@ export const Header: React.FC<HeaderProps> = ({
               boxShadow: 'inset 0 1px 0 rgba(255,255,255,.65), 0 2px 5px rgba(0,0,0,.35)'
             }}
           >
-            <KanbanSquare className="w-5 h-5 text-white" strokeWidth={2.5} />
+            <ShipWheel
+              className="w-6 h-6"
+              strokeWidth={2.25}
+              style={{ color: 'var(--color-on-primary)' }}
+            />
           </div>
           <div className="leading-tight text-white">
             <span className="block text-xs font-black uppercase tracking-[0.2em] opacity-80">
@@ -330,7 +336,7 @@ export const Header: React.FC<HeaderProps> = ({
                               style={{
                                 borderColor: 'var(--color-border)',
                                 background: isHot
-                                  ? result.color || 'var(--color-primary)'
+                                  ? ink(result.color, 'var(--color-primary)')
                                   : 'transparent',
                                 color: isHot ? '#041020' : 'var(--color-text)'
                               }}
@@ -343,14 +349,16 @@ export const Header: React.FC<HeaderProps> = ({
                                 style={{
                                   borderColor: isHot
                                     ? '#041020'
-                                    : result.color || 'var(--color-primary)',
+                                    : ink(result.color, 'var(--color-primary)'),
                                   background: isHot
                                     ? 'rgba(255,255,255,0.8)'
-                                    : (result.color || '#2563eb') + '12',
-                                  color: isHot ? '#041020' : result.color || 'var(--color-primary)',
+                                    : ink(result.color, '#2563eb') + '12',
+                                  color: isHot
+                                    ? '#041020'
+                                    : ink(result.color, 'var(--color-primary)'),
                                   boxShadow: isHot
                                     ? 'var(--shadow-control)'
-                                    : `0 2px 6px ${result.color || '#2563eb'}45`
+                                    : `0 2px 6px ${ink(result.color, '#2563eb')}45`
                                 }}
                               >
                                 {typeIcon(result.type)}

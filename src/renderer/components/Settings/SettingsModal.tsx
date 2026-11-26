@@ -60,6 +60,197 @@ const SETTINGS_TABS: Array<{
   { id: 'github', label: 'GitHub', icon: Github }
 ]
 
+// ── System font detection via canvas ──
+// Measuring ~150 fonts makes the web view resolve each one, which can take a
+// noticeable moment. It runs only when the Appearance tab is opened (once per
+// Settings visit), in small batches between frames so the dialog stays
+// responsive.
+const CANDIDATE_FONTS = [
+  // Windows
+  'Arial',
+  'Arial Black',
+  'Bahnschrift',
+  'Calibri',
+  'Cambria',
+  'Cambria Math',
+  'Candara',
+  'Comic Sans MS',
+  'Consolas',
+  'Constantia',
+  'Corbel',
+  'Courier New',
+  'Ebrima',
+  'Franklin Gothic Medium',
+  'Gabriola',
+  'Gadugi',
+  'Georgia',
+  'Impact',
+  'Ink Free',
+  'Lucida Console',
+  'Lucida Sans Unicode',
+  'Malgun Gothic',
+  'Microsoft Sans Serif',
+  'Palatino Linotype',
+  'Segoe Print',
+  'Segoe Script',
+  'Segoe UI',
+  'Segoe UI Historic',
+  'Sitka',
+  'Sylfaen',
+  'Tahoma',
+  'Times New Roman',
+  'Trebuchet MS',
+  'Verdana',
+  'Yu Gothic',
+  'Cascadia Code',
+  'Cascadia Mono',
+  // macOS
+  'American Typewriter',
+  'Andale Mono',
+  'Arial Narrow',
+  'Avenir',
+  'Avenir Next',
+  'Baskerville',
+  'Big Caslon',
+  'Bradley Hand',
+  'Brush Script MT',
+  'Chalkboard SE',
+  'Chalkduster',
+  'Charter',
+  'Cochin',
+  'Copperplate',
+  'Courier',
+  'Didot',
+  'Futura',
+  'Geneva',
+  'Gill Sans',
+  'Helvetica',
+  'Helvetica Neue',
+  'Herculanum',
+  'Hoefler Text',
+  'Impact',
+  'Iowan Old Style',
+  'Kefa',
+  'Lucida Grande',
+  'Luminari',
+  'Marker Felt',
+  'Menlo',
+  'Monaco',
+  'Noteworthy',
+  'Optima',
+  'Palatino',
+  'Papyrus',
+  'Phosphate',
+  'PT Mono',
+  'PT Sans',
+  'PT Serif',
+  'Rockwell',
+  'Savoye LET',
+  'SignPainter',
+  'Skia',
+  'Snell Roundhand',
+  'Superclarendon',
+  'Thonburi',
+  'Times',
+  'Trattatello',
+  'Zapfino',
+  // Linux
+  'Ubuntu',
+  'Ubuntu Mono',
+  'Ubuntu Condensed',
+  'Noto Sans',
+  'Noto Serif',
+  'Noto Mono',
+  'DejaVu Sans',
+  'DejaVu Serif',
+  'DejaVu Sans Mono',
+  'Liberation Sans',
+  'Liberation Serif',
+  'Liberation Mono',
+  'Cantarell',
+  'Droid Sans',
+  'Droid Serif',
+  'Droid Sans Mono',
+  // Common Google / Popular fonts
+  'Inter',
+  'Poppins',
+  'Raleway',
+  'Montserrat',
+  'Open Sans',
+  'Roboto',
+  'Lato',
+  'Oswald',
+  'Source Sans Pro',
+  'Source Code Pro',
+  'Noto Sans',
+  'Merriweather',
+  'Playfair Display',
+  'Nunito',
+  'Fira Code',
+  'Fira Sans',
+  'JetBrains Mono',
+  'IBM Plex Mono',
+  'IBM Plex Sans',
+  'IBM Plex Serif',
+  'Inconsolata',
+  'Hack',
+  'Iosevka',
+  'Roboto Mono',
+  'Space Mono',
+  'Overpass',
+  'Overpass Mono',
+  'Anonymous Pro'
+]
+
+let detectedFonts: Promise<string[]> | null = null
+
+const nextFrame = (): Promise<void> =>
+  new Promise((resolve) => {
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => resolve())
+    else setTimeout(resolve, 0)
+  })
+
+const detectSystemFonts = (): Promise<string[]> => {
+  if (detectedFonts) return detectedFonts
+  detectedFonts = (async () => {
+    const ctx = document.createElement('canvas').getContext('2d')
+    if (!ctx) return []
+    const test = 'mmmmmmmmmmlli'
+    const size = '72px'
+    const bases = ['monospace', 'sans-serif', 'serif']
+    const baseWidth: Record<string, number> = {}
+    for (const base of bases) {
+      ctx.font = `${size} ${base}`
+      baseWidth[base] = ctx.measureText(test).width
+    }
+    const candidates = [...new Set(CANDIDATE_FONTS)]
+    const found: string[] = []
+    const BATCH = 12
+    for (let i = 0; i < candidates.length; i += BATCH) {
+      if (i > 0) await nextFrame()
+      for (const font of candidates.slice(i, i + BATCH)) {
+        const differs = bases.some((base) => {
+          ctx.font = `${size} '${font}', ${base}`
+          return ctx.measureText(test).width !== baseWidth[base]
+        })
+        if (differs) found.push(font)
+      }
+    }
+    return found.sort((x, y) => x.localeCompare(y))
+  })()
+  const scan = detectedFonts
+  // Don't keep an empty result: the next visit scans again.
+  void scan.then((fonts) => {
+    if (fonts.length === 0 && detectedFonts === scan) detectedFonts = null
+  })
+  return scan
+}
+
+/** Forgets the scan so fonts installed meanwhile show up next time. */
+const forgetSystemFonts = (): void => {
+  detectedFonts = null
+}
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
   const dispatch = useDispatch()
   const settings = useSelector((state: RootState) => state.settings)
@@ -113,8 +304,22 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
 
   useEffect(() => {
     loadStatus()
-    detectFonts()
+    // Settings is reopened rarely; rescan fonts on the next open.
+    return forgetSystemFonts
   }, [])
+
+  useEffect(() => {
+    if (activeTab !== 'appearance' || fontsDetected) return
+    let cancelled = false
+    void detectSystemFonts().then((fonts) => {
+      if (cancelled) return
+      setAvailableFonts(fonts)
+      setFontsDetected(true)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [activeTab, fontsDetected])
 
   useEffect(() => {
     const url = serverUrl.trim()
@@ -122,167 +327,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
       loadStatus()
     }
   }, [serverUrl])
-
-  // ── System font detection via canvas ──
-  const CANDIDATE_FONTS = [
-    // Windows
-    'Arial',
-    'Arial Black',
-    'Bahnschrift',
-    'Calibri',
-    'Cambria',
-    'Cambria Math',
-    'Candara',
-    'Comic Sans MS',
-    'Consolas',
-    'Constantia',
-    'Corbel',
-    'Courier New',
-    'Ebrima',
-    'Franklin Gothic Medium',
-    'Gabriola',
-    'Gadugi',
-    'Georgia',
-    'Impact',
-    'Ink Free',
-    'Lucida Console',
-    'Lucida Sans Unicode',
-    'Malgun Gothic',
-    'Microsoft Sans Serif',
-    'Palatino Linotype',
-    'Segoe Print',
-    'Segoe Script',
-    'Segoe UI',
-    'Segoe UI Historic',
-    'Sitka',
-    'Sylfaen',
-    'Tahoma',
-    'Times New Roman',
-    'Trebuchet MS',
-    'Verdana',
-    'Yu Gothic',
-    'Cascadia Code',
-    'Cascadia Mono',
-    // macOS
-    'American Typewriter',
-    'Andale Mono',
-    'Arial Narrow',
-    'Avenir',
-    'Avenir Next',
-    'Baskerville',
-    'Big Caslon',
-    'Bradley Hand',
-    'Brush Script MT',
-    'Chalkboard SE',
-    'Chalkduster',
-    'Charter',
-    'Cochin',
-    'Copperplate',
-    'Courier',
-    'Didot',
-    'Futura',
-    'Geneva',
-    'Gill Sans',
-    'Helvetica',
-    'Helvetica Neue',
-    'Herculanum',
-    'Hoefler Text',
-    'Impact',
-    'Iowan Old Style',
-    'Kefa',
-    'Lucida Grande',
-    'Luminari',
-    'Marker Felt',
-    'Menlo',
-    'Monaco',
-    'Noteworthy',
-    'Optima',
-    'Palatino',
-    'Papyrus',
-    'Phosphate',
-    'PT Mono',
-    'PT Sans',
-    'PT Serif',
-    'Rockwell',
-    'Savoye LET',
-    'SignPainter',
-    'Skia',
-    'Snell Roundhand',
-    'Superclarendon',
-    'Thonburi',
-    'Times',
-    'Trattatello',
-    'Zapfino',
-    // Linux
-    'Ubuntu',
-    'Ubuntu Mono',
-    'Ubuntu Condensed',
-    'Noto Sans',
-    'Noto Serif',
-    'Noto Mono',
-    'DejaVu Sans',
-    'DejaVu Serif',
-    'DejaVu Sans Mono',
-    'Liberation Sans',
-    'Liberation Serif',
-    'Liberation Mono',
-    'Cantarell',
-    'Droid Sans',
-    'Droid Serif',
-    'Droid Sans Mono',
-    // Common Google / Popular fonts
-    'Inter',
-    'Poppins',
-    'Raleway',
-    'Montserrat',
-    'Open Sans',
-    'Roboto',
-    'Lato',
-    'Oswald',
-    'Source Sans Pro',
-    'Source Code Pro',
-    'Noto Sans',
-    'Merriweather',
-    'Playfair Display',
-    'Nunito',
-    'Fira Code',
-    'Fira Sans',
-    'JetBrains Mono',
-    'IBM Plex Mono',
-    'IBM Plex Sans',
-    'IBM Plex Serif',
-    'Inconsolata',
-    'Hack',
-    'Iosevka',
-    'Roboto Mono',
-    'Space Mono',
-    'Overpass',
-    'Overpass Mono',
-    'Anonymous Pro'
-  ]
-
-  const detectFonts = () => {
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-    const test = 'mmmmmmmmmmlli'
-    const size = '72px'
-    const bases = ['monospace', 'sans-serif', 'serif']
-    const baseWidth: Record<string, number> = {}
-    for (const base of bases) {
-      ctx.font = `${size} ${base}`
-      baseWidth[base] = ctx.measureText(test).width
-    }
-    const found = [...new Set(CANDIDATE_FONTS)].filter((font) => {
-      for (const base of bases) {
-        ctx.font = `${size} '${font}', ${base}`
-        if (ctx.measureText(test).width !== baseWidth[base]) return true
-      }
-      return false
-    })
-    setAvailableFonts(found.sort((a, b) => a.localeCompare(b)))
-    setFontsDetected(true)
-  }
 
   const loadStatus = async () => {
     try {
@@ -803,7 +847,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                           style={{
                             borderColor: 'var(--color-border)',
                             background: fontFamily === '' ? 'var(--color-primary)' : 'transparent',
-                            color: fontFamily === '' ? 'white' : 'var(--color-muted)'
+                            color:
+                              fontFamily === '' ? 'var(--color-on-primary)' : 'var(--color-muted)'
                           }}
                         >
                           <span className="text-xs font-black uppercase tracking-widest">
@@ -822,7 +867,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                               borderColor: 'var(--color-border)',
                               background:
                                 fontFamily === font ? 'var(--color-primary)' : 'transparent',
-                              color: fontFamily === font ? 'white' : 'var(--color-text)'
+                              color:
+                                fontFamily === font
+                                  ? 'var(--color-on-primary)'
+                                  : 'var(--color-text)'
                             }}
                             onMouseOver={(e) => {
                               if (fontFamily !== font)

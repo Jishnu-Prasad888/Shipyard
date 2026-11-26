@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
+import { ink } from '../../lib/ink'
 import {
   ChevronLeft,
   ChevronRight,
@@ -60,7 +61,11 @@ const StatusPill = ({ task }: { task: any }) => {
   return (
     <span
       className="text-[8px] font-black uppercase px-1 py-0.5 border shrink-0"
-      style={{ borderColor: status.color, color: status.color, background: status.color + '18' }}
+      style={{
+        borderColor: ink(status.color),
+        color: ink(status.color),
+        background: ink(status.color) + '18'
+      }}
     >
       {status.name}
     </span>

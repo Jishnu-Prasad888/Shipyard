@@ -1,4 +1,5 @@
 import React from 'react'
+import { ink } from '../../lib/ink'
 import { Folder, ChevronDown, ChevronRight } from 'lucide-react'
 
 interface ProjectWorkspaceProps {
@@ -18,7 +19,7 @@ export const ProjectWorkspace: React.FC<ProjectWorkspaceProps> = ({
     <div>
       <button onClick={onToggle} className="nav-item w-full">
         {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-        <Folder className="w-4 h-4" style={{ color: workspace.color || '#2563eb' }} />
+        <Folder className="w-4 h-4" style={{ color: ink(workspace.color, '#2563eb') }} />
         <span className="flex-1 text-left text-xs font-black uppercase tracking-wider">
           {workspace.name}
         </span>

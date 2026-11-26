@@ -5,13 +5,11 @@ import { Sidebar } from './components/Layout/Sidebar'
 import { Header } from './components/Layout/Header'
 import { ProjectView } from './components/Projects/ProjectView'
 import { KanbanBoard } from './components/Board/KanbanBoard'
-import { SettingsModal } from './components/Settings/SettingsModal'
 import { HomeScreen } from './components/Home/HomeScreen'
 import { CalendarView } from './components/Calendar/CalendarView'
 import { PaneTarget, SplitPane } from './components/Layout/SplitPane'
 import { DATA_WRITTEN_EVENT } from './lib/tauri-bridge'
 import { loadSplitLayout, saveSplitLayout, clampSplitRatio } from './lib/splitLayout'
-import { Toast } from './components/common/Toast'
 import { RootState } from './store'
 import { setSettings } from './store/settingsSlice'
 import { setGitHubToken } from './lib/github'
@@ -21,16 +19,13 @@ import {
   shortcutStrokeFromEvent,
   shortcutsMatchingPrefix
 } from './lib/keyboardShortcuts'
-import {
-  QuickCreateModal,
-  QuickCreateResult,
-  QuickCreateType
-} from './components/QuickCreate/QuickCreateModal'
+import { QuickCreateResult } from './components/QuickCreate/QuickCreateModal'
+import { OverlayHost } from './components/Layout/OverlayHost'
+import { openQuickCreate, openSettings } from './lib/overlays'
 
 function App(): ReactElement {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [selectedBoardId, setSelectedBoardId] = useState<string | null>(null)
-  const [showSettings, setShowSettings] = useState(false)
   const [showCalendar, setShowCalendar] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [dataVersion, setDataVersion] = useState(0)
@@ -38,11 +33,7 @@ function App(): ReactElement {
   const [split, setSplit] = useState<PaneTarget | null>(() => loadSplitLayout().target)
   const [splitRatio, setSplitRatio] = useState(() => loadSplitLayout().ratio)
   const splitContainerRef = useRef<HTMLDivElement>(null)
-  const [toast, setToast] = useState<{ message: string; onUndo?: () => void } | null>(null)
   const [pendingOpenTaskId, setPendingOpenTaskId] = useState<string | null>(null)
-  const [quickCreateType, setQuickCreateType] = useState<QuickCreateType | null | undefined>(
-    undefined
-  )
   const dispatch = useDispatch()
   const settings = useSelector((state: RootState) => state.settings)
 
@@ -63,15 +54,6 @@ function App(): ReactElement {
       window.removeEventListener('dragover', block)
       window.removeEventListener('drop', block)
     }
-  }, [])
-
-  useEffect(() => {
-    const handleShowToast = (event: Event): void => {
-      const detail = (event as CustomEvent<{ message: string; onUndo?: () => void }>).detail
-      setToast({ message: detail.message, onUndo: detail.onUndo })
-    }
-    window.addEventListener('show-toast', handleShowToast)
-    return () => window.removeEventListener('show-toast', handleShowToast)
   }, [])
 
   useEffect(() => {
@@ -135,6 +117,23 @@ function App(): ReactElement {
   useEffect(() => {
     setGitHubToken(settings.githubToken)
   }, [settings.githubToken])
+
+  // Entity colours are adjusted for the theme while rendering (lib/ink), so
+  // re-render everything whenever dark mode is switched on or off, however
+  // the class was changed.
+  const [, setThemeRenders] = useState(0)
+  useEffect(() => {
+    let dark = document.documentElement.classList.contains('dark')
+    const observer = new MutationObserver(() => {
+      const now = document.documentElement.classList.contains('dark')
+      if (now !== dark) {
+        dark = now
+        setThemeRenders((count) => count + 1)
+      }
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
     const colorMode = settings.colorMode || settings.theme || 'light'
@@ -297,12 +296,10 @@ function App(): ReactElement {
   }
 
   const handleQuickCreateResult = (result: QuickCreateResult): void => {
-    setQuickCreateType(undefined)
     handleDataChange()
     setSelectedProjectId(result.projectId || null)
     setSelectedBoardId(result.boardId || null)
     setShowCalendar(false)
-    setToast({ message: `${result.label} "${result.entity.name || result.entity.title}" created` })
   }
 
   useEffect(() => {
@@ -313,25 +310,25 @@ function App(): ReactElement {
     const runAction = (action: KeyboardShortcutAction): void => {
       switch (action) {
         case 'quickCreate':
-          setQuickCreateType(null)
+          openQuickCreate(null)
           break
         case 'createWorkspace':
-          setQuickCreateType('workspace')
+          openQuickCreate('workspace')
           break
         case 'createProject':
-          setQuickCreateType('project')
+          openQuickCreate('project')
           break
         case 'createBoard':
-          setQuickCreateType('board')
+          openQuickCreate('board')
           break
         case 'createColumn':
-          setQuickCreateType('column')
+          openQuickCreate('column')
           break
         case 'createTask':
-          setQuickCreateType('task')
+          openQuickCreate('task')
           break
         case 'openSettings':
-          setShowSettings(true)
+          openSettings()
           break
         case 'goHome':
           handleGoHome()
@@ -421,7 +418,7 @@ function App(): ReactElement {
   return (
     <div className="win7-theme aero-shell h-screen flex flex-col overflow-hidden">
       <Header
-        onOpenSettings={() => setShowSettings(true)}
+        onOpenSettings={openSettings}
         onToggleTheme={handleToggleTheme}
         isDarkMode={(settings.colorMode || settings.theme) === 'dark'}
         onSearch={setSearchQuery}
@@ -511,20 +508,7 @@ function App(): ReactElement {
         </div>
       </div>
 
-      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
-
-      {quickCreateType !== undefined && (
-        <QuickCreateModal
-          key={quickCreateType || 'chooser'}
-          initialType={quickCreateType}
-          onClose={() => setQuickCreateType(undefined)}
-          onCreated={handleQuickCreateResult}
-        />
-      )}
-
-      {toast && (
-        <Toast message={toast.message} onUndo={toast.onUndo} onClose={() => setToast(null)} />
-      )}
+      <OverlayHost onQuickCreated={handleQuickCreateResult} />
     </div>
   )
 }

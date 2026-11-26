@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { ink } from '../../lib/ink'
 import {
   DndContext,
   DragEndEvent,
@@ -272,7 +273,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
     : columns
 
   const totalTasks = columns.reduce((total, column) => total + (column.tasks?.length || 0), 0)
-  const boardColor = board?.color || 'var(--color-primary)'
+  const boardColor = ink(board?.color, 'var(--color-primary)')
   const isVerticalLayout = columnOrientation === 'vertical'
   const columnSortingStrategy = isVerticalLayout
     ? verticalListSortingStrategy

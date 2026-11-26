@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { ink } from '../../lib/ink'
 import {
   Calendar,
   ChevronDown,
@@ -591,7 +592,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={(event) => event.stopPropagation()}
         >
           <div
-            className="px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-white border-b"
+            className="px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-[var(--color-on-primary)] border-b"
             style={{
               background: 'linear-gradient(135deg, var(--color-primary), var(--color-secondary))',
               borderColor: 'var(--color-border-strong)'
@@ -756,10 +757,11 @@ const NavButton = ({
 }) => (
   <button
     onClick={onClick}
-    className="nav-item w-full flex items-center gap-2 px-3 py-2 mt-2 text-xs text-white"
+    className="nav-item w-full flex items-center gap-2 px-3 py-2 mt-2 text-xs"
     style={{
       borderColor: active ? 'var(--color-primary)' : 'rgba(255,255,255,0.18)',
-      background: active ? 'var(--color-primary)' : 'rgba(255,255,255,0.06)'
+      background: active ? 'var(--color-primary)' : 'rgba(255,255,255,0.06)',
+      color: active ? 'var(--color-on-primary)' : 'var(--color-sidebar-foreground)'
     }}
   >
     {icon}
@@ -813,7 +815,7 @@ const WorkspaceRow = ({
         ) : (
           <ChevronRight className="w-3.5 h-3.5" />
         )}
-        <Folder className="w-4 h-4" style={{ color: workspace.color || '#2563eb' }} />
+        <Folder className="w-4 h-4" style={{ color: ink(workspace.color, '#2563eb') }} />
         <span className="truncate">{workspace.name}</span>
       </button>
       <button
@@ -926,7 +928,7 @@ const ProjectRow = ({
           }}
         >
           {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-          <FolderKanban className="w-4 h-4" style={{ color: project.color || '#2563eb' }} />
+          <FolderKanban className="w-4 h-4" style={{ color: ink(project.color, '#2563eb') }} />
           <span className="truncate">{project.name}</span>
         </button>
         <button

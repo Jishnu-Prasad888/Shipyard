@@ -1,4 +1,5 @@
 import React from 'react'
+import { ink } from '../../lib/ink'
 import { Grid, Calendar, ArrowRight } from 'lucide-react'
 
 interface BoardCardProps {
@@ -8,7 +9,7 @@ interface BoardCardProps {
 }
 
 export const BoardCard: React.FC<BoardCardProps> = ({ board, onClick, onContextMenu }) => {
-  const boardColor = board.color || '#2563eb'
+  const boardColor = ink(board.color, '#2563eb')
 
   return (
     <div

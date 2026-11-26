@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { ink } from '../../lib/ink'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Calendar, CheckSquare, Link2, FileText, Github } from 'lucide-react'
@@ -70,7 +71,7 @@ export const Task: React.FC<TaskProps> = ({
     connectedIds.length > 0 ||
     hasNotes ||
     githubRefCount > 0
-  const taskColor = task.color || '#2563eb'
+  const taskColor = ink(task.color, '#2563eb')
 
   useEffect(() => {
     if (!autoOpenId) {
@@ -108,7 +109,7 @@ export const Task: React.FC<TaskProps> = ({
         {task.color && (
           <div
             className="absolute top-0 left-0 right-0 h-0.5"
-            style={{ background: `linear-gradient(90deg, ${task.color}, transparent)` }}
+            style={{ background: `linear-gradient(90deg, ${taskColor}, transparent)` }}
           />
         )}
 
@@ -118,9 +119,9 @@ export const Task: React.FC<TaskProps> = ({
             <span
               className="text-[10px] px-2 py-0.5 font-black uppercase tracking-wider border-2"
               style={{
-                backgroundColor: (status.color || '#7c3aed') + '15',
-                color: status.color || '#7c3aed',
-                borderColor: status.color || '#7c3aed'
+                backgroundColor: ink(status.color, '#7c3aed') + '15',
+                color: ink(status.color, '#7c3aed'),
+                borderColor: ink(status.color, '#7c3aed')
               }}
             >
               {status.name}
@@ -155,9 +156,9 @@ export const Task: React.FC<TaskProps> = ({
                 key={tag.id}
                 className="text-[9px] px-1.5 py-0.5 font-black uppercase tracking-wider border"
                 style={{
-                  backgroundColor: (tag.color || '#2563eb') + '15',
-                  color: tag.color || '#2563eb',
-                  borderColor: tag.color || '#2563eb'
+                  backgroundColor: ink(tag.color, '#2563eb') + '15',
+                  color: ink(tag.color, '#2563eb'),
+                  borderColor: ink(tag.color, '#2563eb')
                 }}
               >
                 {tag.name}

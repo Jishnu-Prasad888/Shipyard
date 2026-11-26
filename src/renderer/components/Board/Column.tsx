@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { ink } from '../../lib/ink'
 import { useDroppable } from '@dnd-kit/core'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -370,7 +371,7 @@ export const Column: React.FC<ColumnProps> = ({
 
   const hiddenCount = (column.tasks?.length || 0) - visibleTasks.length
   const taskCount = column.tasks?.length || 0
-  const columnColor = column.color || '#2563eb'
+  const columnColor = ink(column.color, '#2563eb')
 
   return (
     <>
@@ -470,7 +471,7 @@ export const Column: React.FC<ColumnProps> = ({
                 <div
                   className="aero-titlebar px-3 py-2 text-[10px] font-semibold border-b"
                   style={{
-                    color: 'white',
+                    color: 'var(--color-on-primary)',
                     background: 'var(--color-primary)',
                     borderColor: 'var(--color-border-strong)'
                   }}
@@ -630,7 +631,7 @@ export const Column: React.FC<ColumnProps> = ({
           onClick={(e) => e.stopPropagation()}
         >
           <div
-            className="px-4 py-2 text-xs font-black uppercase tracking-widest text-white border-b-2"
+            className="px-4 py-2 text-xs font-black uppercase tracking-widest text-[var(--color-on-primary)] border-b-2"
             style={{
               background: 'var(--color-primary)',
               borderColor: 'var(--color-border-strong)'
