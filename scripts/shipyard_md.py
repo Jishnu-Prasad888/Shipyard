@@ -20,6 +20,11 @@ _RESERVED = {"true", "false", "yes", "no", "on", "off", "null", "y", "n", "~"}
 _KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
+def _needs_escape(char: str) -> bool:
+    code = ord(char)
+    return code < 0x20 or 0x7F <= code <= 0x9F or code in (0x2028, 0x2029, 0xFEFF)
+
+
 def _scalar(value) -> str:
     if value is None:
         return "null"
@@ -32,9 +37,11 @@ def _scalar(value) -> str:
     text = str(value)
     if _PLAIN.match(text) and text == text.strip() and text.lower() not in _RESERVED:
         return text
-    if "\n" in text or any(ord(c) < 0x20 for c in text):
-        # JSON string escapes are valid in YAML double-quoted scalars.
-        return json.dumps(text, ensure_ascii=False)
+    if any(_needs_escape(c) for c in text):
+        # JSON string escapes are valid in YAML double-quoted scalars; ASCII
+        # output escapes line breaks and control characters YAML would
+        # reject or fold (DEL, C1 controls, NEL, U+2028/U+2029).
+        return json.dumps(text, ensure_ascii=True)
     return "'" + text.replace("'", "''") + "'"
 
 

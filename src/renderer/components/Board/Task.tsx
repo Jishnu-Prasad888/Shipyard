@@ -54,8 +54,15 @@ export const Task: React.FC<TaskProps> = ({
   // badge when it adds information.
   const showStatus =
     !!status?.name && status.name.trim().toLowerCase() !== (columnName || '').trim().toLowerCase()
-  // Notes are Markdown; whitespace-only notes don't count.
-  const hasNotes = typeof task.notes === 'string' && task.notes.trim().length > 0
+  // Notes are Markdown, but notes converted from old databases can be HTML,
+  // where an emptied editor left markup such as "<p></p>".
+  const hasNotes =
+    typeof task.notes === 'string' &&
+    (/<(img|table|hr)\b/i.test(task.notes) ||
+      task.notes
+        .replace(/<[^>]*>/g, '')
+        .replace(/&nbsp;/g, ' ')
+        .trim().length > 0)
   const githubRefCount = useMemo(() => taskReferences(task, githubRepo).length, [task, githubRepo])
   const hasFooter =
     !!task.deadline ||

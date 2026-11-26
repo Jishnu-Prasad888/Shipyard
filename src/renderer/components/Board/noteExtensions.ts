@@ -13,9 +13,30 @@ import TaskItem from '@tiptap/extension-task-item'
 import Underline from '@tiptap/extension-underline'
 import Highlight from '@tiptap/extension-highlight'
 import Typography from '@tiptap/extension-typography'
-import { Markdown } from '@tiptap/markdown'
+import { Markdown, MarkdownManager } from '@tiptap/markdown'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { AssetImage } from './AssetImage'
+
+// The Markdown writer escapes inline delimiters (* _ ` [ ] ~) in plain text
+// but not the ones our extensions add (== and ++), nor block markers at the
+// start of a text run (# 1. - + >), so typed text like "1. not a list"
+// would read back as formatting. Extend its escaping. The package version
+// is pinned and noteExtensions.test.ts round-trips these cases.
+const managerPrototype = MarkdownManager.prototype as unknown as {
+  escapeMarkdownSyntax: (text: string) => string
+  __shipyardEscaping?: boolean
+}
+if (!managerPrototype.__shipyardEscaping) {
+  const escapeInline = managerPrototype.escapeMarkdownSyntax
+  managerPrototype.escapeMarkdownSyntax = function (this: unknown, text: string): string {
+    return escapeInline
+      .call(this, text)
+      .replace(/([=+])(?=\1)/g, '\\$1')
+      .replace(/^(\s*)(#{1,6}|[-+>])(?=\s|$)/, '$1\\$2')
+      .replace(/^(\s*\d+)([.)])(?=\s|$)/, '$1\\$2')
+  }
+  managerPrototype.__shipyardEscaping = true
+}
 
 const escapeAttr = (value: string): string =>
   value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;')

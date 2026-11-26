@@ -225,7 +225,19 @@ impl FileStore {
             }
         }
 
-        let raw = fs::read_to_string(path).ok()?;
+        let bytes = fs::read(path).ok()?;
+        // A file saved in another encoding still loads (odd characters are
+        // replaced) instead of disappearing.
+        let raw = match String::from_utf8(bytes) {
+            Ok(text) => text,
+            Err(error) => {
+                eprintln!(
+                    "shipyard: {} is not UTF-8; reading it lossily",
+                    path.display()
+                );
+                String::from_utf8_lossy(error.as_bytes()).into_owned()
+            }
+        };
         let table = path
             .parent()
             .and_then(Path::file_name)

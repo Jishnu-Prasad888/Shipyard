@@ -140,6 +140,8 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   const [linkUrl, setLinkUrl] = useState('')
   const [linkText, setLinkText] = useState('')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  // The last Markdown this editor reported through onChange.
+  const lastEmittedRef = useRef<string | null>(null)
 
   const editor = useEditor({
     extensions: createNoteExtensions({ placeholder }),
@@ -175,7 +177,9 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       }
     },
     onUpdate: ({ editor: e }) => {
-      onChange(e.getMarkdown())
+      const markdown = e.getMarkdown()
+      lastEmittedRef.current = markdown
+      onChange(markdown)
     }
   })
 
@@ -186,7 +190,11 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
 
   // Sync external value (e.g. initial load from DB)
   useEffect(() => {
-    if (editor && value !== editor.getMarkdown()) {
+    // Only replace the document for a value the editor didn't produce itself
+    // (e.g. a different task). Comparing with getMarkdown() would also fire
+    // for saved text that was merely normalized, resetting the cursor.
+    if (editor && value !== lastEmittedRef.current && value !== editor.getMarkdown()) {
+      lastEmittedRef.current = value
       editor.commands.setContent(value || '', { emitUpdate: false, contentType: 'markdown' })
     }
   }, [value, editor])

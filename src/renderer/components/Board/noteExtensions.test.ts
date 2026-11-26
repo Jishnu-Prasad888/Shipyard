@@ -79,6 +79,35 @@ describe('notes as Markdown', () => {
     expect(json).toContain('wikiLinkMark')
   })
 
+  it('keeps plain text that looks like Markdown as plain text', () => {
+    for (const text of [
+      'use Array<T> and a * b * c',
+      'snake_case and _x_',
+      '[x] not a task',
+      '# not a heading',
+      '1. not a list',
+      '- not a bullet',
+      '> not a quote',
+      'a ==b== c and a ++b++ c',
+      'price $5 & <b>tag</b> `tick`',
+      '[[not a link]] in text'
+    ]) {
+      const original = makeEditor('', 'markdown')
+      original.commands.setContent({
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text }] }]
+      })
+      const reread = makeEditor(original.getMarkdown(), 'markdown')
+      expect(reread.getJSON(), text).toEqual(original.getJSON())
+    }
+  })
+
+  it('keeps image URLs with parentheses', () => {
+    expectRoundTrip(
+      '<img src="https://host/img_(1).png" alt="x"><img src="https://host/a(b.png" alt="y">'
+    )
+  })
+
   it('writes nothing for empty notes', () => {
     expect(makeEditor('', 'markdown').getMarkdown().trim()).toBe('')
   })

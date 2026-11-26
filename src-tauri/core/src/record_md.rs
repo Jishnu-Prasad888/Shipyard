@@ -41,6 +41,14 @@ pub fn body_field(table: &str) -> Option<&'static str> {
 /// alphabetically.
 const LEADING_FIELDS: &[&str] = &["id", "title", "name"];
 
+/// Fields that are always text: names, descriptions, colours and ids.
+fn is_text_field(key: &str) -> bool {
+    matches!(
+        key,
+        "id" | "title" | "name" | "description" | "notes" | "color" | "type" | "fromId" | "toId"
+    ) || (key.ends_with("Id") && key.len() > 2)
+}
+
 /// Serializes a record (a JSON object) to Markdown with YAML front matter.
 pub fn encode(table: &str, record: &Value) -> Result<String> {
     let object = record
@@ -125,6 +133,15 @@ pub fn decode(table: &str, text: &str) -> Option<Value> {
             _ => return None,
         }
     };
+    // YAML types unquoted scalars, so a hand-edited `title: 2024` would be a
+    // number. Fields the app treats as text are always read back as text.
+    for (key, value) in object.iter_mut() {
+        if is_text_field(key) {
+            if let Value::Number(_) | Value::Bool(_) = value {
+                *value = Value::String(value.to_string());
+            }
+        }
+    }
     if let Some(key) = body_field(table) {
         let body = body.trim_matches('\n');
         // A body always wins; an empty body keeps a non-text front-matter value.
@@ -216,6 +233,34 @@ mod tests {
             "projects",
             json!({"id": "p2", "name": "X", "description": null}),
         );
+    }
+
+    #[test]
+    fn hand_typed_values_of_text_fields_stay_text() {
+        let value = decode(
+            "tasks",
+            "---\ntitle: 2024\nname: 1.0\ncolumnId: 7\ndescription: true\norder: 3\ndone: true\n---\n",
+        )
+        .unwrap();
+        assert_eq!(value["title"], "2024");
+        assert_eq!(value["name"], "1.0");
+        assert_eq!(value["columnId"], "7");
+        assert_eq!(value["description"], "true");
+        assert_eq!(value["order"], 3);
+        assert_eq!(value["done"], true);
+    }
+
+    #[test]
+    fn reads_what_the_python_scripts_write() {
+        // Output of scripts/shipyard_md.py for control and line-break characters.
+        let text = "---\nid: t\ntitle: \"a\\u007fb\"\nname: \"x\\u2028y\"\ncolor: '#fff'\n\
+                    description: \"line1\\nline2\"\nquote: 'it''s'\n---\n\nbody\n";
+        let value = decode("tasks", text).unwrap();
+        assert_eq!(value["title"], "a\u{7f}b");
+        assert_eq!(value["name"], "x\u{2028}y");
+        assert_eq!(value["description"], "line1\nline2");
+        assert_eq!(value["quote"], "it's");
+        assert_eq!(value["notes"], "body");
     }
 
     #[test]
