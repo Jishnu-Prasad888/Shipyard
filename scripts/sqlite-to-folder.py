@@ -2,8 +2,10 @@
 """Copy data from an old Shipyard SQLite database into a Shipyard folder.
 
 Earlier versions stored everything in ``shipyard.db``. This script reads that
-database (it is never modified) and writes one JSON file per record into a
-folder you can then open in Shipyard.
+database (it is never modified) and writes one Markdown file per record (YAML
+front matter, notes as the body) into a folder you can then open in Shipyard.
+Notes from old databases are HTML; they are kept as HTML inside the Markdown
+body, which the editor reads.
 
 Usage:
     python3 scripts/sqlite-to-folder.py [path/to/shipyard.db] <output-folder>
@@ -24,6 +26,9 @@ import sys
 import time
 import uuid
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from shipyard_md import write_marker, write_record  # noqa: E402
 
 TABLES = [
     "workspaces",
@@ -68,12 +73,6 @@ def decode(field: str, value):
     return value
 
 
-def write_json(path: Path, data) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
-    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    tmp.replace(path)
-
 
 def main(argv) -> int:
     if len(argv) == 2:
@@ -96,12 +95,8 @@ def main(argv) -> int:
         print("upgrade it, then run this script again.")
         return 1
 
-    marker = out / "shipyard.json"
-    if not marker.exists():
-        write_json(
-            marker,
-            {"format": "shipyard-folder", "version": 1, "createdAt": int(time.time() * 1000)},
-        )
+    if not (out / "shipyard.json").exists():
+        write_marker(out, int(time.time() * 1000))
 
     total = 0
     for table in TABLES:
@@ -115,7 +110,8 @@ def main(argv) -> int:
             if not SAFE_ID.match(record_id) or record_id.startswith("."):
                 skipped += 1
                 continue
-            write_json(out / table / f"{record_id}.json", record)
+            record["id"] = record_id
+            write_record(out, table, record)
             count += 1
         total += count
         note = f" ({skipped} skipped: unsafe id)" if skipped else ""

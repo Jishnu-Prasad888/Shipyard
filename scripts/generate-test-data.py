@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Generate fake Shipyard data in a folder (default: ./data_test).
 
-Writes the same layout the app uses: a shipyard.json marker plus one JSON file
-per record under workspaces/, projects/, boards/, columns/, statuses/, tasks/,
-subtasks/, connections/ and tags/.
+Writes the same layout the app uses: a shipyard.json marker plus one Markdown
+file per record (YAML front matter, notes as the body) under workspaces/,
+projects/, boards/, columns/, statuses/, tasks/, subtasks/, connections/ and
+tags/.
 
 Usage:
     python3 scripts/generate-test-data.py [options]
@@ -21,13 +22,15 @@ Only the Python standard library is needed.
 """
 
 import argparse
-import json
 import random
 import shutil
 import sys
 import time
 import uuid
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from shipyard_md import write_marker, write_record  # noqa: E402
 
 TABLES = [
     "workspaces",
@@ -107,12 +110,6 @@ def uid(prefix: str) -> str:
     return f"{prefix}-{uuid.uuid4().hex[:12]}"
 
 
-def write_json(path: Path, data) -> None:
-    tmp = path.with_name(f".{path.name}.tmp")
-    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
-    tmp.replace(path)
-
-
 class Generator:
     def __init__(self, out: Path, rng: random.Random):
         self.out = out
@@ -121,22 +118,30 @@ class Generator:
         self.counts = {t: 0 for t in TABLES}
 
     def put(self, table: str, record: dict) -> dict:
-        write_json(self.out / table / f"{record['id']}.json", record)
+        write_record(self.out, table, record)
         self.counts[table] += 1
         return record
 
     def past(self, max_days: int = 60) -> int:
         return self.now - self.rng.randint(1, max_days) * DAY - self.rng.randint(0, DAY)
 
-    def notes_html(self) -> str:
+    def notes_markdown(self) -> str:
         r = self.rng
-        parts = [f"<p>{' '.join(r.sample(SENTENCES, r.randint(1, 3)))}</p>"]
+        parts = [" ".join(r.sample(SENTENCES, r.randint(1, 3)))]
+        if r.random() < 0.3:
+            parts.insert(0, "## Context")
         if r.random() < 0.4:
-            items = "".join(f"<li><p>{s}</p></li>" for s in r.sample(SUBTASK_STEPS, 3))
-            parts.append(f"<ul>{items}</ul>")
+            parts.append("\n".join(f"- {s}" for s in r.sample(SUBTASK_STEPS, 3)))
+        if r.random() < 0.3:
+            parts.append(
+                "\n".join(f"- [{'x' if r.random() < 0.5 else ' '}] {s}"
+                          for s in r.sample(SUBTASK_STEPS, 2))
+            )
         if r.random() < 0.2:
-            parts.append("<p><strong>Note:</strong> check the <code>staging</code> config first.</p>")
-        return "".join(parts)
+            parts.append("**Note:** check the `staging` config first.")
+        if r.random() < 0.15:
+            parts.append("> " + r.choice(SENTENCES))
+        return "\n\n".join(parts)
 
     def run(self, n_workspaces: int, n_projects: int, max_boards: int, max_tasks: int) -> None:
         r = self.rng
@@ -254,7 +259,7 @@ class Generator:
             "color": r.choice(COLORS),
             "tags": r.sample(task_tags, r.randint(0, 3)),
             "status": {k: status[k] for k in ("id", "name", "color", "boardId")},
-            "notes": self.notes_html() if r.random() < 0.7 else "",
+            "notes": self.notes_markdown() if r.random() < 0.7 else "",
             "connectedTaskIds": [], "connectedColumnIds": [],
             "createdAt": created, "updatedAt": max(created, self.now - r.randint(0, 10) * DAY),
         }
@@ -296,10 +301,8 @@ def main() -> int:
     out.mkdir(parents=True, exist_ok=True)
     for t in TABLES:
         (out / t).mkdir(exist_ok=True)
-    marker = out / "shipyard.json"
-    if not marker.exists():
-        write_json(marker, {"format": "shipyard-folder", "version": 1,
-                            "createdAt": int(time.time() * 1000)})
+    if not (out / "shipyard.json").exists():
+        write_marker(out, int(time.time() * 1000))
 
     rng = random.Random(args.seed)
     gen = Generator(out, rng)
