@@ -613,9 +613,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
             className="aero-titlebar px-4 py-3 border-b"
             style={
               {
-                '--aero-titlebar-start': task.color || 'var(--color-primary-hover)',
                 '--aero-titlebar-accent': task.color || 'var(--color-primary)',
-                '--aero-titlebar-end': task.color || 'var(--color-secondary)',
                 borderColor: 'var(--color-border-strong)'
               } as React.CSSProperties
             }

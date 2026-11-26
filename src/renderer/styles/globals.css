@@ -27,9 +27,9 @@
   --color-sidebar-hover-bg: rgba(95, 182, 255, 0.2);
   --color-sidebar-hover-border: var(--color-border-strong);
   --color-sidebar-hover-text: #ffffff;
-  --color-sidebar-active-bg: var(--color-primary);
+  --color-sidebar-active-bg: #2a74bc;
   --color-sidebar-active-border: var(--color-secondary);
-  --color-sidebar-active-text: #041020;
+  --color-sidebar-active-text: #ffffff;
 
   /* Header foregrounds */
   --color-header-foreground: #f2f7ff;
@@ -84,7 +84,6 @@
 :root {
   --color-on-primary: #ffffff;
   --glow-rgb: 95 182 255;
-  --glow-2-rgb: 45 123 199;
   --shade-rgb: 11 37 69;
   --sheen: 1;
   --text-shadow-strength: 1;
@@ -162,7 +161,6 @@
 
   /* Glows, shadows and glossy highlights used by the Aero controls. */
   --glow-rgb: 189 147 249;
-  --glow-2-rgb: 255 121 198;
   --shade-rgb: 0 0 0;
   --sheen: 0.3;
   --text-shadow-strength: 0;
@@ -397,7 +395,7 @@
   }
 
   .nav-item.active {
-    background: var(--color-primary);
+    background: var(--color-sidebar-active-bg);
     border-color: var(--color-sidebar-active-border);
     color: var(--color-sidebar-active-text);
     box-shadow:
