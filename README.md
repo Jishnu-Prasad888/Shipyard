@@ -158,6 +158,16 @@ python3 scripts/sqlite-to-folder.py /path/to/shipyard.db ~/my-projects
 
 Then open `~/my-projects` in Shipyard. Without a path, the script looks in the default location for your OS (`~/.local/share/com.shipyard.app/` on Linux, `~/Library/Application Support/com.shipyard.app/` on macOS, `%APPDATA%\com.shipyard.app\` on Windows).
 
+## AI Agent Skill
+
+`skills/shipyard/` is an [Agent Skill](https://agentskills.io) that lets an AI agent (Claude Code, Claude Desktop or any agent that reads `SKILL.md` files) look at and manage your workspaces, projects, boards and tasks. Copy the folder into your agent's skills directory, for example:
+
+```bash
+cp -r skills/shipyard ~/.claude/skills/
+```
+
+The agent uses the bundled `scripts/shipyard.py` (Python 3, no dependencies), which talks to a Shipyard share: either `shipyard-serve` on `127.0.0.1`, or the desktop app's **Share on network**. Writes therefore go through the same storage code as the app. Try asking "what's due this week in Shipyard?" or "add these tasks to the Sprint board".
+
 ## Firebase Sync
 
 Create a Firebase web application and Firestore database, then enter the Firebase Web SDK configuration under **Settings > Firebase Sync**.
