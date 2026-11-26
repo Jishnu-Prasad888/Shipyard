@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { ink } from '../../lib/ink'
 import { useDroppable } from '@dnd-kit/core'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -370,7 +371,7 @@ export const Column: React.FC<ColumnProps> = ({
 
   const hiddenCount = (column.tasks?.length || 0) - visibleTasks.length
   const taskCount = column.tasks?.length || 0
-  const columnColor = column.color || '#2563eb'
+  const columnColor = ink(column.color, '#2563eb')
 
   return (
     <>

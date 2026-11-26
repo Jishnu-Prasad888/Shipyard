@@ -1,4 +1,5 @@
 import { Dashboard } from '../Dashboard/Dashboard'
+import { ink } from '../../lib/ink'
 import React, { useEffect, useState, useCallback } from 'react'
 import {
   LayoutDashboard,
@@ -324,10 +325,10 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                             width: `calc(100% - ${depth * 10}px)`,
                             border: '2px solid',
                             borderColor:
-                              isActive || isOver ? workspace.color || '#2563eb' : 'transparent',
+                              isActive || isOver ? ink(workspace.color, '#2563eb') : 'transparent',
                             background:
                               isActive || isOver
-                                ? (workspace.color || '#2563eb') + (isOver ? '33' : '1a')
+                                ? ink(workspace.color, '#2563eb') + (isOver ? '33' : '1a')
                                 : 'transparent',
                             color: 'var(--color-text)',
                             boxShadow: isActive ? 'var(--shadow-brutal-sm)' : 'none'
@@ -336,7 +337,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                           <div
                             className="w-2.5 h-2.5 border-2 shrink-0"
                             style={{
-                              background: workspace.color || '#2563eb',
+                              background: ink(workspace.color, '#2563eb'),
                               borderColor: 'var(--color-border-strong)'
                             }}
                           />
@@ -410,7 +411,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
                   {recentBoards.map((board) => {
                     const project = projects.find((candidate) => candidate.id === board.projectId)
-                    const c = project?.color || '#2563eb'
+                    const c = ink(project?.color, '#2563eb')
                     return (
                       <button
                         key={board.id}
@@ -495,7 +496,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                   const projectBoards = boardsForProject(project.id).filter(
                     (board) => !filter || board.name.toLowerCase().includes(filter.toLowerCase())
                   )
-                  const projectColor = project.color || '#2563eb'
+                  const projectColor = ink(project.color, '#2563eb')
                   const workspace = workspaces.find(
                     (candidate) => candidate.id === project.workspaceId
                   )
@@ -531,8 +532,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
                               <span
                                 className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 border rounded-full"
                                 style={{
-                                  borderColor: workspace.color || projectColor,
-                                  color: workspace.color || projectColor
+                                  borderColor: ink(workspace.color, projectColor),
+                                  color: ink(workspace.color, projectColor)
                                 }}
                               >
                                 {workspace.name}
@@ -634,14 +635,14 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               className="aero-panel px-3 py-2 text-xs font-black uppercase tracking-wide inline-flex items-center gap-2"
               style={{
                 background: 'var(--color-surface)',
-                border: `2px solid ${draggedProject.color || '#2563eb'}`,
+                border: `2px solid ${ink(draggedProject.color, '#2563eb')}`,
                 boxShadow: 'var(--shadow-brutal)',
                 color: 'var(--color-text)'
               }}
             >
               <FolderKanban
                 className="w-4 h-4"
-                style={{ color: draggedProject.color || '#2563eb' }}
+                style={{ color: ink(draggedProject.color, '#2563eb') }}
               />
               {draggedProject.name}
             </div>

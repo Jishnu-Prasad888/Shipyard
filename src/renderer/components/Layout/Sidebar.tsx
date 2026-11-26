@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { ink } from '../../lib/ink'
 import {
   Calendar,
   ChevronDown,
@@ -814,7 +815,7 @@ const WorkspaceRow = ({
         ) : (
           <ChevronRight className="w-3.5 h-3.5" />
         )}
-        <Folder className="w-4 h-4" style={{ color: workspace.color || '#2563eb' }} />
+        <Folder className="w-4 h-4" style={{ color: ink(workspace.color, '#2563eb') }} />
         <span className="truncate">{workspace.name}</span>
       </button>
       <button
@@ -927,7 +928,7 @@ const ProjectRow = ({
           }}
         >
           {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-          <FolderKanban className="w-4 h-4" style={{ color: project.color || '#2563eb' }} />
+          <FolderKanban className="w-4 h-4" style={{ color: ink(project.color, '#2563eb') }} />
           <span className="truncate">{project.name}</span>
         </button>
         <button

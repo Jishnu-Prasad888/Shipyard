@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react'
+import { ink } from '../../lib/ink'
 import { Plus, Edit2, Tag, LayoutGrid, Trash2 } from 'lucide-react'
 import { BoardCard } from './BoardCard'
 import { ProjectModal } from './ProjectModal'
@@ -178,7 +179,7 @@ export const ProjectView: React.FC<ProjectViewProps> = ({
 
   if (!project) return null
 
-  const projectColor = project.color || '#2563eb'
+  const projectColor = ink(project.color, '#2563eb')
 
   const tags = project.tags || []
 

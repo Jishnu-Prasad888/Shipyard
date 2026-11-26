@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { ink } from '../../lib/ink'
 import { X, Calendar, Tag, CheckSquare, Link2, Plus, Trash2, Search, RotateCcw } from 'lucide-react'
 import { MarkdownEditor } from './MarkdownEditor'
 import { useResizableDialog } from '../../hooks/useResizableDialog'
@@ -978,7 +979,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
                             key={s.id}
                             className="status-chip inline-flex items-stretch border-2"
                             style={{
-                              backgroundColor: isSelected ? s.color : s.color + '15',
+                              backgroundColor: isSelected ? s.color : ink(s.color) + '15',
                               borderColor: s.color
                             }}
                           >
@@ -1134,7 +1135,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
                             e.preventDefault()
                             handleDeleteTagGlobal(tag)
                           }}
-                          style={{ backgroundColor: tag.color + '20', color: tag.color }}
+                          style={{ backgroundColor: ink(tag.color) + '20', color: ink(tag.color) }}
                         >
                           {tag.name}
                           <button

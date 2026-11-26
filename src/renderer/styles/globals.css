@@ -106,89 +106,91 @@
  ====================== */
 
 .dark {
-  /* ── Forest dark palette ──
-     Deep green surfaces, forest-green accent with dark text on it, warm
-     orange/amber and cyan highlights. */
-  --color-background: #071b10;
-  --color-surface: #0e2518;
-  --color-surface-2: #193023;
-  --color-surface-3: #243a2d;
+  /* ── Techno Dracula ──
+     Dracula's palette on deeper, near-black violet surfaces, with neon
+     purple/pink/cyan accents and glows. Text on accent fills is dark. */
+  --color-background: #191a21;
+  --color-surface: #21222c;
+  --color-surface-2: #282a36;
+  --color-surface-3: #343746;
 
-  --color-sidebar: #07190f;
-  --color-header: #0b2115;
+  --color-sidebar: #16171d;
+  --color-header: #1d1e27;
 
-  --color-sidebar-foreground: #dce6df;
-  --color-sidebar-foreground-muted: #a2b7aa;
-  --color-sidebar-section: #b7cabe;
-  --color-sidebar-divider: rgba(220, 230, 223, 0.12);
-  --color-sidebar-tile: rgba(143, 188, 143, 0.07);
-  --color-sidebar-hover-bg: rgba(68, 162, 110, 0.18);
-  --color-sidebar-hover-border: #596f61;
-  --color-sidebar-hover-text: #eef3f0;
+  --color-sidebar-foreground: #f8f8f2;
+  --color-sidebar-foreground-muted: #a4abd3;
+  --color-sidebar-section: #c7cbe6;
+  --color-sidebar-divider: rgba(248, 248, 242, 0.09);
+  --color-sidebar-tile: rgba(189, 147, 249, 0.06);
+  --color-sidebar-hover-bg: rgba(189, 147, 249, 0.16);
+  --color-sidebar-hover-border: #6272a4;
+  --color-sidebar-hover-text: #ffffff;
   --color-sidebar-active-bg: var(--color-primary);
-  --color-sidebar-active-border: #5bb882;
-  --color-sidebar-active-text: #0a1a10;
+  --color-sidebar-active-border: #ff79c6;
+  --color-sidebar-active-text: #191a21;
 
-  --color-header-foreground: #eef3f0;
-  --color-header-muted: #a2b7aa;
-  --color-header-button-bg: rgba(143, 188, 143, 0.1);
-  --color-header-button-border: #596f61;
+  --color-header-foreground: #f8f8f2;
+  --color-header-muted: #a4abd3;
+  --color-header-button-bg: rgba(189, 147, 249, 0.12);
+  --color-header-button-border: #6272a4;
 
-  --color-border: #32473a;
-  --color-border-strong: #596f61;
+  --color-border: #343746;
+  --color-border-strong: #6272a4;
 
-  --color-text: #dce6df;
-  --color-muted: #8ea596;
+  --color-text: #f8f8f2;
+  /* Dracula's comment colour is too dim for text; this keeps its hue. */
+  --color-muted: #a4abd3;
 
-  /* hsl(147 41% 45%) */
-  --color-primary: #44a26e;
-  --color-primary-soft: rgba(68, 162, 110, 0.18);
-  --color-primary-hover: #5bb882;
-  --color-on-primary: #0a1a10;
-  --btn-primary-top: #5bb882;
+  --color-primary: #bd93f9;
+  --color-primary-soft: rgba(189, 147, 249, 0.16);
+  --color-primary-hover: #d1b3ff;
+  --color-on-primary: #191a21;
+  --btn-primary-top: #d6bcff;
 
-  --color-secondary: #4ecdc4;
-  --color-accent: #8fbc8f;
+  --color-secondary: #ff79c6;
+  --color-accent: #50fa7b;
 
-  --color-status-info: #66d9ef;
-  --color-status-in-progress: #ffb74d;
-  --color-status-blocked: #c78a7a;
-  --color-status-done: #8fbc8f;
+  --color-status-info: #8be9fd;
+  --color-status-in-progress: #ffb86c;
+  --color-status-blocked: #ff5555;
+  --color-status-done: #50fa7b;
 
-  --color-warning: #f39c12;
-  --color-alert: #c78a7a;
+  --color-warning: #ffb86c;
+  --color-alert: #ff5555;
 
-  --color-cyan: #4ecdc4;
-  --color-indigo: #6b8fa3;
-  --color-violet: #b682d0;
+  --color-cyan: #8be9fd;
+  --color-indigo: #6272a4;
+  --color-violet: #bd93f9;
 
   /* Glows, shadows and glossy highlights used by the Aero controls. */
-  --glow-rgb: 68 162 110;
-  --glow-2-rgb: 68 162 110;
-  --shade-rgb: 0 6 3;
-  --sheen: 0.35;
+  --glow-rgb: 189 147 249;
+  --glow-2-rgb: 255 121 198;
+  --shade-rgb: 0 0 0;
+  --sheen: 0.3;
   --text-shadow-strength: 0;
 
   /* Notes */
-  --note-h1: #f39c12;
-  --note-h2: #ffb74d;
-  --note-h3: #4ecdc4;
-  --note-link: #66d9ef;
-  --note-link-hover: #8fe3f5;
-  --note-bullet: #f39c12;
-  --note-code: #4ecdc4;
-  --note-code-bg: rgba(78, 205, 196, 0.08);
-  --note-pre-bg: #07190f;
-  --note-pre-text: #dce6df;
+  --note-h1: #ff79c6;
+  --note-h2: #bd93f9;
+  --note-h3: #8be9fd;
+  --note-link: #8be9fd;
+  --note-link-hover: #b4f2ff;
+  --note-bullet: #ff79c6;
+  --note-code: #50fa7b;
+  --note-code-bg: rgba(80, 250, 123, 0.08);
+  --note-pre-bg: #16171d;
+  --note-pre-text: #f8f8f2;
 
-  --shadow-control: inset 0 1px 0 rgba(220, 230, 223, 0.06), 0 1px 3px rgba(0, 0, 0, 0.5);
-  --shadow-panel: inset 0 1px 0 rgba(220, 230, 223, 0.04), 0 4px 14px rgba(0, 0, 0, 0.45);
-  --shadow-window: 0 16px 42px rgba(0, 0, 0, 0.7), 0 2px 10px rgba(0, 0, 0, 0.55);
+  --shadow-control: inset 0 1px 0 rgba(248, 248, 242, 0.05), 0 1px 3px rgba(0, 0, 0, 0.55);
+  --shadow-panel: inset 0 1px 0 rgba(248, 248, 242, 0.04), 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-window:
+    0 0 0 1px rgba(189, 147, 249, 0.18), 0 18px 48px rgba(0, 0, 0, 0.7),
+    0 0 40px rgba(189, 147, 249, 0.08);
   --shadow-brutal: var(--shadow-panel);
   --shadow-brutal-sm: var(--shadow-control);
   --shadow-brutal-lg: var(--shadow-window);
-  --shadow-brutal-blue: 0 4px 18px rgba(68, 162, 110, 0.3);
-  --shadow-brutal-cyan: 0 4px 18px rgba(78, 205, 196, 0.24);
+  --shadow-brutal-blue: 0 0 18px rgba(189, 147, 249, 0.35);
+  --shadow-brutal-cyan: 0 0 18px rgba(139, 233, 253, 0.3);
 }
 
 /* ======================
@@ -1182,14 +1184,14 @@
   opacity: 1;
 }
 
-/* Dashboard chart series (validated for colour-vision deficiency on both surfaces). */
+/* Dashboard chart series (validated for colour-vision deficiency on each theme's surface). */
 :root {
   --chart-created: #2a78d6;
   --chart-finished: #1baf7a;
 }
 .dark {
-  --chart-created: #38a9c4;
-  --chart-finished: #d98a12;
+  --chart-created: #a77ef0;
+  --chart-finished: #38b85a;
 }
 
 /* List bullets in notes */

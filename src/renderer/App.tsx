@@ -136,6 +136,23 @@ function App(): ReactElement {
     setGitHubToken(settings.githubToken)
   }, [settings.githubToken])
 
+  // Entity colours are adjusted for the theme while rendering (lib/ink), so
+  // re-render everything whenever dark mode is switched on or off, however
+  // the class was changed.
+  const [, setThemeRenders] = useState(0)
+  useEffect(() => {
+    let dark = document.documentElement.classList.contains('dark')
+    const observer = new MutationObserver(() => {
+      const now = document.documentElement.classList.contains('dark')
+      if (now !== dark) {
+        dark = now
+        setThemeRenders((count) => count + 1)
+      }
+    })
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
+    return () => observer.disconnect()
+  }, [])
+
   useEffect(() => {
     const colorMode = settings.colorMode || settings.theme || 'light'
     document.documentElement.classList.toggle('dark', colorMode === 'dark')

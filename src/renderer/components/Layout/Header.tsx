@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { ink } from '../../lib/ink'
 import {
   Search,
   Settings,
@@ -78,7 +79,7 @@ export const Header: React.FC<HeaderProps> = ({
             type: 'workspace',
             name: f.name,
             subtitle: 'Workspace',
-            color: f.color || '#2563eb'
+            color: ink(f.color, '#2563eb')
           })
         })
 
@@ -92,7 +93,7 @@ export const Header: React.FC<HeaderProps> = ({
             type: 'project',
             name: d.name,
             subtitle: workspace ? `in ${workspace.name}` : 'Unassigned Project',
-            color: d.color || '#2563eb'
+            color: ink(d.color, '#2563eb')
           })
         })
 
@@ -107,7 +108,7 @@ export const Header: React.FC<HeaderProps> = ({
             type: 'board',
             name: b.name,
             subtitle: project ? `Board in ${project.name}` : 'Board',
-            color: b.color || '#0891b2',
+            color: ink(b.color, '#0891b2'),
             projectId: b.projectId
           })
         })
@@ -346,11 +347,11 @@ export const Header: React.FC<HeaderProps> = ({
                                     : result.color || 'var(--color-primary)',
                                   background: isHot
                                     ? 'rgba(255,255,255,0.8)'
-                                    : (result.color || '#2563eb') + '12',
+                                    : ink(result.color, '#2563eb') + '12',
                                   color: isHot ? '#041020' : result.color || 'var(--color-primary)',
                                   boxShadow: isHot
                                     ? 'var(--shadow-control)'
-                                    : `0 2px 6px ${result.color || '#2563eb'}45`
+                                    : `0 2px 6px ${ink(result.color, '#2563eb')}45`
                                 }}
                               >
                                 {typeIcon(result.type)}
