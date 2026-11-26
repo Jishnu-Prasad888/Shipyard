@@ -1171,3 +1171,31 @@
 .obsidian-content .ProseMirror ol > li::marker {
   color: var(--note-bullet);
 }
+
+/* Dashboard grid (react-grid-layout): themed drop placeholder and resize
+   handle. Scoped to win over the library's stylesheet. */
+.dashboard-grid .react-grid-item.react-grid-placeholder {
+  background: var(--color-primary);
+  opacity: 0.18;
+  border-radius: 5px;
+}
+.dashboard-grid .react-grid-item > .react-resizable-handle {
+  background-image: none;
+  opacity: 0.6;
+}
+.dashboard-grid .react-grid-item:hover > .react-resizable-handle {
+  opacity: 1;
+}
+.dashboard-grid .react-grid-item > .react-resizable-handle::after {
+  right: 5px;
+  bottom: 5px;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--color-muted);
+  border-bottom: 2px solid var(--color-muted);
+}
+.dashboard-grid .react-grid-item.react-draggable-dragging,
+.dashboard-grid .react-grid-item.resizing {
+  z-index: 20;
+  opacity: 0.9;
+}

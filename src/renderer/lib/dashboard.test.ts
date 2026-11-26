@@ -6,6 +6,11 @@ import {
   isTaskDone,
   overdueTasks,
   parseLayout,
+  parseLayoutValue,
+  placeWidgets,
+  applyPositions,
+  readingOrder,
+  WidgetConfig,
   progressBy,
   projectsInScope,
   reposInScope,
@@ -185,5 +190,69 @@ describe('dashboard layout', () => {
     expect(layout[1]).toMatchObject({ limit: 50, scope: { kind: 'overview' } })
     expect(layout[2].github).toBeUndefined()
     expect(new Set(layout.map((widget) => widget.id)).size).toBe(3)
+  })
+})
+
+describe('dashboard grid positions', () => {
+  const widget = (id: string, size: 1 | 2 | 3, pos?: WidgetConfig['pos']): WidgetConfig => ({
+    id,
+    kind: id === 'summary' ? 'summary' : 'recent',
+    scope: { kind: 'overview' },
+    size,
+    pos
+  })
+
+  it('places unpositioned widgets like the old three-column flow', () => {
+    const items = placeWidgets(DEFAULT_LAYOUT)
+    const at = (id: string) => items.find((item) => item.i === id)!
+    expect(at('default-summary')).toMatchObject({ x: 0, y: 0, w: 12, h: 4 })
+    expect(at('default-deadlines')).toMatchObject({ x: 0, y: 4, w: 4 })
+    expect(at('default-overdue')).toMatchObject({ x: 4, y: 4, w: 4 })
+    expect(at('default-status')).toMatchObject({ x: 8, y: 4, w: 4 })
+    expect(at('default-progress')).toMatchObject({ x: 0, y: 12, w: 8 })
+    expect(at('default-recent')).toMatchObject({ x: 8, y: 12, w: 4 })
+  })
+
+  it('keeps stored positions and fits new widgets around them', () => {
+    const items = placeWidgets([
+      widget('a', 1, { x: 0, y: 0, w: 6, h: 5 }),
+      widget('b', 1)
+    ])
+    expect(items[0]).toEqual({ i: 'a', x: 0, y: 0, w: 6, h: 5 })
+    expect(items[1]).toMatchObject({ x: 6, y: 0, w: 4 })
+  })
+
+  it('validates stored positions', () => {
+    const [a, b, c] = parseLayoutValue([
+      { id: 'a', kind: 'recent', pos: { x: 10, y: 2, w: 6, h: 1 } },
+      { id: 'b', kind: 'recent', pos: { x: 'left', y: 0, w: 4, h: 4 } },
+      { id: 'c', kind: 'recent', pos: { x: -3, y: -1, w: 40, h: 99 } }
+    ])
+    // Kept inside the grid and above the minimum size.
+    expect(a.pos).toEqual({ x: 6, y: 2, w: 6, h: 3 })
+    expect(b.pos).toBeUndefined()
+    expect(c.pos).toEqual({ x: 0, y: 0, w: 12, h: 30 })
+  })
+
+  it('applies grid moves and reports when nothing changed', () => {
+    const layout = [widget('a', 1, { x: 0, y: 0, w: 4, h: 4 }), widget('b', 1)]
+    const same = applyPositions(layout, [{ i: 'a', x: 0, y: 0, w: 4, h: 4 }])
+    expect(same).toBe(layout)
+    const moved = applyPositions(layout, [
+      { i: 'a', x: 4, y: 0, w: 4, h: 4 },
+      { i: 'b', x: 0, y: 0, w: 4, h: 8 }
+    ])
+    expect(moved).not.toBe(layout)
+    expect(moved[0].pos).toEqual({ x: 4, y: 0, w: 4, h: 4 })
+    expect(moved[1].pos).toEqual({ x: 0, y: 0, w: 4, h: 8 })
+  })
+
+  it('orders widgets top to bottom, left to right for narrow windows', () => {
+    const layout = [
+      widget('low', 1, { x: 0, y: 9, w: 4, h: 4 }),
+      widget('right', 1, { x: 8, y: 0, w: 4, h: 4 }),
+      widget('left', 1, { x: 0, y: 0, w: 4, h: 4 })
+    ]
+    expect(readingOrder(layout).map((w) => w.id)).toEqual(['left', 'right', 'low'])
   })
 })
