@@ -28,6 +28,7 @@ import { GitHubItem, listCommits, listIssues, listPullRequests } from '../../lib
 import { GitHubItemRow } from '../GitHub/GitHubItems'
 
 const DAY = 24 * 60 * 60 * 1000
+const MAX_GITHUB_REPOS = 6
 
 const openTask = (entry: TaskEntry): void => {
   window.dispatchEvent(
@@ -43,8 +44,16 @@ const Empty: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </p>
 )
 
+const startOfDay = (time: number): number => {
+  const date = new Date(time)
+  date.setHours(0, 0, 0, 0)
+  return date.getTime()
+}
+
+/** Calendar-day distance ("tomorrow" means the next date, not 24 hours). */
 const dueLabel = (deadline: number, now: number): string => {
-  const days = Math.round((deadline - now) / DAY)
+  // Round to absorb daylight-saving shifts.
+  const days = Math.round((startOfDay(deadline) - startOfDay(now)) / DAY)
   if (days === 0) return deadline < now ? 'earlier today' : 'today'
   if (days === 1) return 'tomorrow'
   if (days === -1) return '1 day ago'
@@ -207,11 +216,14 @@ const ActivityChart: React.FC<{ entries: TaskEntry[]; days: number; now: number 
             className="w-2.5 h-2.5 rounded-sm"
             style={{ background: 'var(--chart-finished)' }}
           />
-          Finished <strong className="tabular-nums">{totals.completed}</strong>
+          <span title="Tasks are dated by their last edit; there is no separate completion date">
+            Done (by last edit)
+          </span>{' '}
+          <strong className="tabular-nums">{totals.completed}</strong>
         </span>
         <span className="ml-auto text-[10px]" style={{ color: 'var(--color-muted)' }}>
           {hovered
-            ? `${format(hovered.day)}: ${hovered.created} created, ${hovered.completed} finished`
+            ? `${format(hovered.day)}: ${hovered.created} created, ${hovered.completed} done`
             : `Last ${days} days`}
         </span>
       </div>
@@ -220,7 +232,7 @@ const ActivityChart: React.FC<{ entries: TaskEntry[]; days: number; now: number 
         style={{ borderColor: 'var(--color-border-strong)' }}
         onMouseLeave={() => setHover(null)}
         role="img"
-        aria-label={`Tasks created and finished per day over the last ${days} days: ${totals.created} created, ${totals.completed} finished`}
+        aria-label={`Tasks created, and done tasks by last edit, per day over the last ${days} days: ${totals.created} created, ${totals.completed} done`}
       >
         {buckets.map((bucket, index) => (
           <div
@@ -263,10 +275,12 @@ const GitHubWidget: React.FC<{
 }> = ({ repos, mode, limit }) => {
   const [state, setState] = useState<
     | { status: 'loading' }
-    | { status: 'ok'; items: GitHubItem[] }
+    | { status: 'ok'; items: GitHubItem[]; failed: string[]; reason?: string }
     | { status: 'error'; message: string }
   >({ status: 'loading' })
   const key = repos.join(',')
+  // Keeps the request count (and GitHub's rate limit) in check.
+  const shown = repos.slice(0, MAX_GITHUB_REPOS)
 
   useEffect(() => {
     if (repos.length === 0) return
@@ -274,26 +288,26 @@ const GitHubWidget: React.FC<{
     setState({ status: 'loading' })
     const load = async () => {
       const results = await Promise.allSettled(
-        repos
-          .slice(0, 6)
-          .map((repo) =>
-            mode === 'pulls'
-              ? listPullRequests(repo)
-              : mode === 'issues'
-                ? listIssues(repo)
-                : listCommits(repo, limit)
-          )
+        shown.map((repo) =>
+          mode === 'pulls'
+            ? listPullRequests(repo)
+            : mode === 'issues'
+              ? listIssues(repo)
+              : listCommits(repo, limit)
+        )
       )
       if (cancelled) return
       const items = results.flatMap((result) => (result.status === 'fulfilled' ? result.value : []))
+      const failed = shown.filter((_repo, index) => results[index].status === 'rejected')
       const failure = results.find((result) => result.status === 'rejected') as
         PromiseRejectedResult | undefined
+      const reason = failure ? String(failure.reason?.message || failure.reason) : undefined
       if (items.length === 0 && failure) {
-        setState({ status: 'error', message: String(failure.reason?.message || failure.reason) })
+        setState({ status: 'error', message: reason! })
         return
       }
       items.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))
-      setState({ status: 'ok', items: items.slice(0, limit) })
+      setState({ status: 'ok', items: items.slice(0, limit), failed, reason })
     }
     void load()
     return () => {
@@ -311,7 +325,7 @@ const GitHubWidget: React.FC<{
         style={{ color: 'var(--color-muted)' }}
       >
         <Loader2 className="w-4 h-4 animate-spin" /> Loading{' '}
-        {repos.length === 1 ? repos[0] : `${repos.length} repositories`}…
+        {shown.length === 1 ? shown[0] : `${shown.length} repositories`}…
       </div>
     )
   if (state.status === 'error')
@@ -320,16 +334,35 @@ const GitHubWidget: React.FC<{
         {state.message}
       </p>
     )
+  const notes = (
+    <>
+      {state.failed.length > 0 && (
+        <p className="text-[11px] mb-1.5" style={{ color: 'var(--color-alert, #d94c57)' }}>
+          Could not load {state.failed.join(', ')}: {state.reason}
+        </p>
+      )}
+      {repos.length > shown.length && (
+        <p className="text-[11px] mb-1.5" style={{ color: 'var(--color-muted)' }}>
+          Showing the first {shown.length} of {repos.length} repositories. Narrow the widget&apos;s data
+          source to see the others.
+        </p>
+      )}
+    </>
+  )
   if (state.items.length === 0)
     return (
-      <Empty>
-        {mode === 'commits'
-          ? 'No commits.'
-          : `No open ${mode === 'pulls' ? 'pull requests' : 'issues'}.`}
-      </Empty>
+      <>
+        {notes}
+        <Empty>
+          {mode === 'commits'
+            ? 'No commits.'
+            : `No open ${mode === 'pulls' ? 'pull requests' : 'issues'}.`}
+        </Empty>
+      </>
     )
   return (
     <div className="space-y-1.5">
+      {notes}
       {state.items.map((item) => (
         <GitHubItemRow
           key={`${item.ref.repo}:${item.ref.number ?? item.ref.sha}`}

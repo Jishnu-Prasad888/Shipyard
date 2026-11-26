@@ -430,7 +430,7 @@ export const WIDGET_KINDS: {
   {
     kind: 'activity',
     label: 'Activity',
-    description: 'Tasks created and finished per day.',
+    description: 'Tasks created, and done tasks by the day they were last edited.',
     defaults: { size: 2, days: 14 }
   },
   {

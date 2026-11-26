@@ -107,11 +107,17 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
       ? null
       : workspaceWithDescendants(workspaces, activeWorkspace)
 
+  // Projects whose workspace no longer exists count as unassigned, so they
+  // never vanish from every tab (the dashboard uses the same rule).
+  const knownWorkspaceIds = new Set(workspaces.map((workspace) => workspace.id))
+  const isUnassigned = (project: Project) =>
+    !project.workspaceId || !knownWorkspaceIds.has(project.workspaceId)
+
   const filteredProjects = projects.filter((project) => {
     const matchesWorkspace =
       activeWorkspace === 'all' ||
       (activeWorkspace === 'unassigned'
-        ? !project.workspaceId
+        ? isUnassigned(project)
         : !!project.workspaceId && !!activeWorkspaceIds?.has(project.workspaceId))
     const matchesFilter = !filter || project.name.toLowerCase().includes(filter.toLowerCase())
     return matchesWorkspace && matchesFilter
@@ -121,7 +127,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
     .slice(0, 6)
 
-  const unassignedCount = projects.filter((project) => !project.workspaceId).length
+  const unassignedCount = projects.filter(isUnassigned).length
 
   // Workspaces in tree order with their depth, so nesting is visible.
   const orderedWorkspaces: { workspace: Workspace; depth: number }[] = []

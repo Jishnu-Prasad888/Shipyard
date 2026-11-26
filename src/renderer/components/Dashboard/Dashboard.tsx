@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   DndContext,
   DragEndEvent,
@@ -113,6 +113,14 @@ const scopeOptions = (data: DashboardData): { group: string; options: ScopeOptio
     }
   }
   walk(null, 0)
+  // Workspaces caught in a parent loop (corrupt data) are never reached from
+  // the top; list them anyway so they can still be picked.
+  for (const workspace of data.workspaces) {
+    if (!visited.has(workspace.id)) {
+      visited.add(workspace.id)
+      workspaceOptions.push({ value: `workspace:${workspace.id}`, label: workspace.name })
+    }
+  }
   const projects = [...data.projects].sort((a, b) => a.name.localeCompare(b.name))
   return [
     {
@@ -448,27 +456,40 @@ export const Dashboard: React.FC<{ dataVersion: number; overview: OverviewFilter
   })
   const [now, setNow] = useState(() => Date.now())
 
+  // Only the latest load may update the dashboard, so a slow, older load
+  // can't overwrite newer numbers.
+  const loadIdRef = useRef(0)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const load = useCallback(async () => {
-    const [workspaces, projects, boards, columns, tasks, subtasks] = await Promise.all([
-      window.electron.db.findAll('workspaces'),
-      window.electron.db.findAll('projects'),
-      window.electron.db.findAll('boards'),
-      window.electron.db.findAll('columns'),
-      window.electron.db.findAll('tasks'),
-      window.electron.db.findAll('subtasks')
-    ])
-    setData({
-      workspaces,
-      projects,
-      boards,
-      columns,
-      tasks: (tasks || []).map(parseTask),
-      subtasks: (subtasks || []).map((subtask: any) => ({
-        taskId: String(subtask.taskId),
-        completed: !!subtask.completed
-      }))
-    })
-    setNow(Date.now())
+    const loadId = ++loadIdRef.current
+    try {
+      const [workspaces, projects, boards, columns, tasks, subtasks] = await Promise.all([
+        window.electron.db.findAll('workspaces'),
+        window.electron.db.findAll('projects'),
+        window.electron.db.findAll('boards'),
+        window.electron.db.findAll('columns'),
+        window.electron.db.findAll('tasks'),
+        window.electron.db.findAll('subtasks')
+      ])
+      if (loadId !== loadIdRef.current) return
+      setData({
+        workspaces,
+        projects,
+        boards,
+        columns,
+        tasks: (tasks || []).map(parseTask),
+        // Same rule as parseSubtasks: stored values may be booleans, 1/0 or '1'/'0'.
+        subtasks: (subtasks || []).map((subtask: any) => ({
+          taskId: String(subtask.taskId),
+          completed:
+            subtask.completed === true || subtask.completed === 1 || subtask.completed === '1'
+        }))
+      })
+      setLoadError(null)
+      setNow(Date.now())
+    } catch (error: any) {
+      if (loadId === loadIdRef.current) setLoadError(String(error?.message || error))
+    }
   }, [])
 
   useEffect(() => {
@@ -484,9 +505,12 @@ export const Dashboard: React.FC<{ dataVersion: number; overview: OverviewFilter
     return () => window.clearInterval(timer)
   }, [])
 
-  const updateLayout = (next: WidgetConfig[]) => {
-    setLayout(next)
-    saveLayout(next)
+  const updateLayout = (next: WidgetConfig[] | ((current: WidgetConfig[]) => WidgetConfig[])) => {
+    setLayout((current) => {
+      const value = typeof next === 'function' ? next(current) : next
+      saveLayout(value)
+      return value
+    })
   }
 
   const toggleCollapsed = () => {
@@ -507,13 +531,20 @@ export const Dashboard: React.FC<{ dataVersion: number; overview: OverviewFilter
   }
 
   const removeWidget = (widget: WidgetConfig) => {
-    const previous = layout
-    updateLayout(layout.filter((candidate) => candidate.id !== widget.id))
+    const index = layout.findIndex((candidate) => candidate.id === widget.id)
+    updateLayout((current) => current.filter((candidate) => candidate.id !== widget.id))
     window.dispatchEvent(
       new CustomEvent('show-toast', {
         detail: {
           message: `Removed "${widget.title || widgetKindInfo(widget.kind).label}" widget`,
-          onUndo: () => updateLayout(previous)
+          // Put back only this widget, keeping any changes made since.
+          onUndo: () =>
+            updateLayout((current) => {
+              if (current.some((candidate) => candidate.id === widget.id)) return current
+              const next = [...current]
+              next.splice(Math.min(Math.max(index, 0), next.length), 0, widget)
+              return next
+            })
         }
       })
     )
@@ -625,6 +656,11 @@ export const Dashboard: React.FC<{ dataVersion: number; overview: OverviewFilter
         )}
       </div>
 
+      {!collapsed && loadError && (
+        <p className="text-xs mb-3" style={{ color: 'var(--color-alert, #d94c57)' }} role="alert">
+          Could not load dashboard data: {loadError}
+        </p>
+      )}
       {!collapsed &&
         (layout.length === 0 ? (
           <div
