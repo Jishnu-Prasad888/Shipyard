@@ -9,6 +9,7 @@
 import { type ReactElement, useEffect, useRef, useState } from 'react'
 import { SettingsModal } from '../Settings/SettingsModal'
 import { Toast } from '../common/Toast'
+import { AppContextMenu } from '../common/AppContextMenu'
 import {
   QuickCreateModal,
   QuickCreateResult,
@@ -74,6 +75,8 @@ export function OverlayHost({
           }}
         />
       )}
+
+      <AppContextMenu />
 
       {toast && (
         <Toast message={toast.message} onUndo={toast.onUndo} onClose={() => setToast(null)} />

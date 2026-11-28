@@ -14,11 +14,14 @@ import { RootState } from './store'
 import { setSettings } from './store/settingsSlice'
 import { setGitHubToken } from './lib/github'
 import {
+  boundShortcuts,
   effectiveKeyboardShortcuts,
   plainStroke,
   shortcutStrokeFromEvent,
-  shortcutsMatchingPrefix
+  shortcutsMatchingPrefix,
+  WORKS_WHILE_TYPING
 } from './lib/keyboardShortcuts'
+import { takeScreenshot } from './lib/screenshot'
 import { QuickCreateResult } from './components/QuickCreate/QuickCreateModal'
 import { OverlayHost } from './components/Layout/OverlayHost'
 import { openQuickCreate, openSettings } from './lib/overlays'
@@ -339,6 +342,12 @@ function App(): ReactElement {
         case 'toggleSplit':
           toggleSplit()
           break
+        case 'screenshotArea':
+          void takeScreenshot('area')
+          break
+        case 'screenshotFull':
+          void takeScreenshot('full')
+          break
         case 'toggleTheme': {
           const currentMode = settings.colorMode || settings.theme || 'light'
           const colorMode = currentMode === 'light' ? 'dark' : 'light'
@@ -365,11 +374,24 @@ function App(): ReactElement {
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.repeat) return
       const target = event.target as HTMLElement | null
-      if (target?.matches('input, textarea, select') || target?.isContentEditable) return
-
       const shortcuts = effectiveKeyboardShortcuts(settings.keyboardShortcuts)
       const eventStroke = shortcutStrokeFromEvent(event)
       if (!eventStroke) return
+
+      if (target?.matches('input, textarea, select') || target?.isContentEditable) {
+        // Only single-stroke shortcuts meant for use while typing.
+        const typing = boundShortcuts(shortcuts).find(
+          (shortcut) =>
+            WORKS_WHILE_TYPING.includes(shortcut.action) &&
+            shortcut.strokes.length === 1 &&
+            shortcut.strokes[0] === eventStroke
+        )
+        if (typing) {
+          event.preventDefault()
+          runAction(typing.action)
+        }
+        return
+      }
 
       const matchingSequence = (
         stroke: string

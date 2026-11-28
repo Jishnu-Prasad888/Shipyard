@@ -54,6 +54,12 @@ declare global {
       darkMode: {
         toggle: (enabled: boolean) => Promise<any>
       }
+      screenshot: {
+        /** Resolves to null when the user cancels. */
+        capture: (
+          mode: 'area' | 'full'
+        ) => Promise<{ data: string; ext: string; path: string | null } | null>
+      }
       export: {
         saveFile: (opts: { defaultName: string; content: string; ext: string }) => Promise<any>
         saveFolder: (files: { name: string; content: string; ext: string }[]) => Promise<any>

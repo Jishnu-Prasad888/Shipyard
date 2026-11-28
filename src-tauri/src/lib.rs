@@ -5,6 +5,7 @@ use tauri::{
 };
 
 mod commands;
+mod screenshot;
 mod dev_seed;
 mod state;
 
@@ -174,6 +175,7 @@ pub fn run() {
             commands::export_save_folder,
             commands::export_open_item,
             commands::dark_mode_toggle,
+            screenshot::screenshot_capture,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

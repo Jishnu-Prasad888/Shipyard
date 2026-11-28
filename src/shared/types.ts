@@ -115,6 +115,8 @@ export type KeyboardShortcutAction =
   | 'openCalendar'
   | 'toggleTheme'
   | 'toggleSplit'
+  | 'screenshotArea'
+  | 'screenshotFull'
 
 export interface KeyboardShortcut {
   action: KeyboardShortcutAction
