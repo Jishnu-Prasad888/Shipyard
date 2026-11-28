@@ -492,7 +492,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ))}
                 {childWorkspaces.length === 0 && workspaceProjects.length === 0 && (
                   <p
-                    className="px-4 py-1 text-xs font-bold uppercase tracking-wider text-white/40"
+                    className="px-4 py-1 text-xs font-bold uppercase tracking-wider on-sidebar-muted"
                     style={{ paddingLeft: `${(depth + 1) * 0.75 + 1}rem` }}
                   >
                     Empty
@@ -548,7 +548,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             setTargetWorkspaceId(null)
             setShowWorkspaceModal(true)
           }}
-          className="aero-icon-button w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold text-white"
+          className="aero-icon-button w-full flex items-center gap-2 px-3 py-2 text-xs font-semibold on-sidebar"
         >
           <Folder className="w-4 h-4" /> Create Workspace
         </button>
@@ -821,7 +821,7 @@ const WorkspaceRow = ({
       <button
         {...listeners}
         {...attributes}
-        className="px-1.5 text-white/40 hover:text-white/80 cursor-grab"
+        className="px-1.5 on-sidebar-muted hover-on-sidebar cursor-grab"
         title="Drag onto another workspace to nest it"
         aria-label={`Move workspace ${workspace.name}`}
       >
@@ -839,7 +839,7 @@ const WorkspaceRootDropZone = () => {
   return (
     <div
       ref={setNodeRef}
-      className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-center border border-dashed rounded-md text-white/70"
+      className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-center border border-dashed rounded-md on-sidebar-muted"
       style={{
         borderColor: isOver ? 'var(--color-primary)' : 'rgba(255,255,255,0.3)',
         background: isOver ? 'rgba(95,182,255,0.2)' : undefined
@@ -867,12 +867,12 @@ const UnassignedDropZone = ({
       className="mt-4"
       style={{ outline: isOver ? '2px solid var(--color-primary)' : undefined }}
     >
-      <p className="px-3 py-2 text-[10px] font-black uppercase text-white/70">
+      <p className="px-3 py-2 text-[10px] font-black uppercase on-sidebar-muted">
         Unassigned Projects
       </p>
       <div className="space-y-1">{children}</div>
       {!projects.length && (
-        <p className="px-3 py-1 text-[10px] font-bold uppercase text-white/40">
+        <p className="px-3 py-1 text-[10px] font-bold uppercase on-sidebar-muted">
           No unassigned projects
         </p>
       )}
@@ -934,7 +934,7 @@ const ProjectRow = ({
         <button
           {...listeners}
           {...attributes}
-          className="px-2 text-white/40 cursor-grab"
+          className="px-2 on-sidebar-muted cursor-grab"
           title="Move project"
         >
           ::
@@ -946,14 +946,16 @@ const ProjectRow = ({
             <button
               key={board.id}
               onClick={() => onSelectBoard(board.id)}
-              className="nav-item w-full"
-              style={{ color: selectedBoardId === board.id ? 'white' : undefined }}
+              className={`nav-item w-full ${selectedBoardId === board.id ? 'active' : ''}`}
+              aria-current={selectedBoardId === board.id ? 'page' : undefined}
             >
               <KanbanSquare className="w-3 h-3" />
               {board.name}
             </button>
           ))}
-          {!boards.length && <p className="px-3 text-[10px] uppercase text-white/40">No boards</p>}
+          {!boards.length && (
+            <p className="px-3 text-[10px] uppercase on-sidebar-muted">No boards</p>
+          )}
         </div>
       )}
     </div>

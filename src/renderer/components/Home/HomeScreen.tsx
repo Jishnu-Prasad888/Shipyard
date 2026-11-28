@@ -195,7 +195,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               boxShadow: 'var(--shadow-brutal-sm)'
             }}
           >
-            <LayoutDashboard className="w-5 h-5 text-white" />
+            <LayoutDashboard className="w-5 h-5" style={{ color: 'var(--color-on-primary)' }} />
           </div>
           <div>
             <h1

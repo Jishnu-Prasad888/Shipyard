@@ -86,13 +86,13 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
         onClick={(event) => event.stopPropagation()}
       >
         <div className="aero-titlebar flex items-center justify-between px-5 py-3 border-b">
-          <div className="flex items-center gap-2 text-white">
+          <div className="flex items-center gap-2">
             <Keyboard className="w-4 h-4" />
             <h2 className="text-base font-black uppercase tracking-wider">Keyboard Shortcuts</h2>
           </div>
           <button
             onClick={onClose}
-            className="aero-icon-button w-7 h-7 text-white flex items-center justify-center"
+            className="aero-icon-button w-7 h-7 flex items-center justify-center"
           >
             <X className="w-4 h-4" />
           </button>

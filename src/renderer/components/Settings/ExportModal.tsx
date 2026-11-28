@@ -598,12 +598,12 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
           className="aero-titlebar flex items-center justify-between px-5 py-3 border-b shrink-0"
           style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
         >
-          <h2 className="flex items-center gap-2 text-base font-black text-white uppercase tracking-wider">
+          <h2 className="flex items-center gap-2 text-base font-black uppercase tracking-wider">
             <Download className="w-4 h-4" /> Export Data
           </h2>
           <button
             onClick={onClose}
-            className="aero-icon-button w-7 h-7 text-white flex items-center justify-center"
+            className="aero-icon-button w-7 h-7 flex items-center justify-center"
           >
             <X className="w-4 h-4" />
           </button>

@@ -82,10 +82,10 @@ const StatusModal: React.FC<StatusModalProps> = ({ onClose, onCreate }) => {
           className="aero-titlebar flex items-center justify-between px-4 py-3 border-b"
           style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
         >
-          <h3 className="text-sm font-black text-white uppercase tracking-wider">New Status</h3>
+          <h3 className="text-sm font-black uppercase tracking-wider">New Status</h3>
           <button
             onClick={onClose}
-            className="aero-icon-button w-6 h-6 text-white flex items-center justify-center"
+            className="aero-icon-button w-6 h-6 flex items-center justify-center"
           >
             <X className="w-3 h-3" />
           </button>
@@ -840,7 +840,7 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
             <textarea
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="text-xl font-semibold text-white bg-transparent border-none focus:outline-none px-2 flex-1 resize-none overflow-hidden break-words whitespace-pre-wrap leading-tight py-2"
+              className="text-xl font-semibold text-inherit placeholder:text-current placeholder:opacity-60 bg-transparent border-none focus:outline-none px-2 flex-1 resize-none overflow-hidden break-words whitespace-pre-wrap leading-tight py-2"
               rows={1}
               placeholder="Task title"
               onInput={(e) => {
@@ -862,12 +862,12 @@ export const TaskDetailsModal: React.FC<TaskDetailsModalProps> = ({ task, onClos
             <div className="flex items-center gap-2">
               <button
                 onClick={handleDeleteTask}
-                className="aero-icon-button p-2 text-white hover:text-alert transition"
+                className="aero-icon-button p-2 hover:text-alert transition"
                 title="Delete task"
               >
                 <Trash2 className="w-5 h-5" />
               </button>
-              <button onClick={handleClose} className="aero-icon-button p-2 text-white transition">
+              <button onClick={handleClose} className="aero-icon-button p-2 transition">
                 <X className="w-5 h-5" />
               </button>
             </div>

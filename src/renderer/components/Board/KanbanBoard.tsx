@@ -825,7 +825,7 @@ export const KanbanBoard: React.FC<KanbanBoardProps> = ({
                 style={{
                   borderColor: 'var(--color-primary)',
                   background: 'var(--color-primary)',
-                  color: 'white',
+                  color: 'var(--color-on-primary)',
                   boxShadow: 'var(--shadow-brutal-sm)'
                 }}
               >

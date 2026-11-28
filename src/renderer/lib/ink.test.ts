@@ -35,3 +35,21 @@ describe('ink', () => {
     expect(ink('red')).toBe('red')
   })
 })
+
+describe('readableText', () => {
+  it('picks the text colour with more contrast', async () => {
+    const { readableText, contrastRatio, DARK_TEXT, LIGHT_TEXT } = await import('./ink')
+    expect(readableText('#ffffff')).toBe(DARK_TEXT)
+    expect(readableText('#c3b1ff')).toBe(DARK_TEXT) // pastel lavender
+    expect(readableText('#10b981')).toBe(DARK_TEXT) // emerald
+    expect(readableText('#1e3a8a')).toBe(LIGHT_TEXT) // navy
+    expect(readableText('var(--color-primary)')).toBe('var(--color-on-primary)')
+    for (const bg of ['#ef4444', '#3b82f6', '#8b5cf6', '#f59e0b', '#64748b', '#0ea5e9']) {
+      const best = Math.max(contrastRatio(bg, DARK_TEXT), contrastRatio(bg, LIGHT_TEXT))
+      expect(contrastRatio(bg, readableText(bg))).toBe(best)
+      // Mid-tone colours (e.g. #ef4444) can't reach 4.5:1 with either; the
+      // titles drawn on them are large and bold, which needs 3:1.
+      expect(best).toBeGreaterThanOrEqual(4)
+    }
+  })
+})

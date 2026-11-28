@@ -109,10 +109,10 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({
           className="aero-titlebar flex items-center justify-between px-5 py-3 border-b"
           style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
         >
-          <h2 className="text-base font-black text-white uppercase tracking-wider">{title}</h2>
+          <h2 className="text-base font-black uppercase tracking-wider">{title}</h2>
           <button
             onClick={onClose}
-            className="aero-icon-button w-7 h-7 text-white flex items-center justify-center transition"
+            className="aero-icon-button w-7 h-7 flex items-center justify-center transition"
           >
             <X className="w-4 h-4" />
           </button>

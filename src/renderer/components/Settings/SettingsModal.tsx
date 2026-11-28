@@ -602,10 +602,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
           className="aero-titlebar flex items-center justify-between px-5 py-3 border-b shrink-0"
           style={{ background: 'var(--color-primary)', borderColor: 'var(--color-border-strong)' }}
         >
-          <h2 className="text-base font-black text-white uppercase tracking-wider">Settings</h2>
+          <h2 className="text-base font-black uppercase tracking-wider">Settings</h2>
           <button
             onClick={onClose}
-            className="aero-icon-button w-7 h-7 text-white flex items-center justify-center transition"
+            className="aero-icon-button w-7 h-7 flex items-center justify-center transition"
           >
             <X className="w-4 h-4" />
           </button>
@@ -720,7 +720,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                           borderColor:
                             colorMode === t ? 'var(--color-primary)' : 'var(--color-border)',
                           background: colorMode === t ? 'var(--color-primary)' : 'transparent',
-                          color: colorMode === t ? 'white' : 'var(--color-text)',
+                          color: colorMode === t ? 'var(--color-on-primary)' : 'var(--color-text)',
                           boxShadow: colorMode === t ? 'var(--shadow-brutal-sm)' : 'none'
                         }}
                       >
@@ -887,7 +887,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ onClose }) => {
                             {fontFamily === font && (
                               <CheckCircle
                                 className="w-3.5 h-3.5 shrink-0"
-                                style={{ color: 'white' }}
+                                style={{ color: 'var(--color-on-primary)' }}
                               />
                             )}
                           </button>

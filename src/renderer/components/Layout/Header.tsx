@@ -231,7 +231,7 @@ export const Header: React.FC<HeaderProps> = ({
               style={{ color: 'var(--color-on-primary)' }}
             />
           </div>
-          <div className="leading-tight text-white">
+          <div className="leading-tight on-header">
             <span className="block text-xs font-black uppercase tracking-[0.2em] opacity-80">
               Shipyard
             </span>
@@ -242,13 +242,13 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Search with dropdown */}
         <div className="flex-1 max-w-2xl relative">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/70 pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 on-header-muted pointer-events-none" />
             <input
               ref={inputRef}
               type="text"
               value={query}
               placeholder="Search workspaces, projects, boards..."
-              className="w-full pl-10 pr-10 py-2 text-sm font-semibold border bg-white/10 text-white placeholder:text-white/60 focus:outline-none transition-all rounded-sm"
+              className="w-full pl-10 pr-10 py-2 text-sm font-semibold border header-search focus:outline-none transition-all rounded-sm"
               style={{
                 borderColor: 'white',
                 boxShadow: 'inset 0 1px 4px rgba(0,0,0,.32), 0 1px 0 rgba(255,255,255,.22)'
@@ -259,7 +259,7 @@ export const Header: React.FC<HeaderProps> = ({
             />
             {query && (
               <button
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/60 hover:text-white transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 on-header-muted hover-on-header transition-colors"
                 onClick={() => {
                   setQuery('')
                   setIsOpen(false)
@@ -426,7 +426,7 @@ export const Header: React.FC<HeaderProps> = ({
           {onToggleSplit && (
             <button
               onClick={onToggleSplit}
-              className="aero-icon-button p-2.5 text-white transition-all duration-150"
+              className="aero-icon-button p-2.5 on-header transition-all duration-150"
               title={isSplit ? 'Close split view' : 'Split view'}
               aria-pressed={!!isSplit}
               style={isSplit ? { background: 'rgba(255,255,255,0.25)' } : undefined}
@@ -436,14 +436,14 @@ export const Header: React.FC<HeaderProps> = ({
           )}
           <button
             onClick={onToggleTheme}
-            className="aero-icon-button p-2.5 text-white transition-all duration-150"
+            className="aero-icon-button p-2.5 on-header transition-all duration-150"
             title={isDarkMode ? 'Light Mode' : 'Dark Mode'}
           >
             {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
           </button>
           <button
             onClick={onOpenSettings}
-            className="aero-icon-button p-2.5 text-white transition-all duration-150"
+            className="aero-icon-button p-2.5 on-header transition-all duration-150"
             title="Settings"
           >
             <Settings className="w-4 h-4" />

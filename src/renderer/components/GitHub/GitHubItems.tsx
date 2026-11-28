@@ -1,3 +1,4 @@
+import { readableText } from '../../lib/ink'
 import React, { useEffect, useState } from 'react'
 import {
   CircleDot,
@@ -103,8 +104,8 @@ export const GitHubItemRow: React.FC<ItemRowProps> = ({ item, defaultRepo, actio
           <span className="font-mono">{formatRef(item.ref, defaultRepo)}</span>
           {label && (
             <span
-              className="px-1.5 py-px rounded-full text-white"
-              style={{ background: itemColor(item) }}
+              className="px-1.5 py-px rounded-full"
+              style={{ background: itemColor(item), color: readableText(itemColor(item)) }}
             >
               {label}
             </span>

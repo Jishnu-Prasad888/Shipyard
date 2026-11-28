@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react'
-import { ink } from '../../lib/ink'
+import { ink, readableText } from '../../lib/ink'
 import {
   ChevronLeft,
   ChevronRight,
@@ -158,7 +158,7 @@ const DayCell = ({
           className="flex items-center justify-center w-6 h-6 text-xs font-black"
           style={{
             background: isToday ? 'var(--color-primary)' : 'transparent',
-            color: isToday ? 'white' : 'var(--color-text)',
+            color: isToday ? 'var(--color-on-primary)' : 'var(--color-text)',
             boxShadow: isToday ? 'var(--shadow-control)' : 'none',
             border: isToday ? '2px solid var(--color-border-strong)' : '2px solid transparent'
           }}
@@ -397,13 +397,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
               >
                 <p
                   className="text-[9px] font-black uppercase tracking-widest"
-                  style={{ color: isToday ? 'white' : 'var(--color-muted)' }}
+                  style={{ color: isToday ? 'var(--color-on-primary)' : 'var(--color-muted)' }}
                 >
                   {DAYS[i]}
                 </p>
                 <p
                   className="text-lg font-black"
-                  style={{ color: isToday ? 'white' : 'var(--color-text)' }}
+                  style={{ color: isToday ? 'var(--color-on-primary)' : 'var(--color-text)' }}
                 >
                   {date.getDate()}
                 </p>
@@ -480,13 +480,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
                 >
                   <span
                     className="text-[8px] font-black uppercase"
-                    style={{ color: isT ? 'rgba(255,255,255,0.8)' : 'var(--color-muted)' }}
+                    style={{ color: isT ? 'var(--color-on-primary)' : 'var(--color-muted)' }}
                   >
                     {MONTHS[date.getMonth()].slice(0, 3)}
                   </span>
                   <span
                     className="text-base font-black leading-none"
-                    style={{ color: isT ? 'white' : 'var(--color-text)' }}
+                    style={{ color: isT ? 'var(--color-on-primary)' : 'var(--color-text)' }}
                   >
                     {date.getDate()}
                   </span>
@@ -618,7 +618,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
               } as React.CSSProperties
             }
           >
-            <p className="text-sm font-black text-white uppercase tracking-wide">{task.title}</p>
+            <p
+              className="text-sm font-black uppercase tracking-wide"
+              style={{ color: readableText(task.color) }}
+            >
+              {task.title}
+            </p>
           </div>
           <div className="p-4 space-y-2">
             {task.description && (
@@ -734,12 +739,18 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
         style={{ background: 'var(--color-header)', borderColor: 'var(--color-border-strong)' }}
       >
         <div className="flex items-center gap-3">
-          <Calendar className="w-5 h-5 text-white" />
+          <Calendar className="w-5 h-5" style={{ color: 'var(--color-header-foreground)' }} />
           <div>
-            <h1 className="text-base font-black text-white uppercase tracking-widest">
+            <h1
+              className="text-base font-black uppercase tracking-widest"
+              style={{ color: 'var(--color-header-foreground)' }}
+            >
               Project Calendar
             </h1>
-            <p className="text-[10px] text-white/60 font-bold uppercase tracking-wider">
+            <p
+              className="text-[10px] font-bold uppercase tracking-wider"
+              style={{ color: 'var(--color-header-muted)' }}
+            >
               {headerTitle}
             </p>
           </div>
@@ -799,19 +810,19 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
             <div className="flex items-center gap-1">
               <button
                 onClick={goBack}
-                className="w-8 h-8 border-2 border-white/30 text-white flex items-center justify-center hover:bg-white/20 transition"
+                className="calendar-nav-button w-8 h-8 border-2 flex items-center justify-center transition"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={goToday}
-                className="px-2 py-1 border-2 border-white/30 text-white text-[10px] font-black uppercase hover:bg-white/20 transition"
+                className="calendar-nav-button px-2 py-1 border-2 text-[10px] font-black uppercase transition"
               >
                 Today
               </button>
               <button
                 onClick={goForward}
-                className="w-8 h-8 border-2 border-white/30 text-white flex items-center justify-center hover:bg-white/20 transition"
+                className="calendar-nav-button w-8 h-8 border-2 flex items-center justify-center transition"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
