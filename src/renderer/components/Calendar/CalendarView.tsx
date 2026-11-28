@@ -788,16 +788,20 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ dataVersion }) => {
         {/* View toggle + nav */}
         <div className="flex items-center gap-2">
           {/* View mode selector */}
-          <div className="flex border-2 border-white/30">
+          <div
+            className="flex border-2"
+            style={{ borderColor: 'var(--color-header-button-border)' }}
+          >
             {(['month', 'week', 'agenda'] as ViewMode[]).map((m) => (
               <button
                 key={m}
                 onClick={() => setViewMode(m)}
                 className="px-3 py-1 text-[10px] font-black uppercase tracking-wider transition-all"
                 style={{
-                  background: viewMode === m ? 'white' : 'transparent',
-                  color: viewMode === m ? 'var(--color-header)' : 'white',
-                  borderRight: m !== 'agenda' ? '2px solid rgba(255,255,255,0.3)' : 'none'
+                  background: viewMode === m ? 'var(--color-header-foreground)' : 'transparent',
+                  color: viewMode === m ? 'var(--color-header)' : 'var(--color-header-foreground)',
+                  borderRight:
+                    m !== 'agenda' ? '2px solid var(--color-header-button-border)' : 'none'
                 }}
               >
                 {m}

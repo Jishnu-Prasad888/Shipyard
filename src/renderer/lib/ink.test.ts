@@ -47,8 +47,8 @@ describe('readableText', () => {
     for (const bg of ['#ef4444', '#3b82f6', '#8b5cf6', '#f59e0b', '#64748b', '#0ea5e9']) {
       const best = Math.max(contrastRatio(bg, DARK_TEXT), contrastRatio(bg, LIGHT_TEXT))
       expect(contrastRatio(bg, readableText(bg))).toBe(best)
-      // Mid-tone colours (e.g. #ef4444) can't reach 4.5:1 with either; the
-      // titles drawn on them are large and bold, which needs 3:1.
+      // Mid-tone colours sit near the crossover, where the better of the two
+      // is only a little above 4:1.
       expect(best).toBeGreaterThanOrEqual(4)
     }
   })

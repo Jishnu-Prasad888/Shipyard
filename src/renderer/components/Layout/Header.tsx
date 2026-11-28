@@ -250,7 +250,7 @@ export const Header: React.FC<HeaderProps> = ({
               placeholder="Search workspaces, projects, boards..."
               className="w-full pl-10 pr-10 py-2 text-sm font-semibold border header-search focus:outline-none transition-all rounded-sm"
               style={{
-                borderColor: 'white',
+                borderColor: 'var(--color-header-button-border)',
                 boxShadow: 'inset 0 1px 4px rgba(0,0,0,.32), 0 1px 0 rgba(255,255,255,.22)'
               }}
               onChange={(e) => setQuery(e.target.value)}
@@ -429,7 +429,7 @@ export const Header: React.FC<HeaderProps> = ({
               className="aero-icon-button p-2.5 on-header transition-all duration-150"
               title={isSplit ? 'Close split view' : 'Split view'}
               aria-pressed={!!isSplit}
-              style={isSplit ? { background: 'rgba(255,255,255,0.25)' } : undefined}
+              style={isSplit ? { background: 'var(--color-header-button-bg)' } : undefined}
             >
               <Columns2 className="w-4 h-4" />
             </button>

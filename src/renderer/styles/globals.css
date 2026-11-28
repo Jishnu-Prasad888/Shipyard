@@ -46,27 +46,27 @@
   --color-muted: #36506b;
 
   /* Primary action */
-  --color-primary: #2d7bc7;
+  --color-primary: #2a74bc;
   --color-primary-soft: #d7e8ff;
   --color-primary-hover: #1f5f9d;
 
   /* Accent / secondary */
   --color-secondary: #5fb6ff;
-  --color-accent: #2aa789;
+  --color-accent: #1d7d64;
 
   /* Status */
-  --color-status-info: #2d7bc7;
-  --color-status-in-progress: #5fb6ff;
-  --color-status-blocked: #e57d60;
-  --color-status-done: #2aa789;
+  --color-status-info: #2a74bc;
+  --color-status-in-progress: #0b6fa8;
+  --color-status-blocked: #b4472b;
+  --color-status-done: #1d7d64;
 
   /* Semantic */
-  --color-warning: #e57d60;
+  --color-warning: #a84a2c;
   --color-alert: #c94046;
 
   /* Legacy aliases (components still reference these) */
   --color-cyan: #5fb6ff;
-  --color-indigo: #2d7bc7;
+  --color-indigo: #2a74bc;
   --color-violet: #0b2545;
 
   /* Aero depth. The old names remain aliases while components migrate. */
@@ -90,10 +90,10 @@
   --note-h1: var(--color-text);
   --note-h2: var(--color-text);
   --note-h3: var(--color-primary);
-  --note-link: var(--color-cyan);
+  --note-link: #1c64a8;
   --note-link-hover: var(--color-primary);
   --note-bullet: currentColor;
-  --note-code: var(--color-primary);
+  --note-code: var(--color-primary-hover);
   --note-code-bg: var(--color-primary-soft);
   --note-pre-bg: var(--color-border-strong);
   --note-pre-text: #e2e8f0;
@@ -255,6 +255,7 @@
   --shadow-brutal-cyan: 0 10px 30px rgba(123, 210, 255, 0.35);
   --color-on-primary: #ffffff;
   --note-pre-bg: #1f2438;
+  --text-shadow-strength: 0;
   --note-code: #3f51b0;
   --note-pre-text: #eef1ff;
   --glow-rgb: 79 98 201;
@@ -409,6 +410,12 @@
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / calc(0.24 * var(--sheen))),
       0 1px 2px rgba(0, 0, 0, 0.25);
+  }
+
+  .nav-item.current {
+    background: var(--color-sidebar-hover-bg);
+    color: var(--color-sidebar-hover-text);
+    box-shadow: inset 3px 0 0 var(--color-sidebar-active-border);
   }
 
   .nav-item.active {

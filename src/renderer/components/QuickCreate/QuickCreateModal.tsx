@@ -528,10 +528,12 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
       >
         <div
           className="aero-titlebar flex items-center justify-between px-5 py-3 border-b"
-          style={{
-            background: selectedType?.color || 'var(--color-primary)',
-            color: readableText(selectedType?.color)
-          }}
+          style={
+            {
+              '--aero-titlebar-accent': selectedType?.color || 'var(--color-primary)',
+              color: readableText(selectedType?.color)
+            } as React.CSSProperties
+          }
         >
           <div>
             <h2 className="text-base font-black uppercase tracking-wider">

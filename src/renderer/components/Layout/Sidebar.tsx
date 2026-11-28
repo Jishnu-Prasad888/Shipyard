@@ -519,7 +519,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }}
     >
       <div className="brutal-accent" />
-      <div className="p-4 pb-3 border-b" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
+      <div className="p-4 pb-3 border-b" style={{ borderColor: 'var(--color-sidebar-divider)' }}>
         <NavButton
           active={isHome}
           onClick={onGoHome}
@@ -533,7 +533,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
           label="Project Calendar"
         />
       </div>
-      <div className="p-4 border-b space-y-2" style={{ borderColor: 'rgba(255,255,255,0.18)' }}>
+      <div
+        className="p-4 border-b space-y-2"
+        style={{ borderColor: 'var(--color-sidebar-divider)' }}
+      >
         <button
           onClick={() => {
             setTargetWorkspaceId(null)
@@ -759,8 +762,8 @@ const NavButton = ({
     onClick={onClick}
     className="nav-item w-full flex items-center gap-2 px-3 py-2 mt-2 text-xs"
     style={{
-      borderColor: active ? 'var(--color-primary)' : 'rgba(255,255,255,0.18)',
-      background: active ? 'var(--color-primary)' : 'rgba(255,255,255,0.06)',
+      borderColor: active ? 'var(--color-primary)' : 'var(--color-sidebar-divider)',
+      background: active ? 'var(--color-primary)' : 'var(--color-sidebar-tile)',
       color: active ? 'var(--color-on-primary)' : 'var(--color-sidebar-foreground)'
     }}
   >
@@ -841,7 +844,7 @@ const WorkspaceRootDropZone = () => {
       ref={setNodeRef}
       className="px-3 py-2 text-[10px] font-black uppercase tracking-wider text-center border border-dashed rounded-md on-sidebar-muted"
       style={{
-        borderColor: isOver ? 'var(--color-primary)' : 'rgba(255,255,255,0.3)',
+        borderColor: isOver ? 'var(--color-primary)' : 'var(--color-sidebar-hover-border)',
         background: isOver ? 'rgba(95,182,255,0.2)' : undefined
       }}
     >
@@ -928,7 +931,10 @@ const ProjectRow = ({
           }}
         >
           {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-          <FolderKanban className="w-4 h-4" style={{ color: ink(project.color, '#2563eb') }} />
+          <FolderKanban
+            className="w-4 h-4"
+            style={{ color: selected ? 'currentColor' : ink(project.color, '#2563eb') }}
+          />
           <span className="truncate">{project.name}</span>
         </button>
         <button
@@ -946,7 +952,7 @@ const ProjectRow = ({
             <button
               key={board.id}
               onClick={() => onSelectBoard(board.id)}
-              className={`nav-item w-full ${selectedBoardId === board.id ? 'active' : ''}`}
+              className={`nav-item w-full ${selectedBoardId === board.id ? 'current' : ''}`}
               aria-current={selectedBoardId === board.id ? 'page' : undefined}
             >
               <KanbanSquare className="w-3 h-3" />

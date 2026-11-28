@@ -16,10 +16,10 @@ CSS = Path(__file__).resolve().parent.parent / "src/renderer/styles/globals.css"
 
 # Selector chains in cascade order for each theme.
 THEMES = {
-    "default light": [":root"],
-    "default dark": [":root", ".dark"],
-    "clay light": [":root", ".theme-clay"],
-    "clay dark": [":root", ".dark", ".theme-clay", ".theme-clay.dark"],
+    "default light": ["@theme", ":root"],
+    "default dark": ["@theme", ":root", ".dark"],
+    "clay light": ["@theme", ":root", ".theme-clay"],
+    "clay dark": ["@theme", ":root", ".dark", ".theme-clay", ".theme-clay.dark"],
 }
 
 TEXT, LARGE, UI = 7.0, 4.5, 3.0  # body text (AAA), small secondary text (AA), borders/icons
@@ -54,9 +54,9 @@ CHECKS = [
 def blocks(css):
     """First declaration block for each selector of interest."""
     found = {}
-    for m in re.finditer(r"(^|\n)\s*([.:][\w.:-]+)\s*\{([^}]*)\}", css):
+    for m in re.finditer(r"(^|\n)\s*(@theme|[.:][\w.:-]+)\s*\{([^}]*)\}", css):
         sel = m.group(2)
-        if sel in (":root", ".dark", ".theme-clay", ".theme-clay.dark") and sel not in found:
+        if sel in ("@theme", ":root", ".dark", ".theme-clay", ".theme-clay.dark") and sel not in found:
             found[sel] = dict(re.findall(r"(--[\w-]+)\s*:\s*([^;]+);", m.group(3)))
     return found
 
@@ -117,6 +117,8 @@ def main():
         for fg_name, bg_name, minimum in CHECKS:
             fg, bg = resolve(tokens, fg_name), resolve(tokens, bg_name)
             if fg is None or bg is None:
+                failures += 1
+                rows.append(f"  ??? unresolved  {fg_name} on {bg_name}")
                 continue
             bg = over(bg, base) if bg[3] < 1 else bg
             fg = over(fg, bg) if fg[3] < 1 else fg
