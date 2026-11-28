@@ -94,3 +94,30 @@ export const ink = (color?: string | null, fallback = '#2563eb'): string => {
 
 /** OKLCH lightness of a hex colour (for tests and contrast decisions). */
 export const lightnessOf = (hex: string): number => rgbToOklab(parseHex(hex))[0]
+
+const relativeLuminance = (hex: string): number => {
+  const [r, g, b] = parseHex(hex).map(toLinear)
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/** WCAG contrast ratio between two hex colours. */
+export const contrastRatio = (a: string, b: string): number => {
+  const [hi, lo] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x)
+  return (hi + 0.05) / (lo + 0.05)
+}
+
+export const LIGHT_TEXT = '#ffffff'
+export const DARK_TEXT = '#14141c'
+
+/**
+ * Text colour for content drawn on a user-picked background (a task's
+ * colour, a GitHub label): near-black or white, whichever reads better.
+ * Non-hex backgrounds get the theme's on-primary colour.
+ */
+export const readableText = (background?: string | null): string => {
+  const value = (background || '').trim()
+  if (!HEX.test(value)) return 'var(--color-on-primary)'
+  return contrastRatio(value, DARK_TEXT) >= contrastRatio(value, LIGHT_TEXT)
+    ? DARK_TEXT
+    : LIGHT_TEXT
+}

@@ -499,7 +499,7 @@ export const Column: React.FC<ColumnProps> = ({
                         style={{
                           borderColor: isHidden ? 'var(--color-warning)' : 'var(--color-border)',
                           background: isHidden ? 'var(--color-warning)' : 'transparent',
-                          color: isHidden ? 'white' : 'transparent'
+                          color: isHidden ? 'var(--color-on-primary)' : 'transparent'
                         }}
                       >
                         ✓

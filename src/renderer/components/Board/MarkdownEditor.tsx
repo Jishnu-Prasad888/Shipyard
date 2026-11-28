@@ -95,7 +95,7 @@ const ToolBtn = ({
     style={{
       borderColor: active ? 'var(--color-primary)' : 'transparent',
       background: active ? 'var(--color-primary)' : 'transparent',
-      color: active ? 'white' : 'var(--color-text)',
+      color: active ? 'var(--color-on-primary)' : 'var(--color-text)',
       boxShadow: active ? 'var(--shadow-control)' : 'none'
     }}
     onMouseOver={(e) => {
@@ -422,7 +422,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
             className="flex items-center gap-1 px-2 py-1 text-[10px] font-black uppercase tracking-wider transition-all"
             style={{
               background: mode === 'edit' ? 'var(--color-primary)' : 'transparent',
-              color: mode === 'edit' ? 'white' : 'var(--color-muted)'
+              color: mode === 'edit' ? 'var(--color-on-primary)' : 'var(--color-muted)'
             }}
           >
             <Edit3 className="w-3 h-3" />
@@ -435,7 +435,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
             style={{
               borderColor: 'var(--color-border-strong)',
               background: mode === 'preview' ? 'var(--color-primary)' : 'transparent',
-              color: mode === 'preview' ? 'white' : 'var(--color-muted)'
+              color: mode === 'preview' ? 'var(--color-on-primary)' : 'var(--color-muted)'
             }}
           >
             <Eye className="w-3 h-3" />

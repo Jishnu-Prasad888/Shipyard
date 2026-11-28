@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { ink } from '../../lib/ink'
+import { ink, readableText } from '../../lib/ink'
 import {
   Columns3,
   FolderKanban,
@@ -528,9 +528,14 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
       >
         <div
           className="aero-titlebar flex items-center justify-between px-5 py-3 border-b"
-          style={{ background: selectedType?.color || 'var(--color-primary)' }}
+          style={
+            {
+              '--aero-titlebar-accent': selectedType?.color || 'var(--color-primary)',
+              color: readableText(selectedType?.color)
+            } as React.CSSProperties
+          }
         >
-          <div className="text-white">
+          <div>
             <h2 className="text-base font-black uppercase tracking-wider">
               {type ? `Create ${selectedType?.label}` : 'Quick Create'}
             </h2>
@@ -540,7 +545,7 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="aero-icon-button w-7 h-7 text-white flex items-center justify-center"
+            className="aero-icon-button w-7 h-7 flex items-center justify-center"
           >
             <X className="w-4 h-4" />
           </button>
@@ -564,8 +569,12 @@ export const QuickCreateModal: React.FC<QuickCreateModalProps> = ({
                   }}
                 >
                   <span
-                    className="w-10 h-10 flex items-center justify-center border text-white"
-                    style={{ background: item.color, borderColor: item.color }}
+                    className="w-10 h-10 flex items-center justify-center border"
+                    style={{
+                      background: item.color,
+                      borderColor: item.color,
+                      color: readableText(item.color)
+                    }}
                   >
                     <Icon className="w-5 h-5" />
                   </span>

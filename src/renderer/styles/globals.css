@@ -46,27 +46,27 @@
   --color-muted: #36506b;
 
   /* Primary action */
-  --color-primary: #2d7bc7;
+  --color-primary: #2a74bc;
   --color-primary-soft: #d7e8ff;
   --color-primary-hover: #1f5f9d;
 
   /* Accent / secondary */
   --color-secondary: #5fb6ff;
-  --color-accent: #2aa789;
+  --color-accent: #1d7d64;
 
   /* Status */
-  --color-status-info: #2d7bc7;
-  --color-status-in-progress: #5fb6ff;
-  --color-status-blocked: #e57d60;
-  --color-status-done: #2aa789;
+  --color-status-info: #2a74bc;
+  --color-status-in-progress: #0b6fa8;
+  --color-status-blocked: #b4472b;
+  --color-status-done: #1d7d64;
 
   /* Semantic */
-  --color-warning: #e57d60;
+  --color-warning: #a84a2c;
   --color-alert: #c94046;
 
   /* Legacy aliases (components still reference these) */
   --color-cyan: #5fb6ff;
-  --color-indigo: #2d7bc7;
+  --color-indigo: #2a74bc;
   --color-violet: #0b2545;
 
   /* Aero depth. The old names remain aliases while components migrate. */
@@ -90,10 +90,10 @@
   --note-h1: var(--color-text);
   --note-h2: var(--color-text);
   --note-h3: var(--color-primary);
-  --note-link: var(--color-cyan);
+  --note-link: #1c64a8;
   --note-link-hover: var(--color-primary);
   --note-bullet: currentColor;
-  --note-code: var(--color-primary);
+  --note-code: var(--color-primary-hover);
   --note-code-bg: var(--color-primary-soft);
   --note-pre-bg: var(--color-border-strong);
   --note-pre-text: #e2e8f0;
@@ -121,7 +121,7 @@
   --color-sidebar-divider: rgba(248, 248, 242, 0.09);
   --color-sidebar-tile: rgba(189, 147, 249, 0.06);
   --color-sidebar-hover-bg: rgba(189, 147, 249, 0.16);
-  --color-sidebar-hover-border: #6272a4;
+  --color-sidebar-hover-border: #8a93c4;
   --color-sidebar-hover-text: #ffffff;
   --color-sidebar-active-bg: var(--color-primary);
   --color-sidebar-active-border: #ff79c6;
@@ -130,10 +130,10 @@
   --color-header-foreground: #f8f8f2;
   --color-header-muted: #a4abd3;
   --color-header-button-bg: rgba(189, 147, 249, 0.12);
-  --color-header-button-border: #6272a4;
+  --color-header-button-border: #8a93c4;
 
-  --color-border: #343746;
-  --color-border-strong: #6272a4;
+  --color-border: #656b90;
+  --color-border-strong: #8a93c4;
 
   --color-text: #f8f8f2;
   /* Dracula's comment colour is too dim for text; this keeps its hue. */
@@ -203,46 +203,46 @@
   --color-header: #d1dcff;
 
   --color-sidebar-foreground: #1f2438;
-  --color-sidebar-foreground-muted: #4c5470;
+  --color-sidebar-foreground-muted: #454d69;
   --color-sidebar-section: #2f3652;
   --color-sidebar-divider: rgba(31, 36, 56, 0.16);
   --color-sidebar-tile: rgba(141, 164, 255, 0.16);
   --color-sidebar-hover-bg: rgba(141, 164, 255, 0.24);
-  --color-sidebar-hover-border: #8b9bd6;
+  --color-sidebar-hover-border: #5d6894;
   --color-sidebar-hover-text: #0f1429;
-  --color-sidebar-active-bg: #8da4ff;
-  --color-sidebar-active-border: #768ef0;
-  --color-sidebar-active-text: #0c1226;
+  --color-sidebar-active-bg: #4f62c9;
+  --color-sidebar-active-border: #3f51b0;
+  --color-sidebar-active-text: #ffffff;
 
   --color-header-foreground: #0f1426;
   --color-header-muted: #3f4664;
   --color-header-button-bg: rgba(141, 164, 255, 0.22);
-  --color-header-button-border: #8b9bd6;
+  --color-header-button-border: #5d6894;
 
-  --color-border: #b8c4ec;
-  --color-border-strong: #8b9bd6;
+  --color-border: #7f8ab2;
+  --color-border-strong: #5d6894;
 
   --color-text: #1f2438;
-  --color-muted: #4c5470;
+  --color-muted: #454d69;
 
-  --color-primary: #8da4ff;
-  --color-primary-soft: rgba(141, 164, 255, 0.22);
-  --color-primary-hover: #768ef0;
+  --color-primary: #4f62c9;
+  --color-primary-soft: rgba(79, 98, 201, 0.14);
+  --color-primary-hover: #3f51b0;
 
-  --color-secondary: #7bd2ff;
-  --color-accent: #72c7b8;
+  --color-secondary: #0a6aa1;
+  --color-accent: #1b7a69;
 
-  --color-status-info: #7bd2ff;
-  --color-status-in-progress: #8da4ff;
-  --color-status-blocked: #f09a83;
-  --color-status-done: #72c7b8;
+  --color-status-info: #0a6aa1;
+  --color-status-in-progress: #4f62c9;
+  --color-status-blocked: #b4472b;
+  --color-status-done: #1b7a69;
 
-  --color-warning: #f09a83;
-  --color-alert: #ec7e8e;
+  --color-warning: #9a5b00;
+  --color-alert: #be3150;
 
-  --color-cyan: #7bd2ff;
-  --color-indigo: #8da4ff;
-  --color-violet: #768ef0;
+  --color-cyan: #0a6aa1;
+  --color-indigo: #4f62c9;
+  --color-violet: #5b4fc9;
 
   /* Clay depth, exposed through the canonical Aero tokens. */
   --shadow-control: 0 6px 18px rgba(0, 0, 0, 0.1);
@@ -253,6 +253,12 @@
   --shadow-brutal-lg: var(--shadow-window);
   --shadow-brutal-blue: 0 10px 30px rgba(141, 164, 255, 0.35);
   --shadow-brutal-cyan: 0 10px 30px rgba(123, 210, 255, 0.35);
+  --color-on-primary: #ffffff;
+  --note-pre-bg: #1f2438;
+  --text-shadow-strength: 0;
+  --note-code: #3f51b0;
+  --note-pre-text: #eef1ff;
+  --glow-rgb: 79 98 201;
 }
 
 /* ======================
@@ -260,54 +266,54 @@
  ====================== */
 
 .theme-clay.dark {
-  --color-background: #1d1b2f;
-  --color-surface: #24223b;
-  --color-surface-2: #2c2a45;
-  --color-surface-3: #353455;
+  --color-background: #14131c;
+  --color-surface: #1e1d2a;
+  --color-surface-2: #272636;
+  --color-surface-3: #323145;
 
-  --color-sidebar: #22203a;
-  --color-header: #2a2844;
+  --color-sidebar: #181723;
+  --color-header: #1e1d2a;
 
-  --color-sidebar-foreground: #f3efff;
-  --color-sidebar-foreground-muted: #b9b1d6;
+  --color-sidebar-foreground: #f5f3ff;
+  --color-sidebar-foreground-muted: #c9c4e4;
   --color-sidebar-section: #e6e1f8;
-  --color-sidebar-divider: rgba(255, 255, 255, 0.18);
-  --color-sidebar-tile: rgba(255, 255, 255, 0.08);
-  --color-sidebar-hover-bg: rgba(195, 177, 255, 0.22);
-  --color-sidebar-hover-border: #c3b1ff;
-  --color-sidebar-hover-text: #0e1022;
-  --color-sidebar-active-bg: #c3b1ff;
+  --color-sidebar-divider: rgba(255, 255, 255, 0.14);
+  --color-sidebar-tile: rgba(185, 166, 255, 0.08);
+  --color-sidebar-hover-bg: rgba(185, 166, 255, 0.18);
+  --color-sidebar-hover-border: #9a95d0;
+  --color-sidebar-hover-text: #ffffff;
+  --color-sidebar-active-bg: #b9a6ff;
   --color-sidebar-active-border: #8ad8ff;
-  --color-sidebar-active-text: #0c1226;
+  --color-sidebar-active-text: #15121f;
 
-  --color-header-foreground: #f3efff;
-  --color-header-muted: #b9b1d6;
-  --color-header-button-bg: rgba(195, 177, 255, 0.2);
-  --color-header-button-border: #c3b1ff;
+  --color-header-foreground: #f5f3ff;
+  --color-header-muted: #c9c4e4;
+  --color-header-button-bg: rgba(185, 166, 255, 0.14);
+  --color-header-button-border: #9a95d0;
 
-  --color-border: #4a4676;
-  --color-border-strong: #8ad8ff;
+  --color-border: #6b6894;
+  --color-border-strong: #9a95d0;
 
-  --color-text: #f3efff;
-  --color-muted: #b9b1d6;
+  --color-text: #f5f3ff;
+  --color-muted: #c9c4e4;
 
-  --color-primary: #c3b1ff;
-  --color-primary-soft: rgba(195, 177, 255, 0.18);
-  --color-primary-hover: #e2d8ff;
+  --color-primary: #b9a6ff;
+  --color-primary-soft: rgba(185, 166, 255, 0.16);
+  --color-primary-hover: #d3c7ff;
 
   --color-secondary: #8ad8ff;
-  --color-accent: #7cd5c8;
+  --color-accent: #7ee0cf;
 
   --color-status-info: #8ad8ff;
-  --color-status-in-progress: #c3b1ff;
-  --color-status-blocked: #f3c0b2;
-  --color-status-done: #7cd5c8;
+  --color-status-in-progress: #b9a6ff;
+  --color-status-blocked: #ffb4a2;
+  --color-status-done: #7ee0cf;
 
-  --color-warning: #f3c0b2;
-  --color-alert: #f49fb1;
+  --color-warning: #ffcf8a;
+  --color-alert: #ff9db0;
 
   --color-cyan: #8ad8ff;
-  --color-indigo: #c3b1ff;
+  --color-indigo: #b9a6ff;
   --color-violet: #a48cff;
 
   --shadow-control: 0 6px 18px rgba(0, 0, 0, 0.2);
@@ -318,6 +324,18 @@
   --shadow-brutal-lg: var(--shadow-window);
   --shadow-brutal-blue: 0 12px 32px rgba(195, 177, 255, 0.35);
   --shadow-brutal-cyan: 0 12px 32px rgba(138, 216, 255, 0.35);
+  --color-on-primary: #15121f;
+  --glow-rgb: 185 166 255;
+  --note-h1: #d3c7ff;
+  --note-h2: #b9a6ff;
+  --note-h3: #8ad8ff;
+  --note-link: #8ad8ff;
+  --note-link-hover: #c2ecff;
+  --note-bullet: #b9a6ff;
+  --note-code: #ffcf8a;
+  --note-code-bg: rgba(255, 207, 138, 0.1);
+  --note-pre-bg: #111019;
+  --note-pre-text: #f5f3ff;
 }
 
 /* ======================
@@ -392,6 +410,12 @@
     box-shadow:
       inset 0 1px 0 rgb(255 255 255 / calc(0.24 * var(--sheen))),
       0 1px 2px rgba(0, 0, 0, 0.25);
+  }
+
+  .nav-item.current {
+    background: var(--color-sidebar-hover-bg);
+    color: var(--color-sidebar-hover-text);
+    box-shadow: inset 3px 0 0 var(--color-sidebar-active-border);
   }
 
   .nav-item.active {
@@ -603,8 +627,42 @@
     border-width: 0 0 1px !important;
     border-color: var(--color-border-strong) !important;
     color: var(--color-on-primary);
-    text-shadow: 0 1px 2px rgb(0 0 0 / calc(0.62 * var(--text-shadow-strength)));
     box-shadow: inset 0 1px 0 rgb(255 255 255 / calc(0.5 * var(--sheen)));
+  }
+
+  /* Text on the header and sidebar bars, which are dark in some themes and
+     pale in others. */
+  .on-header {
+    color: var(--color-header-foreground);
+  }
+  .on-header-muted {
+    color: var(--color-header-muted);
+  }
+  .hover-on-header:hover {
+    color: var(--color-header-foreground);
+  }
+  .on-sidebar {
+    color: var(--color-sidebar-foreground);
+  }
+  .on-sidebar-muted {
+    color: var(--color-sidebar-foreground-muted);
+  }
+  .hover-on-sidebar:hover {
+    color: var(--color-sidebar-foreground);
+  }
+  .header-search {
+    background: var(--color-header-button-bg);
+    color: var(--color-header-foreground);
+  }
+  .header-search::placeholder {
+    color: var(--color-header-muted);
+  }
+  .calendar-nav-button {
+    border-color: var(--color-header-button-border);
+    color: var(--color-header-foreground);
+  }
+  .calendar-nav-button:hover {
+    background: var(--color-header-button-bg);
   }
 
   .aero-section-title {
