@@ -46,7 +46,7 @@ const notify = (message: string): void => {
  * order, at `pos` (or at the selection). Unsupported or oversized files are
  * reported, not inserted.
  */
-const insertImageFiles = async (view: EditorView, files: File[], pos?: number): Promise<void> => {
+const insertImageFiles = async (view: EditorView, files: File[], pos?: number): Promise<number> => {
   const startDoc = view.state.doc
   const sources: { src: string; alt: string | null }[] = []
   for (const file of files) {
@@ -57,7 +57,7 @@ const insertImageFiles = async (view: EditorView, files: File[], pos?: number): 
     }
   }
   const imageType = view.state.schema.nodes.image
-  if (view.isDestroyed || !imageType || sources.length === 0) return
+  if (view.isDestroyed || !imageType || sources.length === 0) return 0
   // If the notes changed during the upload the drop position is stale, so
   // use wherever the cursor is now.
   const at =
@@ -69,6 +69,7 @@ const insertImageFiles = async (view: EditorView, files: File[], pos?: number): 
   view.dispatch(
     view.state.tr.replaceRange(at, at, new Slice(Fragment.from(nodes), 0, 0)).scrollIntoView()
   )
+  return nodes.length
 }
 
 /**
@@ -149,6 +150,22 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   const [linkUrl, setLinkUrl] = useState('')
   const [linkText, setLinkText] = useState('')
   const [showShotMenu, setShowShotMenu] = useState(false)
+  const shotMenuRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!showShotMenu) return
+    const onDown = (event: MouseEvent): void => {
+      if (!shotMenuRef.current?.contains(event.target as Node)) setShowShotMenu(false)
+    }
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setShowShotMenu(false)
+    }
+    window.addEventListener('mousedown', onDown)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('mousedown', onDown)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [showShotMenu])
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   // The last Markdown this editor reported through onChange.
   const lastEmittedRef = useRef<string | null>(null)
@@ -214,7 +231,8 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
     if (!editor) return
     const target: ScreenshotTarget = {
       insertImages: (files) => insertImageFiles(editor.view, files),
-      isAlive: () => !editor.isDestroyed && editor.isEditable && editor.view.dom.isConnected
+      isAlive: () => !editor.isDestroyed && editor.view.dom.isConnected,
+      isEditable: () => editor.isEditable
     }
     setScreenshotTarget(target)
     const onFocus = (): void => setScreenshotTarget(target)
@@ -414,7 +432,7 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         >
           <ImagePlus className="w-3.5 h-3.5" />
         </ToolBtn>
-        <div className="relative">
+        <div className="relative" ref={shotMenuRef}>
           <ToolBtn
             onClick={() => setShowShotMenu((open) => !open)}
             title="Screenshot into the notes (Alt+Shift+S for an area)"
@@ -430,7 +448,6 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
                 border: '1px solid var(--color-border-strong)',
                 boxShadow: 'var(--shadow-window)'
               }}
-              onMouseLeave={() => setShowShotMenu(false)}
             >
               {(
                 [

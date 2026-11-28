@@ -10,9 +10,12 @@ export type ScreenshotMode = 'area' | 'full'
 
 /** A notes editor that can receive images. */
 export interface ScreenshotTarget {
-  insertImages: (files: File[]) => Promise<void>
+  /** Resolves to the number of images actually inserted. */
+  insertImages: (files: File[]) => Promise<number>
   /** False once the editor is gone (closed task, destroyed view). */
   isAlive: () => boolean
+  /** False while the notes are shown in preview. */
+  isEditable: () => boolean
 }
 
 let target: ScreenshotTarget | null = null
@@ -68,20 +71,24 @@ export const takeScreenshot = async (mode: ScreenshotMode): Promise<void> => {
     if (!shot) return // cancelled
     const type = MIME[shot.ext] || 'image/png'
     const blob = base64ToBlob(shot.data, type)
-    if (destination && destination.isAlive()) {
-      const file = new File([blob], `Screenshot ${new Date().toLocaleString()}.${shot.ext}`, {
-        type
-      })
-      await destination.insertImages([file])
-      showToast({ message: 'Screenshot added to the notes' })
+    if (destination && destination.isAlive() && destination.isEditable()) {
+      const stamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')
+      const file = new File([blob], `Screenshot ${stamp}.${shot.ext}`, { type })
+      // A failed upload (e.g. an image over 20 MB) is reported by the
+      // editor itself; don't cover that message with a success toast.
+      if ((await destination.insertImages([file])) > 0) {
+        showToast({ message: 'Screenshot added to the notes' })
+      }
       return
     }
     const copied = await copyToClipboard(blob)
     const where = shot.path ? ` Saved to ${shot.path}` : ''
+    const hint =
+      destination && destination.isAlive()
+        ? 'Switch the notes to Edit to insert screenshots.'
+        : "Open a task's notes to insert screenshots."
     showToast({
-      message: copied
-        ? `Screenshot copied to the clipboard.${where}`
-        : `Open a task's notes to insert screenshots.${where}`
+      message: copied ? `Screenshot copied to the clipboard.${where}` : `${hint}${where}`
     })
   } catch (error) {
     showToast({ message: error instanceof Error ? error.message : String(error) })

@@ -26,14 +26,16 @@ const mockCapture = (result: unknown): void => {
   setBridge({ screenshot: { capture: vi.fn().mockResolvedValue(result) } })
 }
 
-const makeTarget = (alive = true): ScreenshotTarget & { received: File[] } => {
+const makeTarget = (alive = true, editable = true): ScreenshotTarget & { received: File[] } => {
   const received: File[] = []
   return {
     received,
     insertImages: async (files) => {
       received.push(...files)
+      return files.length
     },
-    isAlive: () => alive
+    isAlive: () => alive,
+    isEditable: () => editable
   }
 }
 
@@ -78,6 +80,26 @@ describe('screenshots', () => {
     mockCapture({ data: PNG_BASE64, ext: 'png', path: '/home/me/Pictures/s.png' })
     await takeScreenshot('full')
     expect(toasts[0]).toContain('/home/me/Pictures/s.png')
+  })
+
+  it('asks for edit mode when the notes are in preview', async () => {
+    const preview = makeTarget(true, false)
+    setScreenshotTarget(preview)
+    mockCapture({ data: PNG_BASE64, ext: 'png', path: null })
+    await takeScreenshot('area')
+    expect(preview.received).toHaveLength(0)
+    expect(toasts[0]).toContain('Switch the notes to Edit')
+  })
+
+  it('shows no success toast when nothing was inserted', async () => {
+    setScreenshotTarget({
+      insertImages: async () => 0,
+      isAlive: () => true,
+      isEditable: () => true
+    })
+    mockCapture({ data: PNG_BASE64, ext: 'png', path: null })
+    await takeScreenshot('full')
+    expect(toasts).toEqual([])
   })
 
   it('does nothing when cancelled', async () => {

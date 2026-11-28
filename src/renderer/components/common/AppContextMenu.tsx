@@ -1,10 +1,11 @@
 /**
  * The app-wide right-click menu: screenshots (area or full screen), plus
  * Cut/Copy/Paste where they apply. Elements with their own menu (boards,
- * columns, projects…) call preventDefault and keep it; text fields keep the
- * standard menu, and Shift+right-click always shows it.
+ * columns, projects…) call preventDefault and keep it; text fields, and links
+ * and images in notes, keep the standard menu, and Shift+right-click always
+ * shows it.
  */
-import { type ReactElement, useEffect, useRef, useState } from 'react'
+import { type ReactElement, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ClipboardPaste, Copy, Crop, Monitor, Scissors } from 'lucide-react'
 import { takeScreenshot } from '../../lib/screenshot'
 import { showToast } from '../../lib/overlays'
@@ -17,7 +18,7 @@ interface MenuState {
 }
 
 const MENU_WIDTH = 220
-const MENU_HEIGHT = 200
+const MARGIN = 8
 
 export function AppContextMenu(): ReactElement | null {
   const [menu, setMenu] = useState<MenuState | null>(null)
@@ -28,6 +29,8 @@ export function AppContextMenu(): ReactElement | null {
       if (event.defaultPrevented || event.shiftKey) return
       const target = event.target as HTMLElement | null
       if (target?.closest('input, textarea, select')) return
+      // Links and images in notes keep the standard menu (open/copy link, copy image).
+      if (target?.closest('[contenteditable="true"] a, [contenteditable="true"] img')) return
       if (menuRef.current?.contains(target)) {
         event.preventDefault()
         return
@@ -35,8 +38,8 @@ export function AppContextMenu(): ReactElement | null {
       event.preventDefault()
       const selection = window.getSelection()
       setMenu({
-        x: Math.min(event.clientX, window.innerWidth - MENU_WIDTH - 8),
-        y: Math.min(event.clientY, window.innerHeight - MENU_HEIGHT - 8),
+        x: event.clientX,
+        y: event.clientY,
         editable: !!target?.closest('[contenteditable="true"]'),
         hasSelection: !!selection && !selection.isCollapsed && selection.toString().length > 0
       })
@@ -66,6 +69,15 @@ export function AppContextMenu(): ReactElement | null {
       window.removeEventListener('wheel', close)
       window.removeEventListener('keydown', onKey)
     }
+  }, [menu])
+
+  // Keep the whole menu on screen once its real size is known.
+  useLayoutEffect(() => {
+    const el = menuRef.current
+    if (!menu || !el) return
+    const { width, height } = el.getBoundingClientRect()
+    el.style.left = `${Math.max(MARGIN, Math.min(menu.x, window.innerWidth - width - MARGIN))}px`
+    el.style.top = `${Math.max(MARGIN, Math.min(menu.y, window.innerHeight - height - MARGIN))}px`
   }, [menu])
 
   if (!menu) return null
@@ -159,6 +171,11 @@ export function AppContextMenu(): ReactElement | null {
             )}
           </button>
         )
+      )}
+      {menu.editable && (
+        <p className="px-3 pt-1 pb-1.5 text-[10px]" style={{ color: 'var(--color-muted)' }}>
+          Shift+right-click for spelling suggestions
+        </p>
       )}
     </div>
   )

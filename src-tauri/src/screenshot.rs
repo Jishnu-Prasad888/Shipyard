@@ -30,6 +30,11 @@ pub async fn screenshot_capture(
         other => return Err(format!("unknown screenshot mode: {other}")),
     };
 
+    if !cfg!(target_os = "linux") {
+        // Don't hide the window for a capture that can't happen.
+        return Err("Screenshots are only supported on Linux so far.".into());
+    }
+
     let was_visible = window.is_visible().unwrap_or(true);
     if was_visible {
         let _ = window.hide();
@@ -63,13 +68,7 @@ async fn capture(interactive: bool) -> Result<Option<Capture>, String> {
     };
 
     let uri = response.uri().as_str().to_string();
-    let path = uri
-        .strip_prefix("file://")
-        .map(|p| {
-            percent_encoding::percent_decode_str(p)
-                .decode_utf8_lossy()
-                .into_owned()
-        })
+    let path = file_uri_to_path(&uri)
         .ok_or_else(|| format!("the screenshot was not saved to a local file ({uri})"))?;
     let bytes = tokio::fs::read(&path)
         .await
@@ -85,6 +84,45 @@ async fn capture(interactive: bool) -> Result<Option<Capture>, String> {
         ext,
         path: Some(path),
     }))
+}
+
+/// `file:///a/b%20c.png` or `file://localhost/a/b.png` to `/a/b c.png`.
+#[cfg(target_os = "linux")]
+fn file_uri_to_path(uri: &str) -> Option<String> {
+    let rest = uri.strip_prefix("file://")?;
+    // An authority (host) part, if any, ends at the first slash.
+    let (host, path) = match rest.find('/') {
+        Some(0) => ("", rest),
+        Some(i) => (&rest[..i], &rest[i..]),
+        None => return None,
+    };
+    if !host.is_empty() && host != "localhost" {
+        return None;
+    }
+    Some(
+        percent_encoding::percent_decode_str(path)
+            .decode_utf8_lossy()
+            .into_owned(),
+    )
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::file_uri_to_path;
+
+    #[test]
+    fn file_uris_become_paths() {
+        assert_eq!(
+            file_uri_to_path("file:///home/u/Pictures/Screenshot%20at%2010.png").as_deref(),
+            Some("/home/u/Pictures/Screenshot at 10.png")
+        );
+        assert_eq!(
+            file_uri_to_path("file://localhost/tmp/s.png").as_deref(),
+            Some("/tmp/s.png")
+        );
+        assert_eq!(file_uri_to_path("file://otherhost/tmp/s.png"), None);
+        assert_eq!(file_uri_to_path("https://example.com/s.png"), None);
+    }
 }
 
 #[cfg(not(target_os = "linux"))]
