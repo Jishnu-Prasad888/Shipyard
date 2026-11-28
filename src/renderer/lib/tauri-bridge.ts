@@ -98,6 +98,13 @@ const electronBridge = {
     markSynced: (ids: string[]) => invoke<any>('sync_mark_synced', { ids })
   },
 
+  screenshot: {
+    capture: (mode: 'area' | 'full') =>
+      invoke<{ data: string; ext: string; path: string | null } | null>('screenshot_capture', {
+        mode
+      })
+  },
+
   darkMode: {
     // In Tauri, dark mode is managed entirely by CSS classes on <html>.
     // We keep this stub so existing callers don't break.

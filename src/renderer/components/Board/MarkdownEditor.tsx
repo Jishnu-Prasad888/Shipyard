@@ -22,11 +22,20 @@ import {
   Minus,
   RotateCcw,
   RotateCw,
-  ImagePlus
+  ImagePlus,
+  Camera,
+  Monitor,
+  Crop
 } from 'lucide-react'
 import type { EditorView } from '@tiptap/pm/view'
 import { Fragment, Slice } from '@tiptap/pm/model'
 import { isSupportedImage, uploadImage } from '../../lib/assets'
+import {
+  clearScreenshotTarget,
+  setScreenshotTarget,
+  takeScreenshot,
+  type ScreenshotTarget
+} from '../../lib/screenshot'
 
 const notify = (message: string): void => {
   window.dispatchEvent(new CustomEvent('show-toast', { detail: { message } }))
@@ -37,7 +46,7 @@ const notify = (message: string): void => {
  * order, at `pos` (or at the selection). Unsupported or oversized files are
  * reported, not inserted.
  */
-const insertImageFiles = async (view: EditorView, files: File[], pos?: number): Promise<void> => {
+const insertImageFiles = async (view: EditorView, files: File[], pos?: number): Promise<number> => {
   const startDoc = view.state.doc
   const sources: { src: string; alt: string | null }[] = []
   for (const file of files) {
@@ -48,7 +57,7 @@ const insertImageFiles = async (view: EditorView, files: File[], pos?: number): 
     }
   }
   const imageType = view.state.schema.nodes.image
-  if (view.isDestroyed || !imageType || sources.length === 0) return
+  if (view.isDestroyed || !imageType || sources.length === 0) return 0
   // If the notes changed during the upload the drop position is stale, so
   // use wherever the cursor is now.
   const at =
@@ -60,6 +69,7 @@ const insertImageFiles = async (view: EditorView, files: File[], pos?: number): 
   view.dispatch(
     view.state.tr.replaceRange(at, at, new Slice(Fragment.from(nodes), 0, 0)).scrollIntoView()
   )
+  return nodes.length
 }
 
 /**
@@ -139,6 +149,23 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
   const [showLinkDialog, setShowLinkDialog] = useState(false)
   const [linkUrl, setLinkUrl] = useState('')
   const [linkText, setLinkText] = useState('')
+  const [showShotMenu, setShowShotMenu] = useState(false)
+  const shotMenuRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!showShotMenu) return
+    const onDown = (event: MouseEvent): void => {
+      if (!shotMenuRef.current?.contains(event.target as Node)) setShowShotMenu(false)
+    }
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') setShowShotMenu(false)
+    }
+    window.addEventListener('mousedown', onDown)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('mousedown', onDown)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [showShotMenu])
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   // The last Markdown this editor reported through onChange.
   const lastEmittedRef = useRef<string | null>(null)
@@ -198,6 +225,23 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
       editor.commands.setContent(value || '', { emitUpdate: false, contentType: 'markdown' })
     }
   }, [value, editor])
+
+  // Screenshots go into the editor used last; a newly opened one counts.
+  useEffect(() => {
+    if (!editor) return
+    const target: ScreenshotTarget = {
+      insertImages: (files) => insertImageFiles(editor.view, files),
+      isAlive: () => !editor.isDestroyed && editor.view.dom.isConnected,
+      isEditable: () => editor.isEditable
+    }
+    setScreenshotTarget(target)
+    const onFocus = (): void => setScreenshotTarget(target)
+    editor.on('focus', onFocus)
+    return () => {
+      editor.off('focus', onFocus)
+      clearScreenshotTarget(target)
+    }
+  }, [editor])
 
   // WikiLink click listener
   useEffect(() => {
@@ -388,6 +432,47 @@ export const MarkdownEditor: React.FC<MarkdownEditorProps> = ({
         >
           <ImagePlus className="w-3.5 h-3.5" />
         </ToolBtn>
+        <div className="relative" ref={shotMenuRef}>
+          <ToolBtn
+            onClick={() => setShowShotMenu((open) => !open)}
+            title="Screenshot into the notes (Alt+Shift+S for an area)"
+            disabled={mode !== 'edit'}
+          >
+            <Camera className="w-3.5 h-3.5" />
+          </ToolBtn>
+          {showShotMenu && (
+            <div
+              className="context-menu absolute z-50 left-0 top-8 min-w-[170px]"
+              style={{
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border-strong)',
+                boxShadow: 'var(--shadow-window)'
+              }}
+            >
+              {(
+                [
+                  ['area', 'Screenshot area', Crop],
+                  ['full', 'Full screen', Monitor]
+                ] as const
+              ).map(([shotMode, label, Icon]) => (
+                <button
+                  key={shotMode}
+                  type="button"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold hover:bg-primary-soft"
+                  style={{ color: 'var(--color-text)' }}
+                  onClick={() => {
+                    setShowShotMenu(false)
+                    editor.commands.focus()
+                    void takeScreenshot(shotMode)
+                  }}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <input
           ref={fileInputRef}
           type="file"

@@ -45,6 +45,8 @@ describe('keyboard shortcuts', () => {
     expect(plainStroke('Ctrl+Shift+P')).toBe('P')
   })
 
+  const SCREENSHOT = { action: 'screenshotArea' as const, strokes: ['Alt+Shift+S'] }
+
   it('migrates only the complete legacy quick-create default set', () => {
     const legacyDefaults = [
       { action: 'quickCreate' as const, strokes: ['Ctrl+N'] },
@@ -61,7 +63,8 @@ describe('keyboard shortcuts', () => {
     )
     expect(effectiveKeyboardShortcuts(customized)).toEqual([
       ...customized,
-      { action: 'toggleSplit', strokes: ['Ctrl+\\'] }
+      { action: 'toggleSplit', strokes: ['Ctrl+\\'] },
+      SCREENSHOT
     ])
   })
 
@@ -72,9 +75,15 @@ describe('keyboard shortcuts', () => {
       strokes: ['Ctrl+\\']
     })
     const removed = [...saved, { action: 'toggleSplit' as const, strokes: [] }]
-    expect(effectiveKeyboardShortcuts(removed)).toEqual(removed)
+    expect(effectiveKeyboardShortcuts(removed)).toEqual([...removed, SCREENSHOT])
     expect(shortcutsMatchingPrefix(effectiveKeyboardShortcuts(removed), ['Ctrl+\\'])).toEqual([])
     const clash = [{ action: 'goHome' as const, strokes: ['Ctrl+\\'] }]
-    expect(effectiveKeyboardShortcuts(clash)).toEqual(clash)
+    expect(effectiveKeyboardShortcuts(clash)).toEqual([...clash, SCREENSHOT])
+    // A saved Alt+Shift+S on another action keeps it; no screenshot default then.
+    const taken = [{ action: 'goHome' as const, strokes: ['Alt+Shift+S'] }]
+    expect(effectiveKeyboardShortcuts(taken)).toEqual([
+      ...taken,
+      { action: 'toggleSplit', strokes: ['Ctrl+\\'] }
+    ])
   })
 })

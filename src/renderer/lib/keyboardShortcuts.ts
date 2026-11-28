@@ -3,7 +3,7 @@ import { KeyboardShortcut, KeyboardShortcutAction, Settings } from '@shared/type
 export const SHORTCUT_ACTIONS: Array<{
   id: KeyboardShortcutAction
   label: string
-  group: 'Quick create' | 'Navigation'
+  group: 'Quick create' | 'Navigation' | 'Screenshots'
 }> = [
   { id: 'quickCreate', label: 'Open quick create', group: 'Quick create' },
   { id: 'createWorkspace', label: 'Create workspace', group: 'Quick create' },
@@ -15,7 +15,9 @@ export const SHORTCUT_ACTIONS: Array<{
   { id: 'goHome', label: 'Go home', group: 'Navigation' },
   { id: 'openCalendar', label: 'Open calendar', group: 'Navigation' },
   { id: 'toggleTheme', label: 'Toggle theme', group: 'Navigation' },
-  { id: 'toggleSplit', label: 'Toggle split view', group: 'Navigation' }
+  { id: 'toggleSplit', label: 'Toggle split view', group: 'Navigation' },
+  { id: 'screenshotArea', label: 'Screenshot an area', group: 'Screenshots' },
+  { id: 'screenshotFull', label: 'Screenshot the full screen', group: 'Screenshots' }
 ]
 
 export const DEFAULT_KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
@@ -25,7 +27,8 @@ export const DEFAULT_KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
   { action: 'createBoard', strokes: ['Ctrl+N', 'B'] },
   { action: 'createColumn', strokes: ['Ctrl+N', 'C'] },
   { action: 'createTask', strokes: ['Ctrl+N', 'T'] },
-  { action: 'toggleSplit', strokes: ['Ctrl+\\'] }
+  { action: 'toggleSplit', strokes: ['Ctrl+\\'] },
+  { action: 'screenshotArea', strokes: ['Alt+Shift+S'] }
 ]
 
 const LEGACY_DEFAULT_KEYBOARD_SHORTCUTS: KeyboardShortcut[] = [
@@ -89,7 +92,10 @@ const migratedKeyboardShortcuts = (
  * its default; removing a shortcut leaves an empty entry, so a removed
  * shortcut stays removed.
  */
-const ADDED_DEFAULT_ACTIONS: KeyboardShortcutAction[] = ['toggleSplit']
+const ADDED_DEFAULT_ACTIONS: KeyboardShortcutAction[] = ['toggleSplit', 'screenshotArea']
+
+/** Actions that also work while typing (in notes, for example). */
+export const WORKS_WHILE_TYPING: KeyboardShortcutAction[] = ['screenshotArea', 'screenshotFull']
 
 export const effectiveKeyboardShortcuts = (
   shortcuts: Settings['keyboardShortcuts']
